@@ -1,15 +1,15 @@
 import
-  macros, tables,
-  chronicles/[scope_helpers, dynamic_scope, log_output]
+  macros, tables, strutils,
+  chronicles/[scope_helpers, dynamic_scope, log_output, options]
 
 export
   dynamic_scope, log_output
 
-template lexScopeSymbolsIMPL* =
-  0 # scope revision number
-
 type
   BindingsSet = Table[string, NimNode]
+
+template lexScopeSymbolsIMPL* =
+  0 # scope revision number
 
 proc actualBody(n: NimNode): NimNode =
   # skip over the double StmtList node introduced in `mergeScopes`
@@ -65,6 +65,8 @@ template logScope*(newBindings: untyped) {.dirty.} =
 
 macro logImpl(severity: LogLevel, scopes: typed,
               logStmtProps: varargs[untyped]): untyped =
+  if not loggingEnabled: return
+
   let lexicalScope = scopes.lastScopeHolder.getImpl.actualBody
   var finalBindings = initOrderedTable[string, NimNode]()
 
@@ -75,6 +77,23 @@ macro logImpl(severity: LogLevel, scopes: typed,
     finalBindings[k] = v
 
   finalBindings.sort(system.cmp)
+
+  var topicsMatch = enabledTopics.len == 0
+
+  if finalBindings.hasKey("topics"):
+    let topicsNode = finalBindings["topics"]
+    if topicsNode.kind notin {nnkStrLit, nnkTripleStrLit}:
+      error "Please specify the 'topics' list as a space separated string literal", topicsNode
+
+    let currentTopics = topicsNode.strVal.split(Whitespace)
+    for t in currentTopics:
+      if t in disabledTopics:
+        return
+      if t in enabledTopics:
+        topicsMatch = true
+
+  if not topicsMatch:
+    return
 
   let eventName = logStmtProps[0]
   assert eventName.kind in {nnkStrLit}

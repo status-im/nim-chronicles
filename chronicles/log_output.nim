@@ -1,29 +1,11 @@
 import
-  times, strutils
+  times, strutils, options
 
-const
-  chronicles_timestamps {.strdefine.} = "on"
-  chronicles_sinks {.strdefine.} = ""
-  chronicles_indent {.intdefine.} = 2
-
-  enableTimestamps = chronicles_timestamps.toLowerAscii == "on"
-  indent = repeat(' ', chronicles_indent)
-
-when chronicles_timestamps.toLowerAscii notin ["on", "off"]:
-  {.error: "chronicles_timestamps must be set to either 'on' or 'off'".}
+export
+  LogLevel
 
 type
   FileOutput = object
-
-  LogLevel* = enum
-    ALL,
-    DEBUG,
-    INFO,
-    NOTICE,
-    WARN,
-    ERROR,
-    FATAL,
-    NONE
 
   TextlineRecord[Output] = object
     output: Output
@@ -88,7 +70,7 @@ proc appendTimestamp(o: var auto) =
 # Text line record
 
 template setEventName*(r: var TextlineRecord, lvl: LogLevel, name: string) =
-  when enableTimestamps:
+  when timestampsEnabled:
     append(r.output, "[")
     appendTimestamp(r.output)
     append(r.output, "] ")
@@ -113,7 +95,7 @@ template flushRecord*(r: var TextlineRecord) =
 # Textblock records
 
 template setEventName*(r: var TextblockRecord, lvl: LogLevel, name: string) =
-  when enableTimestamps:
+  when timestampsEnabled:
     append(r.output, "[")
     appendTimestamp(r.output)
     append(r.output, "] ")
@@ -122,7 +104,7 @@ template setEventName*(r: var TextblockRecord, lvl: LogLevel, name: string) =
   resetStyle(r.output)
 
 template setFirstProperty*(r: var TextblockRecord, key: string, val: auto) =
-  append(r.output, indent)
+  append(r.output, textBlockIndent)
   append(r.output, key)
   append(r.output, ": ")
   append(r.output, $val)
@@ -145,7 +127,7 @@ template setEventName*(r: var JsonRecord, lvl: LogLevel, name: string) =
   append(r.output, """{"msg": """ & name.jsonEncode &
                    """, "lvl": """ & ($lvl).jsonEncode)
 
-  when enableTimestamps:
+  when timestampsEnabled:
     var ts: string
     appendTimestamp(ts)
     append(r.output, ""","ts": """)
