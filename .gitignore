@@ -1,0 +1,8 @@
+# ignore all executable files
+*
+!*.*
+!*/
+*.exe
+
+nimcache/
+
