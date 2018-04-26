@@ -1,5 +1,19 @@
 import
-  macros, strutils, strformat, sequtils
+  macros, strutils, strformat, sequtils, ospaths
+
+const
+  chronicles_enabled {.strdefine.} = "on"
+  chronicles_enabled_topics {.strdefine.} = ""
+  chronicles_required_topics {.strdefine.} = ""
+  chronicles_disabled_topics {.strdefine.} = ""
+  chronicles_log_level {.strdefine.} = when defined(debug): "ALL"
+                                       else: "NOTICE"
+
+  chronicles_runtime_filtering {.strdefine.} = "off"
+  chronicles_timestamps {.strdefine.} = "on"
+  chronicles_sinks* {.strdefine.} = ""
+  chronicles_indent {.intdefine.} = 2
+  chronicles_colors* {.strdefine.} = "on"
 
 type
   LogLevel* = enum
@@ -12,6 +26,34 @@ type
     FATAL,
     NONE
 
+  LogFormat* = enum
+    json,
+    textLines,
+    textBlocks
+
+  LogDestinationKind* = enum
+    toStdOut,
+    toStdErr,
+    toFile,
+    toSysLog
+
+  LogDestination* = object
+    case kind*: LogDestinationKind
+    of toFile:
+      filename*: string
+    else:
+      discard
+
+  ColorScheme* = enum
+    NoColors,
+    AnsiColors,
+    PlatformSpecificColors
+
+  SinkSpec* = object
+    format*: LogFormat
+    colorScheme*: ColorScheme
+    destinations*: seq[LogDestination]
+
 proc handleYesNoOption(optName: string,
                        optValue: string): bool {.compileTime.} =
   let canonicalValue = optValue.toLowerAscii
@@ -20,7 +62,8 @@ proc handleYesNoOption(optName: string,
   elif canonicalValue in ["no", "0", "off", "false"]:
     return false
   else:
-    error &"A non-recognized value '{optValue}' for option '{optName}'. Please specify either 'on' or 'off'."
+    error &"A non-recognized value '{optValue}' for option '{optName}'. " &
+           "Please specify either 'on' or 'off'."
 
 template handleYesNoOption(opt: untyped): bool =
   handleYesNoOption(astToStr(opt), opt)
@@ -29,7 +72,8 @@ proc handleEnumOption(T: typedesc[enum],
                       optName: string,
                       optValue: string): T {.compileTime.} =
   try: return parseEnum[T](optValue)
-  except: error &"'{optValue}' is not a recognized value for '{optName}'. Allowed values are {enumValues(T)}"
+  except: error &"'{optValue}' is not a recognized value for '{optName}'. " &
+                &"Allowed values are {enumValues(T)}"
 
 proc enumValues(E: typedesc[enum]): string =
   result = mapIt(E, $it).join(", ")
@@ -40,19 +84,75 @@ template topicsAsSeq(topics: string): untyped =
   else:
     newSeq[string](0)
 
+proc logFormatFromIdent(n: NimNode): LogFormat =
+  let format = $n
+  case format.toLowerAscii
+  of "json":
+    return json
+  of "textlines":
+    return textLines
+  of "textblocks":
+    return textBlocks
+  else:
+    error &"'{format}' is not a recognized output format. " &
+           "Allowed values are {enumValues LogFormat}."
+
+proc makeSinkSpec(fmt: LogFormat, colors: ColorScheme,
+                  destinations: varargs[LogDestination]): SinkSpec =
+  result.format = fmt
+  result.colorScheme = colors
+  result.destinations = @destinations
+
+proc logDestinationFromNode(n: NimNode): LogDestination =
+  case n.kind
+  of nnkIdent:
+    let destination = $n
+    case destination.toLowerAscii
+    of "stdout": result.kind = toStdOut
+    of "stderr": result.kind = toStdErr
+    of "syslog": result.kind = toSysLog
+    of "file":
+      result.kind = toFile
+      result.filename = ""
+    else:
+      error &"'{destination}' is not a recognized log destination. " &
+             "Allowed values are StdOut, StdErr, SysLog and File."
+  of nnkCall:
+    if n[0].kind != nnkIdent and ($n[0]).toLowerAscii != "file":
+      error &"Invalid log destination expression '{n.repr}'. " &
+             "Only 'file' destinations accept parameters."
+    result.kind = toFile
+    result.filename = n[1].repr.replace(" ", "")
+    if DirSep != '/': result.filename = replace("/", $DirSep)
+  else:
+    error &"Invalid log destination expression '{n.repr}'. " &
+           "Please refer to the documentation for the supported options."
+
 const
-  chronicles_enabled {.strdefine.} = "on"
-  chronicles_enabled_topics {.strdefine.} = ""
-  chronicles_disabled_topics {.strdefine.} = ""
-  chronicles_log_level {.strdefine.} = when defined(debug): "ALL"
-                                       else: "NOTICE"
+  defaultColorScheme = when handleYesNoOption(chronicles_colors): AnsiColors
+                       else: NoColors
 
-  chronicles_timestamps {.strdefine.} = "on"
-  chronicles_sinks* {.strdefine.} = ""
-  chronicles_indent {.intdefine.} = 2
+proc parseSinksSpec(spec: string): seq[SinkSpec] {.compileTime.} =
+  newSeq(result, 0)
+  var specNodes = parseExpr "(" & spec.replace("\\", "/") & ")"
+  for n in specNodes:
+    case n.kind
+    of nnkIdent:
+      result.add makeSinkSpec(logFormatFromIdent(n), defaultColorScheme,
+                              LogDestination(kind: toStdOut))
+    of nnkBracketExpr:
+      var spec = makeSinkSpec(logFormatFromIdent(n[0]), NoColors)
+      for i in 1 ..< n.len:
+        spec.destinations.add logDestinationFromNode(n[i])
+      result.add spec
+    else:
+      error &"Invalid log sink expression '{n.repr}'. " &
+             "Please refer to the documentation for the supported options."
 
+const
   timestampsEnabled* = handleYesNoOption chronicles_timestamps
   loggingEnabled*    = handleYesNoOption chronicles_enabled
+  runtimeFilteringEnabled* = handleYesNoOption chronicles_runtime_filtering
 
   enabledLogLevel* = handleEnumOption(LogLevel,
                                       "chronicles_log_level",
@@ -62,4 +162,9 @@ const
 
   enabledTopics*  = topicsAsSeq chronicles_enabled_topics
   disabledTopics* = topicsAsSeq chronicles_disabled_topics
+  requiredTopics* = topicsAsSeq chronicles_required_topics
+
+  enabledSinks* = when chronicles_sinks.len > 0: parseSinksSpec(chronicles_sinks)
+                  else: @[makeSinkSpec(textBlocks, defaultColorScheme,
+                                       LogDestination(kind: toStdOut))]
 

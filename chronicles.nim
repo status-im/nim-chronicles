@@ -8,7 +8,7 @@ export
 type
   BindingsSet = Table[string, NimNode]
 
-template lexScopeSymbolsIMPL* =
+template chroniclesLexScopeIMPL* =
   0 # scope revision number
 
 proc actualBody(n: NimNode): NimNode =
@@ -18,13 +18,13 @@ proc actualBody(n: NimNode): NimNode =
     result = result[0]
 
 proc scopeRevision(scopeSymbols: NimNode): int =
-  # get the revision number from a `lexScopeSymbolsIMPL` sym
+  # get the revision number from a `chroniclesLexScopeIMPL` sym
   assert scopeSymbols.kind == nnkSym
   var revisionNode = scopeSymbols.getImpl.actualBody[0]
   result = int(revisionNode.intVal)
 
 proc lastScopeHolder(scopes: NimNode): NimNode =
-  # get the most recent `lexScopeSymbolsIMPL` from a symChoice node
+  # get the most recent `chroniclesLexScopeIMPL` from a symChoice node
   if scopes.kind in {nnkClosedSymChoice, nnkOpenSymChoice}:
     var bestScopeRev = 0
     assert scopes.len > 0
@@ -56,11 +56,11 @@ macro mergeScopes(scopes: typed, newBindings: untyped): untyped =
     newScopeDefinition.add newAssignment(newIdentNode(k), v)
 
   result = quote:
-    template lexScopeSymbolsIMPL = `newScopeDefinition`
+    template chroniclesLexScopeIMPL = `newScopeDefinition`
 
 template logScope*(newBindings: untyped) {.dirty.} =
   bind bindSym, mergeScopes, brForceOpen
-  mergeScopes(bindSym("lexScopeSymbolsIMPL", brForceOpen),
+  mergeScopes(bindSym("chroniclesLexScopeIMPL", brForceOpen),
               newBindings)
 
 macro logImpl(severity: LogLevel, scopes: typed,
@@ -95,27 +95,31 @@ macro logImpl(severity: LogLevel, scopes: typed,
   if not topicsMatch:
     return
 
-  let eventName = logStmtProps[0]
-  assert eventName.kind in {nnkStrLit}
+  let eventName = logStmtProps[0]; assert eventName.kind in {nnkStrLit}
   let record = genSym(nskVar, "record")
-
   let threadId = when compileOption("threads"): newCall("getThreadId")
                  else: newLit(0)
 
-  result = quote:
-    var `record`: LogOutput
-    setEventName(`record`, `severity`, `eventName`)
-    setFirstProperty(`record`, "thread", `threadId`)
+  result = newStmtList()
+  result.add quote do:
+    var `record`: CompositeLogRecord
 
-  for k, v in finalBindings:
-    result.add newCall(newIdentNode"setProperty", record, newLit(k), v)
+  for i in 0 ..< enabledSinks.len:
+    let recordRef = if enabledSinks.len == 1: record
+                    else: newTree(nnkBracketExpr, record, newLit(i))
+    result.add quote do:
+      initLogRecord(`recordRef`, `severity`, `eventName`)
+      setFirstProperty(`recordRef`, "thread", `threadId`)
+
+    for k, v in finalBindings:
+      result.add newCall(newIdentNode"setProperty", recordRef, newLit(k), v)
 
   result.add newCall(newIdentNode"logAllDynamicProperties", record)
   result.add newCall(newIdentNode"flushRecord", record)
 
 template log*(severity: LogLevel, props: varargs[untyped]) {.dirty.} =
   bind logImpl, bindSym, brForceOpen
-  logImpl(severity, bindSym("lexScopeSymbolsIMPL", brForceOpen), props)
+  logImpl(severity, bindSym("chroniclesLexScopeIMPL", brForceOpen), props)
 
 template logFn(name, severity) =
   template `name`*(props: varargs[untyped]) =

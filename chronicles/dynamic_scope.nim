@@ -6,7 +6,7 @@ type
     name: string
     appender: LogAppender
 
-  LogAppender = proc(x: var LogOutput, valueAddr: ScopeBindingBase)
+  LogAppender = proc(x: var CompositeLogRecord, valueAddr: ScopeBindingBase)
 
   ScopeBinding[T] = object of ScopeBindingBase
     value: T
@@ -18,7 +18,7 @@ type
     bindings: BindingsArray
     bindingsCount: int
 
-proc appenderIMPL[T](log: var LogOutput, valueAddr: ScopeBindingBase) =
+proc appenderIMPL[T](log: var CompositeLogRecord, valueAddr: ScopeBindingBase) =
   let v = ScopeBinding[T](valueAddr)
   log.setProperty v.name, v.value
 
@@ -33,7 +33,7 @@ proc makeScopeBinding[T](name: string, value: T): ScopeBinding[T] =
   result.appender = appenderIMPL[T]
   result.value = value
 
-proc logAllDynamicProperties*(log: var LogOutput) =
+proc logAllDynamicProperties*(log: var CompositeLogRecord) =
   # This proc is intended for internal use only
   var frame = topBindingFrame
   while frame != nil:
