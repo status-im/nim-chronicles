@@ -200,7 +200,7 @@ proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
         else: discard
 
 proc parseSinksSpec(spec: string): Configuration {.compileTime.} =
-  return parseStreamsSpec(&"default[{spec}]")
+  return parseStreamsSpec(&"defaultStream[{spec}]")
 
 when chronicles_streams.len > 0 and chronicles_sinks.len > 0:
   {.error: "Please specify only one of the options 'chronicles_streams' and 'chronicles_sinks'." }

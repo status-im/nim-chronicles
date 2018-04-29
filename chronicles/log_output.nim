@@ -309,19 +309,20 @@ proc createCompositeLogRecord(sinks: seq[SinkSpec]): NimNode =
   else:
     result = selectRecordType(sinks[0])
 
-template recordTypeName*(s: StreamSpec): string =
-  s.name & "LogRecord"
-
 import dynamic_scope_types
 
-template createStreamSymbol(name: untyped, RecordType: typedesc) =
-  type `name` {.inject.} = object
+template isStreamSymbolIMPL*(T: typed): bool = false
 
-  template chroniclesLogRecordTypeIMPL*(T: type `name`): typedesc = RecordType
-  template chroniclesSinksCountIMPL*(T: type `name`): int = 1
+macro createStreamSymbol(name: untyped, recordType: typedesc): untyped =
+  let tlsSlot = newIdentNode($name & "TlsSlot")
 
-  var rootDynScope {.threadvar.}: ptr BindingsFrame[RecordType]
-  template tlsSlot*(T: type RecordType): auto = rootDynScope
+  result = quote:
+    type `name`* {.inject.} = `recordType`
+
+    template isStreamSymbolIMPL*(T: type `name`): bool = true
+
+    var `tlsSlot` {.threadvar.}: ptr BindingsFrame[`recordType`]
+    template tlsSlot*(T: type `recordType`): auto = `tlsSlot`
 
 macro customLogStream*(streamDef: untyped): untyped =
   syntaxCheckStreamExpr streamDef
@@ -341,15 +342,12 @@ macro createStreamRecordTypes: untyped =
     let
       s = config.streams[i]
       streamName = newIdentNode(s.name)
-      typeName = newIdentNode(s.recordTypeName)
+      typeName = newIdentNode(s.name & "LogRecord")
       tlsSlot = newIdentNode($typeName & "TlsSlot")
       typeDef = createCompositeLogRecord(s.sinks)
 
     result.add quote do:
       type `typeName`* = `typeDef`
-
-      var `tlsSlot` {.threadvar.}: ptr BindingsFrame[`typeName`]
-      template tlsSlot*(T: type `typeName`): auto = `tlsSlot`
 
       when `typeName` is tuple:
         template initLogRecord*(r: var `typeName`, lvl: LogLevel, name: string) =
@@ -365,7 +363,7 @@ macro createStreamRecordTypes: untyped =
           for f in r.fields: flushRecord(f)
 
       createStreamSymbol(`streamName`, `typeName`)
-    
+
     if i == 0:
       result.add quote do:
         template chroniclesActiveStreamIMPL*: typedesc = `streamName`

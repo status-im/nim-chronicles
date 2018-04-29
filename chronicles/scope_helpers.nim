@@ -60,11 +60,8 @@ proc handleUserStreamChoice*(n: NimNode): StreamSpec =
   error &"'{streamName}' is not a configured stream name. " &
          "Please refer to the documentation of 'chronicles_streams'", n
 
-proc getStream*(finalBindings: var FinalBindingsSet): StreamSpec {.compileTime.} =
-  if finalBindings.hasKey("stream"):
-    let streamNode = finalBindings["stream"]
-    finalBindings.del("stream")
-    return handleUserStreamChoice(streamNode)
-
-  return config.streams[0]
+proc skipTypedesc*(n: NimNode): NimNode =
+  result = n
+  if result.kind == nnkBracketExpr and $result[0] in ["type", "typedesc"]:
+    result = result[1]
 

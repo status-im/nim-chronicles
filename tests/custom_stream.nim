@@ -23,9 +23,20 @@ template flushRecord*(r: var MyRecord) =
 
 customLogStream myStream[MyRecord]
 
-logScope:
-  stream = "myStream"
+var x = 10
 
-info "test"
-# myStream.info "info panel"
+proc main =
+  logScope:
+    stream = myStream
+    key = "val"
+
+  info "inside main"
+
+info "before main"
+
+main()
+
+info "after main"
+
+myStream.warn "exiting"
 

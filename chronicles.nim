@@ -1,5 +1,5 @@
 import
-  macros, tables, strutils,
+  macros, tables, strutils, strformat,
   chronicles/[scope_helpers, dynamic_scope, log_output, options]
 
 export
@@ -26,7 +26,13 @@ macro mergeScopes(prevScopes: typed, newBindings: untyped): untyped =
   for k, v in finalBindings:
     if k == "stream":
       let streamId = newIdentNode($v)
+      let errorMsg = &"{v.lineInfo}: {$streamId} is not a recognized stream name"
       result.add quote do:
+        when not declared(`streamId`):
+          # XXX: how to report the proper line info here?
+          {.error: `errorMsg`.}
+        elif not isStreamSymbolIMPL(`streamId`):
+          {.error: `errorMsg`.}
         template chroniclesActiveStreamIMPL: typedesc = `streamId`
     else:
       newScopeDefinition.add newAssignment(newIdentNode(k), v)
@@ -39,14 +45,26 @@ template logScope*(newBindings: untyped) {.dirty.} =
   mergeScopes(bindSym("chroniclesLexScopeIMPL", brForceOpen),
               newBindings)
 
+template dynamicLogScope*(recordType: typedesc,
+                          bindings: varargs[untyped]) {.dirty.} =
+  bind bindSym, brForceOpen
+  dynamicLogScopeIMPL(recordType,
+                      bindSym("chroniclesLexScopeIMPL", brForceOpen),
+                      bindings)
+
 template dynamicLogScope*(bindings: varargs[untyped]) {.dirty.} =
   bind bindSym, brForceOpen
-  dynamicLogScopeIMPL(bindSym("chroniclesLexScopeIMPL", brForceOpen), bindings)
+  dynamicLogScopeIMPL(chroniclesActiveStreamIMPL(),
+                      bindSym("chroniclesLexScopeIMPL", brForceOpen),
+                      bindings)
 
-macro logImpl(activeStream: typed, severity: LogLevel, scopes: typed,
+macro logIMPL(recordType: typedesc,
+              eventName: static[string],
+              severity: LogLevel,
+              scopes: typed,
               logStmtBindings: varargs[untyped]): untyped =
   if not loggingEnabled: return
-  
+
   let lexicalBindings = scopes.finalLexicalBindings
   var finalBindings = initOrderedTable[string, NimNode]()
 
@@ -75,19 +93,21 @@ macro logImpl(activeStream: typed, severity: LogLevel, scopes: typed,
   if not topicsMatch:
     return
 
-  let eventName = logStmtBindings[0]; assert eventName.kind in {nnkStrLit}
-  let stream = finalBindings.getStream
-  let record = genSym(nskVar, "record")
-  let recordType = newIdentNode(stream.recordTypeName)
-  let threadId = when compileOption("threads"): newCall("getThreadId")
-                 else: newLit(0)
+  let
+    recordTypeSym = skipTypedesc(recordType.getTypeImpl())
+    recordTypeNodes = recordTypeSym.getTypeImpl()
+    recordArity = if recordTypeNodes.kind != nnkTupleConstr: 1
+                  else: recordTypeNodes.len
+    record = genSym(nskVar, "record")
+    threadId = when compileOption("threads"): newCall("getThreadId")
+               else: newLit(0)
 
   result = newStmtList()
   result.add quote do:
     var `record`: `recordType`
 
-  for i in 0 ..< stream.sinks.len:
-    let recordRef = if stream.sinks.len == 1: record
+  for i in 0 ..< recordArity:
+    let recordRef = if recordArity == 1: record
                     else: newTree(nnkBracketExpr, record, newLit(i))
     result.add quote do:
       initLogRecord(`recordRef`, `severity`, `eventName`)
@@ -99,17 +119,38 @@ macro logImpl(activeStream: typed, severity: LogLevel, scopes: typed,
   result.add newCall("logAllDynamicProperties", record)
   result.add newCall("flushRecord", record)
 
-template log*(severity: LogLevel, props: varargs[untyped]) {.dirty.} =
-  bind logImpl, bindSym, brForceOpen
-  logImpl(chroniclesActiveStreamIMPL(),
-          severity,
-          bindSym("chroniclesLexScopeIMPL", brForceOpen),
-          props)
+template log*(severity: LogLevel,
+              eventName: static[string],
+              props: varargs[untyped]) {.dirty.} =
 
-template logFn(name, severity) =
-  template `name`*(props: varargs[untyped]) =
-    bind log
-    log(severity, props)
+  bind logIMPL, bindSym, brForceOpen
+  logIMPL(chroniclesActiveStreamIMPL(), eventName, severity,
+          bindSym("chroniclesLexScopeIMPL", brForceOpen), props)
+
+template log*(recordType: typedesc,
+              severity: LogLevel,
+              eventName: static[string],
+              props: varargs[untyped]) {.dirty.} =
+
+  bind logIMPL, bindSym, brForceOpen
+  logIMPL(recordType, eventName, severity,
+          bindSym("chroniclesLexScopeIMPL", brForceOpen), props)
+
+template logFn(name, severity) {.dirty.} =
+  template `name`*(eventName: static[string],
+                   props: varargs[untyped]) {.dirty.} =
+
+    bind logIMPL, bindSym, brForceOpen
+    logIMPL(chroniclesActiveStreamIMPL(), eventName, severity,
+            bindSym("chroniclesLexScopeIMPL", brForceOpen), props)
+
+  template `name`*(recordType: typedesc,
+                   eventName: static[string],
+                   props: varargs[untyped])  {.dirty.} =
+
+    bind logIMPL, bindSym, brForceOpen
+    logIMPL(recordType, eventName, severity,
+            bindSym("chroniclesLexScopeIMPL", brForceOpen), props)
 
 logFn debug , LogLevel.DEBUG
 logFn info  , LogLevel.INFO
