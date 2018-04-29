@@ -5,38 +5,8 @@ import
 export
   dynamic_scope, log_output
 
-type
-  BindingsSet = Table[string, NimNode]
-
 template chroniclesLexScopeIMPL* =
   0 # scope revision number
-
-proc actualBody(n: NimNode): NimNode =
-  # skip over the double StmtList node introduced in `mergeScopes`
-  result = n.body
-  if result.kind == nnkStmtList and result[0].kind == nnkStmtList:
-    result = result[0]
-
-proc scopeRevision(scopeSymbols: NimNode): int =
-  # get the revision number from a `chroniclesLexScopeIMPL` sym
-  assert scopeSymbols.kind == nnkSym
-  var revisionNode = scopeSymbols.getImpl.actualBody[0]
-  result = int(revisionNode.intVal)
-
-proc lastScopeHolder(scopes: NimNode): NimNode =
-  # get the most recent `chroniclesLexScopeIMPL` from a symChoice node
-  if scopes.kind in {nnkClosedSymChoice, nnkOpenSymChoice}:
-    var bestScopeRev = 0
-    assert scopes.len > 0
-    for scope in scopes:
-      let rev = scope.scopeRevision
-      if result == nil or rev > bestScopeRev:
-        result = scope
-        bestScopeRev = rev
-  else:
-    result = scopes
-
-  assert result.kind == nnkSym
 
 macro mergeScopes(scopes: typed, newBindings: untyped): untyped =
   var
@@ -63,17 +33,21 @@ template logScope*(newBindings: untyped) {.dirty.} =
   mergeScopes(bindSym("chroniclesLexScopeIMPL", brForceOpen),
               newBindings)
 
+template dynamicLogScope*(bindings: varargs[untyped]) {.dirty.} =
+  bind bindSym, brForceOpen
+  dynamicLogScopeIMPL(bindSym("chroniclesLexScopeIMPL", brForceOpen), bindings)
+
 macro logImpl(severity: LogLevel, scopes: typed,
-              logStmtProps: varargs[untyped]): untyped =
+              logStmtBindings: varargs[untyped]): untyped =
   if not loggingEnabled: return
 
-  let lexicalScope = scopes.lastScopeHolder.getImpl.actualBody
+  let lexicalBindings = scopes.finalLexicalBindings
   var finalBindings = initOrderedTable[string, NimNode]()
 
-  for k, v in assignments(lexicalScope, skip = 1):
+  for k, v in assignments(lexicalBindings, skip = 1):
     finalBindings[k] = v
 
-  for k, v in assignments(logStmtProps, skip = 1):
+  for k, v in assignments(logStmtBindings, skip = 1):
     finalBindings[k] = v
 
   finalBindings.sort(system.cmp)
@@ -95,27 +69,29 @@ macro logImpl(severity: LogLevel, scopes: typed,
   if not topicsMatch:
     return
 
-  let eventName = logStmtProps[0]; assert eventName.kind in {nnkStrLit}
+  let eventName = logStmtBindings[0]; assert eventName.kind in {nnkStrLit}
+  let stream = finalBindings.getStream
   let record = genSym(nskVar, "record")
+  let recordType = newIdentNode(stream.recordTypeName)
   let threadId = when compileOption("threads"): newCall("getThreadId")
                  else: newLit(0)
 
   result = newStmtList()
   result.add quote do:
-    var `record`: CompositeLogRecord
+    var `record`: `recordType`
 
-  for i in 0 ..< enabledSinks.len:
-    let recordRef = if enabledSinks.len == 1: record
+  for i in 0 ..< stream.sinks.len:
+    let recordRef = if stream.sinks.len == 1: record
                     else: newTree(nnkBracketExpr, record, newLit(i))
     result.add quote do:
       initLogRecord(`recordRef`, `severity`, `eventName`)
       setFirstProperty(`recordRef`, "thread", `threadId`)
 
     for k, v in finalBindings:
-      result.add newCall(newIdentNode"setProperty", recordRef, newLit(k), v)
+      result.add newCall("setProperty", recordRef, newLit(k), v)
 
-  result.add newCall(newIdentNode"logAllDynamicProperties", record)
-  result.add newCall(newIdentNode"flushRecord", record)
+  result.add newCall("logAllDynamicProperties", record)
+  result.add newCall("flushRecord", record)
 
 template log*(severity: LogLevel, props: varargs[untyped]) {.dirty.} =
   bind logImpl, bindSym, brForceOpen

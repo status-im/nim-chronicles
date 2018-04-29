@@ -12,6 +12,7 @@ const
   chronicles_runtime_filtering {.strdefine.} = "off"
   chronicles_timestamps {.strdefine.} = "on"
   chronicles_sinks* {.strdefine.} = ""
+  chronicles_streams* {.strdefine.} = ""
   chronicles_indent {.intdefine.} = 2
   chronicles_colors* {.strdefine.} = "on"
 
@@ -40,6 +41,7 @@ type
   LogDestination* = object
     case kind*: LogDestinationKind
     of toFile:
+      outputId*: int
       filename*: string
     else:
       discard
@@ -53,6 +55,14 @@ type
     format*: LogFormat
     colorScheme*: ColorScheme
     destinations*: seq[LogDestination]
+
+  StreamSpec* = object
+    name*: string
+    sinks*: seq[SinkSpec]
+
+  Configuration* = object
+    totalFileOutputs*: int
+    streams*: seq[StreamSpec]
 
 proc handleYesNoOption(optName: string,
                        optValue: string): bool {.compileTime.} =
@@ -132,10 +142,10 @@ const
   defaultColorScheme = when handleYesNoOption(chronicles_colors): AnsiColors
                        else: NoColors
 
-proc parseSinksSpec(spec: string): seq[SinkSpec] {.compileTime.} =
+proc sinkSpecsFromNode(streamNode: NimNode): seq[SinkSpec] =
   newSeq(result, 0)
-  var specNodes = parseExpr "(" & spec.replace("\\", "/") & ")"
-  for n in specNodes:
+  for i in 1 ..< streamNode.len:
+    let n = streamNode[i]
     case n.kind
     of nnkIdent:
       result.add makeSinkSpec(logFormatFromIdent(n), defaultColorScheme,
@@ -148,6 +158,50 @@ proc parseSinksSpec(spec: string): seq[SinkSpec] {.compileTime.} =
     else:
       error &"Invalid log sink expression '{n.repr}'. " &
              "Please refer to the documentation for the supported options."
+
+proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
+  newSeq(result.streams, 0)
+  var specNodes = parseExpr "(" & spec.replace("\\", "/") & ")"
+  for n in specNodes:
+    if n.kind != nnkBracketExpr or n[0].kind != nnkIdent:
+      error &"Invalid stream definition. " &
+             "Please use a bracket expressions such as 'stream_name[sinks_list]'."
+
+    let streamName = $n[0]
+    for prev in result.streams:
+      if prev.name == streamName:
+        error &"The stream name '{streamName}' appears twice in the 'chronicles_streams' definition."
+
+    result.streams.add StreamSpec(name: streamName,
+                                  sinks: sinkSpecsFromNode(n))
+
+  proc overlappingOutputsError(stream: StreamSpec, outputName: string) =
+    # XXX: This must be a proc until https://github.com/nim-lang/Nim/issues/7632 is fixed
+    error &"In the {stream.name} stream, there are multiple output formats pointed " &
+          &"to {outputName}. This is not a supported configuration."
+
+  for stream in mitems(result.streams):
+    var stdoutSinks = 0
+    var stderrSinks = 0
+    for sink in mitems(stream.sinks):
+      for dst in mitems(sink.destinations):
+        case dst.kind
+        of toFile:
+          dst.outputId = result.totalFileOutputs
+          inc result.totalFileOutputs
+        of toStdOut:
+          inc stdoutSinks
+          if stdoutSinks > 1: overlappingOutputsError(stream, "stdout")
+        of toStdErr:
+          inc stderrSinks
+          if stderrSinks > 1: overlappingOutputsError(stream, "stderr")
+        else: discard
+
+proc parseSinksSpec(spec: string): Configuration {.compileTime.} =
+  return parseStreamsSpec(&"default[{spec}]")
+
+when chronicles_streams.len > 0 and chronicles_sinks.len > 0:
+  {.error: "Please specify only one of the options 'chronicles_streams' and 'chronicles_sinks'." }
 
 const
   timestampsEnabled* = handleYesNoOption chronicles_timestamps
@@ -164,7 +218,7 @@ const
   disabledTopics* = topicsAsSeq chronicles_disabled_topics
   requiredTopics* = topicsAsSeq chronicles_required_topics
 
-  enabledSinks* = when chronicles_sinks.len > 0: parseSinksSpec(chronicles_sinks)
-                  else: @[makeSinkSpec(textBlocks, defaultColorScheme,
-                                       LogDestination(kind: toStdOut))]
+  config* = when chronicles_streams.len > 0: parseStreamsSpec(chronicles_streams)
+            elif chronicles_sinks.len > 0:   parseSinksSpec(chronicles_sinks)
+            else: parseSinksSpec "textblocks"
 

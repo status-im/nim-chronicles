@@ -5,7 +5,7 @@ export
   LogLevel
 
 type
-  FileOutput[sinkIndex: static[int]] = object
+  FileOutput[outputId: static[int]] = object
   StdOutOutput = object
   StdErrOutput = object
   SysLogOutput = object
@@ -29,14 +29,14 @@ template bnd(s): NimNode =
   # bindSym(s)
   newIdentNode(s)
 
-proc selectOutputType(sinkIdx: int, dst: LogDestination): NimNode =
+proc selectOutputType(dst: LogDestination): NimNode =
   case dst.kind
   of toStdOut: bnd"StdOutOutput"
   of toStdErr: bnd"StdErrOutput"
   of toSysLog: bnd"SysLogOutput"
-  of toFile:   newTree(nnkBracketExpr, bnd"FileOutput", newLit(sinkIdx))
+  of toFile:   newTree(nnkBracketExpr, bnd"FileOutput", newLit(dst.outputId))
 
-proc selectRecordType(sinkIdx: int): NimNode =
+proc selectRecordType(s: StreamSpec, sinkIdx: int): NimNode =
   # This proc translates the SinkSpecs loaded in the `options` module
   # to their corresponding LogRecord types.
   #
@@ -48,7 +48,7 @@ proc selectRecordType(sinkIdx: int): NimNode =
   # BufferedOutput[(Output1, Output2, ...)]
   #
 
-  let sink = enabledSinks[sinkIdx]
+  let sink = s.sinks[sinkIdx]
 
   # Determine the head symbol of the instantiation
   let recordType = case sink.format
@@ -65,27 +65,27 @@ proc selectRecordType(sinkIdx: int): NimNode =
     # Here, we build the list of outputs as a tuple
     var outputsTuple = newTree(nnkPar)
     for dst in sink.destinations:
-      outputsTuple.add selectOutputType(sinkIdx, dst)
+      outputsTuple.add selectOutputType(dst)
 
     bufferredOutput.add outputsTuple
     result.add bufferredOutput
   else:
-    result.add selectOutputType(sinkIdx, sink.destinations[0])
+    result.add selectOutputType(sink.destinations[0])
 
   # Set the color scheme for the record types that require it
   if sink.format != json:
     result.add newIdentNode($sink.colorScheme)
 
 var
-  fileOutputs: array[enabledSinks.len, File]
+  fileOutputs: array[config.totalFileOutputs, File]
 
 # The `append` and `flushOutput` functions implement the actual writing
 # to the log destinations (which we call Outputs).
 # The LogRecord types are parametric on their Output and this is how we
 # can support arbitrary combinations of log formats and destinations.
 
-template append(o: var FileOutput, s: string) = fileOutputs[o.sinkIndex].write s
-template flushOutput(o: var FileOutput)       = fileOutputs[o.sinkIndex].flushFile
+template append(o: var FileOutput, s: string) = fileOutputs[o.outputId].write s
+template flushOutput(o: var FileOutput)       = fileOutputs[o.outputId].flushFile
 
 template append(o: var StdOutOutput, s: string) = stdout.write s
 template flushOutput(o: var StdOutOutput)       = stdout.flushFile
@@ -291,57 +291,91 @@ template flushRecord*(r: var JsonRecord) =
   flushOutput(r.output)
 
 #
-# When multiple sinks are present, we want to be able to create a tuple
-# of the record types which can be passed by reference to the dynamically
-# registered `appender` procs associated with the created dynamic bindings
-# (see dynamic_scope.nim for more details).
+# When any of the output streams have multiple output formats, we need to
+# create a single tuple holding all of the record types which will be passed
+# by reference to the dynamically registered `appender` procs associated with
+# the dynamic scope bindings (see dynamic_scope.nim for more details).
 #
 # All operations on such "composite" records are just dispatched to the
 # individual concrete record types stored inside the tuple.
 #
+# The macro below will create such a composite record type for each of
+# configured output stream.
+#
 
-macro createCompositeLogRecord(): untyped =
-  if enabledSinks.len > 1:
+proc createCompositeLogRecord(s: StreamSpec): NimNode =
+  if s.sinks.len > 1:
     result = newTree(nnkPar)
-    for i in 0 ..< enabledSinks.len:
-      result.add selectRecordType(i)
+    for i in 0 ..< s.sinks.len:
+      result.add s.selectRecordType(i)
   else:
-    result = selectRecordType(0)
+    result = s.selectRecordType(0)
 
-type CompositeLogRecord* = createCompositeLogRecord()
+template recordTypeName*(s: StreamSpec): string =
+  s.name & "LogRecord"
 
-when CompositeLogRecord is tuple:
-  template initLogRecord*(r: var CompositeLogRecord, lvl: LogLevel, name: string) =
-    for f in r.fields: initLogRecord(f, lvl, name)
+macro createStreamRecordTypes: untyped =
+  result = newStmtList()
 
-  template setFirstProperty*(r: var CompositeLogRecord, key: string, val: auto) =
-    for f in r.fields: setFirstProperty(f, key, val)
+  for s in config.streams:
+    let
+      typeName = newIdentNode(s.recordTypeName)
+      typeDef = createCompositeLogRecord(s)
 
-  template setProperty*(r: var CompositeLogRecord, key: string, val: auto) =
-    for f in r.fields: setProperty(f, key, val)
+    result.add quote do:
+      type `typeName`* = `typeDef`
 
-  template flushRecord*(r: var CompositeLogRecord) =
-    for f in r.fields: flushRecord(f)
+      when `typeName` is tuple:
+        template initLogRecord*(r: var `typeName`, lvl: LogLevel, name: string) =
+          for f in r.fields: initLogRecord(f, lvl, name)
 
-# Open all
+        template setFirstProperty*(r: var `typeName`, key: string, val: auto) =
+          for f in r.fields: setFirstProperty(f, key, val)
+
+        template setProperty*(r: var `typeName`, key: string, val: auto) =
+          for f in r.fields: setProperty(f, key, val)
+
+        template flushRecord*(r: var `typeName`) =
+          for f in r.fields: flushRecord(f)
+
+createStreamRecordTypes()
+
+#
+# We open all file outputs at program start-up and close them automatically
+# via a proc registered with `addQuitProc`. If some of the file outputs don't
+# have assigned paths in the compile-time configuration, chronicles will
+# automatically choose the log file names using the following rules:
+#
+# 1. The log file is created in the current working directory and its name
+#    matches the name of the stream (plus a '.log' extension). The exception
+#    for this rule is the 'default' stream, for which the log file will be
+#    assigned the name of the application binary.
+#
+# 2. If more than one unnamed file outputs exist for a given stream,
+#    chronicles will add an index such as '.2.log', '.3.log' .. '.N.log'
+#    to the final file name.
+#
+
 import os
 
-var
-  appLogsCount = 0
+for stream in config.streams:
+  var
+    autoLogsPrefix = if stream.name != "default": stream.name
+                    else: getAppFilename().splitFile.name
+    autoLogsCount = 0
 
-for i in 0 ..< enabledSinks.len:
-  let sink = enabledSinks[i]
-  for dst in sink.destinations:
-    if dst.kind == toFile:
-      var filename = dst.filename
-      if filename.len == 0:
-        inc appLogsCount
-        filename = getAppFilename().splitFile.name
-        if appLogsCount > 1: filename.add("." & $appLogsCount)
-        filename.add ".log"
+  for sink in stream.sinks:
+    for dst in sink.destinations:
+      if dst.kind == toFile:
+        var filename = dst.filename
+        if filename.len == 0:
+          inc autoLogsCount
+          filename = autoLogsPrefix
+          if autoLogsCount > 1: filename.add("." & $autoLogsCount)
+          filename.add ".log"
 
-      createDir(filename.splitFile.dir)
-      fileOutputs[i] = open(filename, fmWrite)
+        createDir(filename.splitFile.dir)
+        fileOutputs[dst.outputId] = open(filename, fmWrite)
 
 addQuitProc proc() {.noconv.} =
   for f in fileOutputs:
