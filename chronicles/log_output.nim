@@ -36,7 +36,7 @@ proc selectOutputType(dst: LogDestination): NimNode =
   of toSysLog: bnd"SysLogOutput"
   of toFile:   newTree(nnkBracketExpr, bnd"FileOutput", newLit(dst.outputId))
 
-proc selectRecordType(s: StreamSpec, sinkIdx: int): NimNode =
+proc selectRecordType(sink: SinkSpec): NimNode =
   # This proc translates the SinkSpecs loaded in the `options` module
   # to their corresponding LogRecord types.
   #
@@ -47,8 +47,6 @@ proc selectRecordType(s: StreamSpec, sinkIdx: int): NimNode =
   # output is used, then the resulting type will be
   # BufferedOutput[(Output1, Output2, ...)]
   #
-
-  let sink = s.sinks[sinkIdx]
 
   # Determine the head symbol of the instantiation
   let recordType = case sink.format
@@ -303,27 +301,49 @@ template flushRecord*(r: var JsonRecord) =
 # configured output stream.
 #
 
-proc createCompositeLogRecord(s: StreamSpec): NimNode =
-  if s.sinks.len > 1:
+proc createCompositeLogRecord(sinks: seq[SinkSpec]): NimNode =
+  if sinks.len > 1:
     result = newTree(nnkPar)
-    for i in 0 ..< s.sinks.len:
-      result.add s.selectRecordType(i)
+    for i in 0 ..< sinks.len:
+      result.add selectRecordType(sinks[i])
   else:
-    result = s.selectRecordType(0)
+    result = selectRecordType(sinks[0])
 
 template recordTypeName*(s: StreamSpec): string =
   s.name & "LogRecord"
 
 import dynamic_scope_types
 
+template createStreamSymbol(name: untyped, RecordType: typedesc) =
+  type `name` {.inject.} = object
+
+  template chroniclesLogRecordTypeIMPL*(T: type `name`): typedesc = RecordType
+  template chroniclesSinksCountIMPL*(T: type `name`): int = 1
+
+  var rootDynScope {.threadvar.}: ptr BindingsFrame[RecordType]
+  template tlsSlot*(T: type RecordType): auto = rootDynScope
+
+macro customLogStream*(streamDef: untyped): untyped =
+  syntaxCheckStreamExpr streamDef
+  return newCall(bindSym"createStreamSymbol", streamDef[0], streamDef[1])
+
+macro logStream*(streamDef: untyped): untyped =
+  syntaxCheckStreamExpr streamDef
+  let streamSinks = sinkSpecsFromNode(streamDef)
+  return newCall(bindSym"createStreamSymbol",
+                 streamDef[0],
+                 createCompositeLogRecord(streamSinks))
+
 macro createStreamRecordTypes: untyped =
   result = newStmtList()
 
-  for s in config.streams:
+  for i in 0 ..< config.streams.len:
     let
+      s = config.streams[i]
+      streamName = newIdentNode(s.name)
       typeName = newIdentNode(s.recordTypeName)
       tlsSlot = newIdentNode($typeName & "TlsSlot")
-      typeDef = createCompositeLogRecord(s)
+      typeDef = createCompositeLogRecord(s.sinks)
 
     result.add quote do:
       type `typeName`* = `typeDef`
@@ -343,6 +363,12 @@ macro createStreamRecordTypes: untyped =
 
         template flushRecord*(r: var `typeName`) =
           for f in r.fields: flushRecord(f)
+
+      createStreamSymbol(`streamName`, `typeName`)
+    
+    if i == 0:
+      result.add quote do:
+        template chroniclesActiveStreamIMPL*: typedesc = `streamName`
 
 createStreamRecordTypes()
 

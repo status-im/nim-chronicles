@@ -142,7 +142,12 @@ const
   defaultColorScheme = when handleYesNoOption(chronicles_colors): AnsiColors
                        else: NoColors
 
-proc sinkSpecsFromNode(streamNode: NimNode): seq[SinkSpec] =
+proc syntaxCheckStreamExpr*(n: NimNode) =
+  if n.kind != nnkBracketExpr or n[0].kind != nnkIdent:
+      error &"Invalid stream definition. " &
+             "Please use a bracket expressions such as 'stream_name[sinks_list]'."
+
+proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
   newSeq(result, 0)
   for i in 1 ..< streamNode.len:
     let n = streamNode[i]
@@ -163,10 +168,7 @@ proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
   newSeq(result.streams, 0)
   var specNodes = parseExpr "(" & spec.replace("\\", "/") & ")"
   for n in specNodes:
-    if n.kind != nnkBracketExpr or n[0].kind != nnkIdent:
-      error &"Invalid stream definition. " &
-             "Please use a bracket expressions such as 'stream_name[sinks_list]'."
-
+    syntaxCheckStreamExpr(n)
     let streamName = $n[0]
     for prev in result.streams:
       if prev.name == streamName:

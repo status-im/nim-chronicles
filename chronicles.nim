@@ -8,9 +8,9 @@ export
 template chroniclesLexScopeIMPL* =
   0 # scope revision number
 
-macro mergeScopes(scopes: typed, newBindings: untyped): untyped =
+macro mergeScopes(prevScopes: typed, newBindings: untyped): untyped =
   var
-    bestScope = scopes.lastScopeHolder
+    bestScope = prevScopes.lastScopeHolder
     bestScopeRev = bestScope.scopeRevision
 
   var finalBindings = initTable[string, NimNode]()
@@ -20,12 +20,18 @@ macro mergeScopes(scopes: typed, newBindings: untyped): untyped =
   for k, v in assignments(newBindings):
     finalBindings[k] = v
 
+  result = newStmtList()
+
   var newScopeDefinition = newStmtList(newLit(bestScopeRev + 1))
-
   for k, v in finalBindings:
-    newScopeDefinition.add newAssignment(newIdentNode(k), v)
+    if k == "stream":
+      let streamId = newIdentNode($v)
+      result.add quote do:
+        template chroniclesActiveStreamIMPL: typedesc = `streamId`
+    else:
+      newScopeDefinition.add newAssignment(newIdentNode(k), v)
 
-  result = quote:
+  result.add quote do:
     template chroniclesLexScopeIMPL = `newScopeDefinition`
 
 template logScope*(newBindings: untyped) {.dirty.} =
@@ -37,10 +43,10 @@ template dynamicLogScope*(bindings: varargs[untyped]) {.dirty.} =
   bind bindSym, brForceOpen
   dynamicLogScopeIMPL(bindSym("chroniclesLexScopeIMPL", brForceOpen), bindings)
 
-macro logImpl(severity: LogLevel, scopes: typed,
+macro logImpl(activeStream: typed, severity: LogLevel, scopes: typed,
               logStmtBindings: varargs[untyped]): untyped =
   if not loggingEnabled: return
-
+  
   let lexicalBindings = scopes.finalLexicalBindings
   var finalBindings = initOrderedTable[string, NimNode]()
 
@@ -95,7 +101,10 @@ macro logImpl(severity: LogLevel, scopes: typed,
 
 template log*(severity: LogLevel, props: varargs[untyped]) {.dirty.} =
   bind logImpl, bindSym, brForceOpen
-  logImpl(severity, bindSym("chroniclesLexScopeIMPL", brForceOpen), props)
+  logImpl(chroniclesActiveStreamIMPL(),
+          severity,
+          bindSym("chroniclesLexScopeIMPL", brForceOpen),
+          props)
 
 template logFn(name, severity) =
   template `name`*(props: varargs[untyped]) =
