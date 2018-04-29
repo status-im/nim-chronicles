@@ -190,7 +190,7 @@ template initLogRecord*(r: var TextLineRecord, lvl: LogLevel, name: string) =
 
 template setPropertyImpl(r: var TextLineRecord, key: string, val: auto) =
   when r.colors == AnsiColors:
-    append(r.output, ansiForegroundColorCode(fgBlue))
+    append(r.output, ansiForegroundColorCode(fgBlue, false))
 
   append(r.output, key)
   append(r.output, "=")
@@ -239,7 +239,7 @@ template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
   append(r.output, textBlockIndent)
 
   when r.colors == AnsiColors:
-    append(r.output, ansiForegroundColorCode(fgBlue))
+    append(r.output, ansiForegroundColorCode(fgBlue, false))
 
   append(r.output, key)
   append(r.output, ": ")
@@ -314,16 +314,22 @@ proc createCompositeLogRecord(s: StreamSpec): NimNode =
 template recordTypeName*(s: StreamSpec): string =
   s.name & "LogRecord"
 
+import dynamic_scope_types
+
 macro createStreamRecordTypes: untyped =
   result = newStmtList()
 
   for s in config.streams:
     let
       typeName = newIdentNode(s.recordTypeName)
+      tlsSlot = newIdentNode($typeName & "TlsSlot")
       typeDef = createCompositeLogRecord(s)
 
     result.add quote do:
       type `typeName`* = `typeDef`
+
+      var `tlsSlot` {.threadvar.}: ptr BindingsFrame[`typeName`]
+      template tlsSlot*(T: type `typeName`): auto = `tlsSlot`
 
       when `typeName` is tuple:
         template initLogRecord*(r: var `typeName`, lvl: LogLevel, name: string) =

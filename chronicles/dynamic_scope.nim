@@ -1,23 +1,5 @@
 import
-  macros, log_output, scope_helpers, options
-
-type
-  ScopeBindingBase[LogRecord] = object of RootObj
-    name: string
-    appender: LogAppender[LogRecord]
-
-  LogAppender[LogRecord] = proc(x: var LogRecord,
-                                valueAddr: ptr ScopeBindingBase[LogRecord])
-
-  ScopeBinding[LogRecord, T] = object of ScopeBindingBase[LogRecord]
-    value: T
-
-  BindingsArray[LogRecord] = ptr UncheckedArray[ptr ScopeBindingBase[LogRecord]]
-
-  BindingsFrame[LogRecord] = object
-    prev: ptr BindingsFrame[LogRecord]
-    bindings: BindingsArray[LogRecord]
-    bindingsCount: int
+  macros, log_output, scope_helpers, options, dynamic_scope_types
 
 proc appenderIMPL[LogRecord, PropertyType](log: var LogRecord,
                                            keyValuePair: ptr ScopeBindingBase[LogRecord]) =
@@ -26,26 +8,9 @@ proc appenderIMPL[LogRecord, PropertyType](log: var LogRecord,
   let v = cast[ActualType](keyValuePair)
   log.setProperty v.name, v.value
 
-proc topBindingFrame[LogRecord](topPtr: var ptr BindingsFrame[LogRecord],
-                                setValue = false) {.inline.} =
-  var tlsSlot {.threadvar.}: ptr BindingsFrame[LogRecord]
-  if setValue:
-    tlsSlot = topPtr
-  else:
-    topPtr = tlsSlot
-
-template setTopBindingFrame(LogRecord: typedesc, val: untyped) =
-  var p: ptr BindingsFrame[LogRecord] = val
-  topBindingFrame p, true
-
-template getTopBindingFrame(LogRecord: typedesc): untyped =
-  var p: ptr BindingsFrame[LogRecord]
-  topBindingFrame p, false
-  p
-
 proc logAllDynamicProperties*[LogRecord](log: var LogRecord) =
   # This proc is intended for internal use only
-  var frame = getTopBindingFrame LogRecord
+  var frame = tlsSlot(LogRecord)
   while frame != nil:
     for i in 0 ..< frame.bindingsCount:
       let binding = frame.bindings[i]
@@ -92,7 +57,7 @@ macro dynamicLogScopeIMPL*(lexicalScopes: typed,
   let totalBindingVars = bindingsVars.len
 
   result = quote:
-    var prevBindingFrame = getTopBindingFrame `logRecordType`
+    var prevBindingFrame = tlsSlot(`logRecordType`)
 
     try:
       # All of the dynamic binding pairs are placed on the stack.
@@ -110,12 +75,12 @@ macro dynamicLogScopeIMPL*(lexicalScopes: typed,
         bindingsCount: `totalBindingVars`)
 
       # The address of the new BindingFrame is written to a TLS location.
-      setTopBindingFrame `logRecordType`, unsafeAddr(bindingFrame)
+      tlsSlot(`logRecordType`) = unsafeAddr(bindingFrame)
 
       `body`
 
     finally:
       # After the scope block has been executed, we restore the previous
       # top BindingFrame.
-      setTopBindingFrame `logRecordType`, prevBindingFrame
+      tlsSlot(`logRecordType`) = prevBindingFrame
 
