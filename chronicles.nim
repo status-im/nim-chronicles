@@ -3,7 +3,7 @@ import
   chronicles/[scope_helpers, dynamic_scope, log_output, options]
 
 export
-  dynamic_scope, log_output
+  dynamic_scope, log_output, options
 
 template chroniclesLexScopeIMPL* =
   0 # scope revision number
@@ -58,6 +58,43 @@ template dynamicLogScope*(bindings: varargs[untyped]) {.dirty.} =
                       bindSym("chroniclesLexScopeIMPL", brForceOpen),
                       bindings)
 
+when runtimeFilteringEnabled:
+  import chronicles/topics_registry
+  export setTopicState, TopicState
+
+  proc topicStateIMPL(topicName: static[string]): ptr TopicState =
+    var state {.global.}: TopicState
+    var dummy {.global.} = registerTopic(topicName, addr(state))
+    return addr(state)
+
+  proc runtimeTopicFilteringCode*(topics: seq[string]): NimNode =
+    result = newStmtList()
+    var
+      matchEnabledTopics = genSym(nskVar, "matchEnabledTopics")
+      requiredTopicsCount = genSym(nskVar, "requiredTopicsCount")
+      topicChecks = newStmtList()
+
+    result.add quote do:
+      var `matchEnabledTopics` = registry.totalEnabledTopics == 0
+      var `requiredTopicsCount` = registry.totalRequiredTopics
+
+    for topic in topics:
+      result.add quote do:
+        let s = topicStateIMPL(`topic`)
+        case s[]
+        of Normal: discard
+        of Enabled: `matchEnabledTopics` = true
+        of Disabled: return
+        of Required: dec `requiredTopicsCount`
+
+    result.add quote do:
+      if not `matchEnabledTopics` or `requiredTopicsCount` > 0:
+        return
+else:
+  template setTopicState*(name, state) =
+    {.error: "Run-time topic filtering is currently disabled. " &
+             "You can enable it by specifying '-d:chronicles_runtime_filtering:on'".}
+
 macro logIMPL(recordType: typedesc,
               eventName: static[string],
               severity: LogLevel,
@@ -76,22 +113,31 @@ macro logIMPL(recordType: typedesc,
 
   finalBindings.sort(system.cmp)
 
-  var topicsMatch = enabledTopics.len == 0
+  var enabledTopicsMatch = enabledTopics.len == 0
+  var requiredTopicsCount = requiredTopics.len
+  var currentTopics: seq[string] = @[]
 
   if finalBindings.hasKey("topics"):
     let topicsNode = finalBindings["topics"]
     if topicsNode.kind notin {nnkStrLit, nnkTripleStrLit}:
       error "Please specify the 'topics' list as a space separated string literal", topicsNode
 
-    let currentTopics = topicsNode.strVal.split(Whitespace)
+    currentTopics = topicsNode.strVal.split(Whitespace)
+
     for t in currentTopics:
       if t in disabledTopics:
         return
-      if t in enabledTopics:
-        topicsMatch = true
+      elif t in enabledTopics:
+        enabledTopicsMatch = true
+      elif t in requiredTopics:
+        dec requiredTopicsCount
 
-  if not topicsMatch:
+  if not enabledTopicsMatch or requiredTopicsCount > 0:
     return
+
+  result = newStmtList()
+  when runtimeFilteringEnabled:
+    result.add runtimeTopicFilteringCode(currentTopics)
 
   let
     recordTypeSym = skipTypedesc(recordType.getTypeImpl())
@@ -102,7 +148,6 @@ macro logIMPL(recordType: typedesc,
     threadId = when compileOption("threads"): newCall("getThreadId")
                else: newLit(0)
 
-  result = newStmtList()
   result.add quote do:
     var `record`: `recordType`
 
