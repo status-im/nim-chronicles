@@ -62,12 +62,17 @@ when runtimeFilteringEnabled:
   import chronicles/topics_registry
   export setTopicState, TopicState
 
+  var gActiveLogLevel: LogLevel
+
+  proc setLogLevel*(lvl: LogLevel) =
+    gActiveLogLevel = lvl
+
   proc topicStateIMPL(topicName: static[string]): ptr TopicState =
     var state {.global.}: TopicState
     var dummy {.global.} = registerTopic(topicName, addr(state))
     return addr(state)
 
-  proc runtimeTopicFilteringCode*(topics: seq[string]): NimNode =
+  proc runtimeTopicFilteringCode*(logLevel: LogLevel, topics: seq[string]): NimNode =
     result = newStmtList()
     var
       matchEnabledTopics = genSym(nskVar, "matchEnabledTopics")
@@ -75,6 +80,9 @@ when runtimeFilteringEnabled:
       topicChecks = newStmtList()
 
     result.add quote do:
+      if LogLevel(`logLevel`) < gActiveLogLevel:
+        break chroniclesLogStmt
+
       var `matchEnabledTopics` = registry.totalEnabledTopics == 0
       var `requiredTopicsCount` = registry.totalRequiredTopics
 
@@ -84,23 +92,26 @@ when runtimeFilteringEnabled:
         case s[]
         of Normal: discard
         of Enabled: `matchEnabledTopics` = true
-        of Disabled: return
+        of Disabled: break chroniclesLogStmt
         of Required: dec `requiredTopicsCount`
 
     result.add quote do:
       if not `matchEnabledTopics` or `requiredTopicsCount` > 0:
-        return
+        break chroniclesLogStmt
 else:
-  template setTopicState*(name, state) =
+  template runtimeFilteringDisabledError =
     {.error: "Run-time topic filtering is currently disabled. " &
              "You can enable it by specifying '-d:chronicles_runtime_filtering:on'".}
 
+  template setTopicState*(name, state) = runtimeFilteringDisabledError
+  template setLogLevel*(name, state) = runtimeFilteringDisabledError
+
 macro logIMPL(recordType: typedesc,
               eventName: static[string],
-              severity: LogLevel,
+              severity: static[LogLevel],
               scopes: typed,
               logStmtBindings: varargs[untyped]): untyped =
-  if not loggingEnabled: return
+  if not loggingEnabled or severity < enabledLogLevel: return
 
   let lexicalBindings = scopes.finalLexicalBindings
   var finalBindings = initOrderedTable[string, NimNode]()
@@ -135,9 +146,9 @@ macro logIMPL(recordType: typedesc,
   if not enabledTopicsMatch or requiredTopicsCount > 0:
     return
 
-  result = newStmtList()
+  var code = newStmtList()
   when runtimeFilteringEnabled:
-    result.add runtimeTopicFilteringCode(currentTopics)
+    code.add runtimeTopicFilteringCode(severity, currentTopics)
 
   let
     recordTypeSym = skipTypedesc(recordType.getTypeImpl())
@@ -148,21 +159,23 @@ macro logIMPL(recordType: typedesc,
     threadId = when compileOption("threads"): newCall("getThreadId")
                else: newLit(0)
 
-  result.add quote do:
+  code.add quote do:
     var `record`: `recordType`
 
   for i in 0 ..< recordArity:
     let recordRef = if recordArity == 1: record
                     else: newTree(nnkBracketExpr, record, newLit(i))
-    result.add quote do:
-      initLogRecord(`recordRef`, `severity`, `eventName`)
+    code.add quote do:
+      initLogRecord(`recordRef`, LogLevel(`severity`), `eventName`)
       setFirstProperty(`recordRef`, "thread", `threadId`)
 
     for k, v in finalBindings:
-      result.add newCall("setProperty", recordRef, newLit(k), v)
+      code.add newCall("setProperty", recordRef, newLit(k), v)
 
-  result.add newCall("logAllDynamicProperties", record)
-  result.add newCall("flushRecord", record)
+  code.add newCall("logAllDynamicProperties", record)
+  code.add newCall("flushRecord", record)
+
+  result = newBlockStmt(newIdentNode("chroniclesLogStmt"), code)
 
 template log*(severity: LogLevel,
               eventName: static[string],
@@ -173,7 +186,7 @@ template log*(severity: LogLevel,
           bindSym("chroniclesLexScopeIMPL", brForceOpen), props)
 
 template log*(recordType: typedesc,
-              severity: LogLevel,
+              severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
 

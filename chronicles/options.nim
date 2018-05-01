@@ -1,20 +1,73 @@
 import
   macros, strutils, strformat, sequtils, ospaths
 
+# The default behavior of Chronicles can be configured through a wide-range
+# of compile-time -d: switches. This module implements the validation of all
+# specified options and reducing them to a `Configuration` constant that can
+# be accessed from the rest of the modules.
+
 const
   chronicles_enabled {.strdefine.} = "on"
+    ## Disabling this option will competely remove all chronicles-related code
+    ## from the target binary.
+
   chronicles_enabled_topics {.strdefine.} = ""
+    ## You can use this option to specify a comma-separated list of topics for
+    ## which the logging statements should produce output. All other logging
+    ## statements will be erased from the final code at compile time.
+    ## When the list includes multiple topics, any of them is considered a match.
+
   chronicles_required_topics {.strdefine.} = ""
+    ## Similar to `chronicles_enabled_topics`, but requires the logging statements
+    ## to have all topics specified in the list.
+
   chronicles_disabled_topics {.strdefine.} = ""
+    ## The dual of `chronicles_enabled_topics`. The option specifies a black-list
+    ## of topics for which the associated logging statements should be erased from
+    ## the program.
+
   chronicles_log_level {.strdefine.} = when defined(debug): "ALL"
-                                       else: "NOTICE"
+                                       else: "INFO"
+    ## This option can be used to erase all log statements, not matching the
+    ## specified minimum log level at compile-time.
 
   chronicles_runtime_filtering {.strdefine.} = "off"
-  chronicles_timestamps {.strdefine.} = "on"
+    ## This option enables the run-filtering capabilities of chronicles.
+    ## The run-time filtering is controlled through the procs `setLogLevel`
+    ## and `setTopicState`.
+
+  chronicles_timestamps {.strdefine.} = "RfcTime"
+    ## This option controls the use of timestamps in the log output.
+    ## Possible values are:
+    ##
+    ## - RfcTime (used by default)
+    ##
+    ##   Chronicles will use the human-readable format specified in
+    ##   RFC 3339: Date and Time on the Internet: Timestamps
+    ##
+    ##   https://tools.ietf.org/html/rfc3339
+    ##
+    ## - UnixTime
+    ##
+    ##   Chronicles will write a single float value for the number
+    ##   of seconds since the "Unix epoch"
+    ##
+    ##   https://en.wikipedia.org/wiki/Unix_time
+    ##
+    ## - NoTimestamps
+    ##
+    ##   Chronicles will not include timestamps in the log output.
+    ##
+    ## Please note that the timestamp format can also be specified
+    ## for individual sinks (see `chronicles_sinks`).
+
   chronicles_sinks* {.strdefine.} = ""
   chronicles_streams* {.strdefine.} = ""
   chronicles_indent {.intdefine.} = 2
   chronicles_colors* {.strdefine.} = "on"
+
+when chronicles_streams.len > 0 and chronicles_sinks.len > 0:
+  {.error: "Please specify only one of the options 'chronicles_streams' and 'chronicles_sinks'." }
 
 type
   LogLevel* = enum
@@ -46,14 +99,20 @@ type
     else:
       discard
 
+  TimestampsScheme* = enum
+    NoTimestamps,
+    UnixTime,
+    RfcTime
+
   ColorScheme* = enum
     NoColors,
     AnsiColors,
-    PlatformSpecificColors
+    NativeColors
 
   SinkSpec* = object
     format*: LogFormat
     colorScheme*: ColorScheme
+    timestamps*: TimestampsScheme
     destinations*: seq[LogDestination]
 
   StreamSpec* = object
@@ -78,15 +137,18 @@ proc handleYesNoOption(optName: string,
 template handleYesNoOption(opt: untyped): bool =
   handleYesNoOption(astToStr(opt), opt)
 
-proc handleEnumOption(T: typedesc[enum],
-                      optName: string,
-                      optValue: string): T {.compileTime.} =
-  try: return parseEnum[T](optValue)
-  except: error &"'{optValue}' is not a recognized value for '{optName}'. " &
-                &"Allowed values are {enumValues(T)}"
-
 proc enumValues(E: typedesc[enum]): string =
   result = mapIt(E, $it).join(", ")
+
+proc handleEnumOption(E: typedesc[enum],
+                      optName: string,
+                      optValue: string): E {.compileTime.} =
+  try: return parseEnum[E](optValue)
+  except: error &"'{optValue}' is not a recognized value for '{optName}'. " &
+                &"Allowed values are {enumValues E}"
+
+template handleEnumOption(E, varName: untyped): auto =
+  handleEnumOption(E, astToStr(varName), varName)
 
 template topicsAsSeq(topics: string): untyped =
   when topics.len > 0:
@@ -107,10 +169,13 @@ proc logFormatFromIdent(n: NimNode): LogFormat =
     error &"'{format}' is not a recognized output format. " &
            "Allowed values are {enumValues LogFormat}."
 
-proc makeSinkSpec(fmt: LogFormat, colors: ColorScheme,
+proc makeSinkSpec(fmt: LogFormat,
+                  colors: ColorScheme,
+                  timestamps: TimestampsScheme,
                   destinations: varargs[LogDestination]): SinkSpec =
   result.format = fmt
   result.colorScheme = colors
+  result.timestamps = timestamps
   result.destinations = @destinations
 
 proc logDestinationFromNode(n: NimNode): LogDestination =
@@ -142,6 +207,8 @@ const
   defaultColorScheme = when handleYesNoOption(chronicles_colors): AnsiColors
                        else: NoColors
 
+  defaultTimestamsScheme = handleEnumOption(TimestampsScheme, chronicles_timestamps)
+
 proc syntaxCheckStreamExpr*(n: NimNode) =
   if n.kind != nnkBracketExpr or n[0].kind != nnkIdent:
       error &"Invalid stream definition. " &
@@ -153,12 +220,42 @@ proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
     let n = streamNode[i]
     case n.kind
     of nnkIdent:
-      result.add makeSinkSpec(logFormatFromIdent(n), defaultColorScheme,
+      result.add makeSinkSpec(logFormatFromIdent(n),
+                              defaultColorScheme,
+                              defaultTimestamsScheme,
                               LogDestination(kind: toStdOut))
     of nnkBracketExpr:
-      var spec = makeSinkSpec(logFormatFromIdent(n[0]), NoColors)
+      var spec = makeSinkSpec(logFormatFromIdent(n[0]),
+                              defaultColorScheme,
+                              defaultTimestamsScheme)
       for i in 1 ..< n.len:
-        spec.destinations.add logDestinationFromNode(n[i])
+        var hasExplicitColors = false
+
+        template setColors(c) =
+          spec.colorScheme = c
+          hasExplicitColors = true
+          continue
+
+        template setTimestamps(t) =
+          spec.timestamps = t
+          continue
+
+        let dstSpec = n[i]
+        if dstSpec.kind == nnkIdent:
+          case ($dstSpec).toLowerAscii:
+          of "nocolors": setColors(NoColors)
+          of "ansicolors": setColors(AnsiColors)
+          of "nativecolors": setColors(NativeColors)
+          of "notimestamps": setTimestamps(NoTimestamps)
+          of "unixtime": setTimestamps(UnixTime)
+          of "rfctime": setTimestamps(RfcTime)
+          else: discard
+
+        let dst = logDestinationFromNode(dstSpec)
+        if dst.kind == toSysLog and not hasExplicitColors:
+          spec.colorScheme = NoColors
+
+        spec.destinations.add dst
       result.add spec
     else:
       error &"Invalid log sink expression '{n.repr}'. " &
@@ -185,6 +282,7 @@ proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
   for stream in mitems(result.streams):
     var stdoutSinks = 0
     var stderrSinks = 0
+    var syslogSinks = 0
     for sink in mitems(stream.sinks):
       for dst in mitems(sink.destinations):
         case dst.kind
@@ -197,22 +295,23 @@ proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
         of toStdErr:
           inc stderrSinks
           if stderrSinks > 1: overlappingOutputsError(stream, "stderr")
+        of toSysLog:
+          inc syslogSinks
+          if stderrSinks > 1: overlappingOutputsError(stream, "syslog")
+          if sink.colorScheme != NoColors:
+            error "Using a color scheme is not supported when logging to syslog."
+          when not defined(posix):
+            warn "Logging to syslog is available only on POSIX systems."
         else: discard
 
 proc parseSinksSpec(spec: string): Configuration {.compileTime.} =
   return parseStreamsSpec(&"defaultStream[{spec}]")
 
-when chronicles_streams.len > 0 and chronicles_sinks.len > 0:
-  {.error: "Please specify only one of the options 'chronicles_streams' and 'chronicles_sinks'." }
-
 const
-  timestampsEnabled* = handleYesNoOption chronicles_timestamps
   loggingEnabled*    = handleYesNoOption chronicles_enabled
   runtimeFilteringEnabled* = handleYesNoOption chronicles_runtime_filtering
 
-  enabledLogLevel* = handleEnumOption(LogLevel,
-                                      "chronicles_log_level",
-                                      chronicles_log_level.toUpperAscii)
+  enabledLogLevel* = handleEnumOption(LogLevel, chronicles_log_level)
 
   textBlockIndent* = repeat(' ', chronicles_indent)
 

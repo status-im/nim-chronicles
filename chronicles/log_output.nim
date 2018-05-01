@@ -13,13 +13,17 @@ type
   BufferedOutput[FinalOutputs: tuple] = object
     buffer: string
 
-  TextLineRecord[Output; colors: static[ColorScheme]] = object
+  TextLineRecord[Output;
+                 timestamps: static[TimestampsScheme],
+                 colors: static[ColorScheme]] = object
     output: Output
 
-  TextBlockRecord[Output; colors: static[ColorScheme]] = object
+  TextBlockRecord[Output;
+                  timestamps: static[TimestampsScheme],
+                  colors: static[ColorScheme]] = object
     output: Output
 
-  JsonRecord[Output] = object
+  JsonRecord[Output; timestamps: static[TimestampsScheme]] = object
     output: Output
 
 # XXX: `bindSym` is currently broken and doesn't return proper type symbols
@@ -69,6 +73,8 @@ proc selectRecordType(sink: SinkSpec): NimNode =
     result.add bufferredOutput
   else:
     result.add selectOutputType(sink.destinations[0])
+
+  result.add newIdentNode($sink.timestamps)
 
   # Set the color scheme for the record types that require it
   if sink.format != json:
@@ -122,7 +128,7 @@ template optimizeBufferAppends*{
 }(x, y: string{lit}, s: string) =
   add(s, x & y)
 
-proc appendTimestamp(o: var auto) =
+proc appendRfcTimestamp(o: var auto) =
   var ts = now()
   append(o, $ts.year)
   append(o, "-")
@@ -135,6 +141,12 @@ proc appendTimestamp(o: var auto) =
   append(o, intToStr(ts.minute, 2))
   append(o, ":")
   append(o, intToStr(ts.second, 2))
+
+template writeTs(record) =
+  when record.timestamps == RfcTime:
+    appendRfcTimestamp(record.output)
+  else:
+    append(record.output, $epochTime())
 
 template appendLogLevelMarker(r: var auto, lvl: LogLevel) =
   append(r.output, "[")
@@ -176,9 +188,9 @@ template appendLogLevelMarker(r: var auto, lvl: LogLevel) =
 #
 
 template initLogRecord*(r: var TextLineRecord, lvl: LogLevel, name: string) =
-  when timestampsEnabled:
+  when r.timestamps != NoTimestamps:
     append(r.output, "[")
-    appendTimestamp(r.output)
+    writeTs(r)
     append(r.output, "] ")
 
   appendLogLevelMarker(r, lvl)
@@ -218,9 +230,9 @@ template flushRecord*(r: var TextLineRecord) =
 #
 
 template initLogRecord*(r: var TextBlockRecord, lvl: LogLevel, name: string) =
-  when timestampsEnabled:
+  when r.timestamps != NoTimestamps:
     append(r.output, "[")
-    appendTimestamp(r.output)
+    writeTs(r)
     append(r.output, "] ")
 
   appendLogLevelMarker(r, lvl)
@@ -270,9 +282,9 @@ template initLogRecord*(r: var JsonRecord, lvl: LogLevel, name: string) =
   append(r.output, """{"msg": """ & jsonEncode(name) &
                    """, "lvl": """ & jsonEncode($lvl))
 
-  when timestampsEnabled:
+  when r.timestamps != NoTimestamps:
     append(r.output, """, "ts": """")
-    appendTimestamp(r.output)
+    writeTs(r)
     append(r.output, "\"")
 
 template setFirstProperty*(r: var JsonRecord, key: string, val: auto) =
