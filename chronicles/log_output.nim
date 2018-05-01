@@ -5,13 +5,16 @@ export
   LogLevel
 
 type
-  FileOutput[outputId: static[int]] = object
-  StdOutOutput = object
-  StdErrOutput = object
-  SysLogOutput = object
+  FileOutput*[outputId: static[int]] = object
+  StdOutOutput* = object
+  StdErrOutput* = object
+  SysLogOutput* = object
 
-  BufferedOutput[FinalOutputs: tuple] = object
+  BufferedOutput*[FinalOutputs: tuple] = object
     buffer: string
+
+  AnyOutput = FileOutput|StdOutOutput|StdErrOutput|
+              SysLogOutput|BufferedOutput
 
   TextLineRecord[Output;
                  timestamps: static[TimestampsScheme],
@@ -88,27 +91,36 @@ var
 # The LogRecord types are parametric on their Output and this is how we
 # can support arbitrary combinations of log formats and destinations.
 
-template append(o: var FileOutput, s: string) = fileOutputs[o.outputId].write s
-template flushOutput(o: var FileOutput)       = fileOutputs[o.outputId].flushFile
+template append*(o: var FileOutput, s: string) = fileOutputs[o.outputId].write s
+template flushOutput*(o: var FileOutput)       = fileOutputs[o.outputId].flushFile
 
-template append(o: var StdOutOutput, s: string) = stdout.write s
-template flushOutput(o: var StdOutOutput)       = stdout.flushFile
+template append*(o: var StdOutOutput, s: string) = stdout.write s
+template flushOutput*(o: var StdOutOutput)       = stdout.flushFile
 
-template append(o: var StdErrOutput, s: string) = stderr.write s
-template flushOutput(o: var StdOutOutput)       = stdout.flushFile
+template append*(o: var StdErrOutput, s: string) = stderr.write s
+template flushOutput*(o: var StdErrOutput)       = stderr.flushFile
 
 # The buffered Output works in a very simple way. The log message is first
 # buffered into a sting and when it needs to be flushed, we just instantiate
 # each of the Output types and call `append` and `flush` on the instance:
 
-template append(o: var BufferedOutput, s: string) =
+template append*(o: var BufferedOutput, s: string) =
   o.buffer.add(s)
 
-template flushOutput(o: var BufferedOutput) =
+template flushOutput*(o: var BufferedOutput) =
   var finalOuputs: o.FinalOutputs
   for finalOutput in finalOuputs.fields:
     append(finalOutput, o.buffer)
     flushOutput(finalOutput)
+
+macro append*(o: var AnyOutput,
+              arg1, arg2: untyped,
+              restArgs: varargs[untyped]): untyped =
+  # Allow calling append with many arguments
+  result = newStmtList()
+  result.add newCall("append", o, arg1)
+  result.add newCall("append", o, arg2)
+  for arg in restArgs: result.add newCall("append", o, arg)
 
 # The formatting functions defined for each LogRecord type are carefully
 # written to expand to multiple calls to `append` that can be merged by
@@ -153,8 +165,8 @@ template appendLogLevelMarker(r: var auto, lvl: LogLevel) =
 
   when r.colors == AnsiColors:
     let (color, bright) = case lvl
-                          of DEBUG: (fgGreen, false)
-                          of INFO:  (fgGreen, true)
+                          of DEBUG: (fgGreen, true)
+                          of INFO:  (fgGreen, false)
                           of NOTICE:(fgYellow, false)
                           of WARN:  (fgYellow, true)
                           of ERROR: (fgRed, false)

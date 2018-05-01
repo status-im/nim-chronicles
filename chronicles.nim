@@ -6,23 +6,24 @@ export
   dynamic_scope, log_output, options
 
 template chroniclesLexScopeIMPL* =
-  0 # scope revision number
+  0 # track the scope revision
 
 macro mergeScopes(prevScopes: typed, newBindings: untyped): untyped =
   var
-    bestScope = prevScopes.lastScopeHolder
+    bestScope = prevScopes.lastScopeBody
     bestScopeRev = bestScope.scopeRevision
 
   var finalBindings = initTable[string, NimNode]()
-  for k, v in assignments(bestScope.getImpl.actualBody, skip = 1):
+  for k, v in assignments(bestScope.scopeAssignments):
     finalBindings[k] = v
 
-  for k, v in assignments(newBindings):
+  for k, v in assignments(newBindings, false):
     finalBindings[k] = v
 
   result = newStmtList()
+  var newRevision = newLit(bestScopeRev + 1)
+  var newAssingments = newStmtList()
 
-  var newScopeDefinition = newStmtList(newLit(bestScopeRev + 1))
   for k, v in finalBindings:
     if k == "stream":
       let streamId = newIdentNode($v)
@@ -31,14 +32,16 @@ macro mergeScopes(prevScopes: typed, newBindings: untyped): untyped =
         when not declared(`streamId`):
           # XXX: how to report the proper line info here?
           {.error: `errorMsg`.}
-        elif not isStreamSymbolIMPL(`streamId`):
-          {.error: `errorMsg`.}
+        #elif not isStreamSymbolIMPL(`streamId`):
+        #  {.error: `errorMsg`.}
         template chroniclesActiveStreamIMPL: typedesc = `streamId`
     else:
-      newScopeDefinition.add newAssignment(newIdentNode(k), v)
+      newAssingments.add newAssignment(newIdentNode(k), v)
 
   result.add quote do:
-    template chroniclesLexScopeIMPL = `newScopeDefinition`
+    template chroniclesLexScopeIMPL =
+      `newRevision`
+      `newAssingments`
 
 template logScope*(newBindings: untyped) {.dirty.} =
   bind bindSym, mergeScopes, brForceOpen
@@ -113,13 +116,19 @@ macro logIMPL(recordType: typedesc,
               logStmtBindings: varargs[untyped]): untyped =
   if not loggingEnabled or severity < enabledLogLevel: return
 
+  # Nim will sometimes do something silly - it will convert our varargs
+  # into an empty array. We need to detect this case and handle it:
+  if logStmtBindings.len == 1 and
+     logStmtBindings[0].kind == nnkHiddenStdConv:
+    logStmtBindings.del 0
+
   let lexicalBindings = scopes.finalLexicalBindings
   var finalBindings = initOrderedTable[string, NimNode]()
 
-  for k, v in assignments(lexicalBindings, skip = 1):
+  for k, v in assignments(lexicalBindings):
     finalBindings[k] = v
 
-  for k, v in assignments(logStmtBindings, skip = 1):
+  for k, v in assignments(logStmtBindings):
     finalBindings[k] = v
 
   finalBindings.sort(system.cmp)

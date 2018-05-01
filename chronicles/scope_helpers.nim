@@ -5,47 +5,46 @@ type
   BindingsSet* = Table[string, NimNode]
   FinalBindingsSet* = OrderedTable[string, NimNode]
 
-iterator assignments*(n: NimNode, skip = 0): (string, NimNode) =
+iterator assignments*(n: NimNode, liftIdentifiers = true): (string, NimNode) =
   # extract the assignment pairs from a block with assigments
   # or a call-site with keyword arguments.
-  for i in skip ..< n.len:
-    let child = n[i]
+  for child in n:
     if child.kind in {nnkAsgn, nnkExprEqExpr}:
       let name = $child[0]
       let value = child[1]
       yield (name, value)
+    elif child.kind == nnkIdent and liftIdentifiers:
+      yield ($child, child)
     else:
       error "A scope definitions should consist only of key-value assignments"
 
-proc actualBody*(n: NimNode): NimNode =
-  # skip over the double StmtList node introduced in `mergeScopes`
-  result = n.body
-  if result.kind == nnkStmtList and result[0].kind == nnkStmtList:
-    result = result[0]
+proc scopeAssignments*(scopeBody: NimNode): NimNode =
+  if scopeBody.len > 1:
+    result = scopeBody[1]
+  else:
+    result = newStmtList()
 
-proc scopeRevision*(scopeSymbol: NimNode): int =
-  # get the revision number from a `chroniclesLexScopeIMPL` sym
-  assert scopeSymbol.kind == nnkSym
-  var revisionNode = scopeSymbol.getImpl.actualBody[0]
+proc scopeRevision*(scopeBody: NimNode): int =
+  # get the revision number from a `chroniclesLexScopeIMPL` body
+  var revisionNode = scopeBody[0]
   result = int(revisionNode.intVal)
 
-proc lastScopeHolder*(scopes: NimNode): NimNode =
-  # get the most recent `chroniclesLexScopeIMPL` from a symChoice node
+proc lastScopeBody*(scopes: NimNode): NimNode =
+  # get the most recent `chroniclesLexScopeIMPL` body from a symChoice node
   if scopes.kind in {nnkClosedSymChoice, nnkOpenSymChoice}:
     var bestScopeRev = 0
     assert scopes.len > 0
     for scope in scopes:
-      let rev = scope.scopeRevision
+      let scopeBody = scope.getImpl.body
+      let rev = scopeBody.scopeRevision
       if result == nil or rev > bestScopeRev:
-        result = scope
+        result = scopeBody
         bestScopeRev = rev
   else:
-    result = scopes
-
-  assert result.kind == nnkSym
+    result = scopes.getImpl.body
 
 template finalLexicalBindings*(scopes: NimNode): NimNode =
-  scopes.lastScopeHolder.getImpl.actualBody
+  scopes.lastScopeBody.scopeAssignments
 
 proc handleUserStreamChoice*(n: NimNode): StreamSpec =
   # XXX: This proc could use a lent result once the compiler supports it

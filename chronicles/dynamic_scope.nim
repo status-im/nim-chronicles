@@ -38,7 +38,7 @@ macro dynamicLogScopeIMPL*(recordType: typedesc,
     error "dynamicLogScope expects a block", body
 
   var stream = config.streams[0]
-  for k, v in assignments(lexicalScopes.finalLexicalBindings, skip = 1):
+  for k, v in assignments(lexicalScopes.finalLexicalBindings):
     if k == "stream":
       stream = handleUserStreamChoice(v)
 

@@ -2,76 +2,38 @@ import
   macros, strutils, strformat, sequtils, ospaths
 
 # The default behavior of Chronicles can be configured through a wide-range
-# of compile-time -d: switches. This module implements the validation of all
-# specified options and reducing them to a `Configuration` constant that can
-# be accessed from the rest of the modules.
+# of compile-time -d: switches (for more information, see the README).
+# This module implements the validation of all specified options and reduces
+# them to a `Configuration` constant that can be accessed from the rest of
+# the modules.
 
 const
   chronicles_enabled {.strdefine.} = "on"
-    ## Disabling this option will competely remove all chronicles-related code
-    ## from the target binary.
-
-  chronicles_enabled_topics {.strdefine.} = ""
-    ## You can use this option to specify a comma-separated list of topics for
-    ## which the logging statements should produce output. All other logging
-    ## statements will be erased from the final code at compile time.
-    ## When the list includes multiple topics, any of them is considered a match.
-
-  chronicles_required_topics {.strdefine.} = ""
-    ## Similar to `chronicles_enabled_topics`, but requires the logging statements
-    ## to have all topics specified in the list.
-
-  chronicles_disabled_topics {.strdefine.} = ""
-    ## The dual of `chronicles_enabled_topics`. The option specifies a black-list
-    ## of topics for which the associated logging statements should be erased from
-    ## the program.
-
-  chronicles_log_level {.strdefine.} = when defined(debug): "ALL"
-                                       else: "INFO"
-    ## This option can be used to erase all log statements, not matching the
-    ## specified minimum log level at compile-time.
-
-  chronicles_runtime_filtering {.strdefine.} = "off"
-    ## This option enables the run-filtering capabilities of chronicles.
-    ## The run-time filtering is controlled through the procs `setLogLevel`
-    ## and `setTopicState`.
-
-  chronicles_timestamps {.strdefine.} = "RfcTime"
-    ## This option controls the use of timestamps in the log output.
-    ## Possible values are:
-    ##
-    ## - RfcTime (used by default)
-    ##
-    ##   Chronicles will use the human-readable format specified in
-    ##   RFC 3339: Date and Time on the Internet: Timestamps
-    ##
-    ##   https://tools.ietf.org/html/rfc3339
-    ##
-    ## - UnixTime
-    ##
-    ##   Chronicles will write a single float value for the number
-    ##   of seconds since the "Unix epoch"
-    ##
-    ##   https://en.wikipedia.org/wiki/Unix_time
-    ##
-    ## - NoTimestamps
-    ##
-    ##   Chronicles will not include timestamps in the log output.
-    ##
-    ## Please note that the timestamp format can also be specified
-    ## for individual sinks (see `chronicles_sinks`).
-
   chronicles_sinks* {.strdefine.} = ""
   chronicles_streams* {.strdefine.} = ""
+
+  chronicles_enabled_topics {.strdefine.} = ""
+  chronicles_required_topics {.strdefine.} = ""
+  chronicles_disabled_topics {.strdefine.} = ""
+  chronicles_runtime_filtering {.strdefine.} = "off"
+  chronicles_log_level {.strdefine.} = when defined(debug): "ALL"
+                                       else: "INFO"
+
+  chronicles_timestamps {.strdefine.} = "RfcTime"
+  chronicles_colors* {.strdefine.} = "AnsiColors"
+
   chronicles_indent {.intdefine.} = 2
-  chronicles_colors* {.strdefine.} = "on"
+
+  truthySwitches = ["yes", "1", "on", "true"]
+  falsySwitches = ["no", "0", "off", "false", "none"]
+    # You can use any of these values when specifying on/off options.
+    # They are case-insensitive.
 
 when chronicles_streams.len > 0 and chronicles_sinks.len > 0:
   {.error: "Please specify only one of the options 'chronicles_streams' and 'chronicles_sinks'." }
 
 type
   LogLevel* = enum
-    ALL,
     DEBUG,
     INFO,
     NOTICE,
@@ -126,9 +88,9 @@ type
 proc handleYesNoOption(optName: string,
                        optValue: string): bool {.compileTime.} =
   let canonicalValue = optValue.toLowerAscii
-  if canonicalValue in ["yes", "1", "on", "true"]:
+  if canonicalValue in truthySwitches:
     return true
-  elif canonicalValue in ["no", "0", "off", "false"]:
+  elif canonicalValue in falsySwitches:
     return false
   else:
     error &"A non-recognized value '{optValue}' for option '{optName}'. " &
@@ -143,7 +105,12 @@ proc enumValues(E: typedesc[enum]): string =
 proc handleEnumOption(E: typedesc[enum],
                       optName: string,
                       optValue: string): E {.compileTime.} =
-  try: return parseEnum[E](optValue)
+  try:
+    if optValue.toLowerAscii in falsySwitches:
+      type R = type(result)
+      return R(0)
+    else:
+      return parseEnum[E](optValue)
   except: error &"'{optValue}' is not a recognized value for '{optName}'. " &
                 &"Allowed values are {enumValues E}"
 
@@ -204,9 +171,7 @@ proc logDestinationFromNode(n: NimNode): LogDestination =
            "Please refer to the documentation for the supported options."
 
 const
-  defaultColorScheme = when handleYesNoOption(chronicles_colors): AnsiColors
-                       else: NoColors
-
+  defaultColorScheme = handleEnumOption(ColorScheme, chronicles_colors)
   defaultTimestamsScheme = handleEnumOption(TimestampsScheme, chronicles_timestamps)
 
 proc syntaxCheckStreamExpr*(n: NimNode) =

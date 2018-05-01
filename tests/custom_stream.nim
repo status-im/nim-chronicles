@@ -32,7 +32,7 @@ proc main =
 
   info "inside main"
 
-info "before main"
+info("before main", a = 1, b = 3)
 
 main()
 
