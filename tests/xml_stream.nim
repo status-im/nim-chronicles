@@ -18,6 +18,6 @@ template flushRecord*(r: var XmlRecord) =
 
 customLogStream xmlStream[XmlRecord[StdOutOutput]]
 
-logScope(public = true):
-  let stream* = xmlStream
+publicLogScope:
+  stream = xmlStream
 

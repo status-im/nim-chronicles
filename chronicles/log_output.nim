@@ -390,7 +390,7 @@ macro createStreamRecordTypes: untyped =
 
     if i == 0:
       result.add quote do:
-        template chroniclesActiveStreamIMPL*: typedesc = `streamName`
+        template activeChroniclesStream*: typedesc = `streamName`
 
 createStreamRecordTypes()
 

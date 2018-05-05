@@ -43,9 +43,8 @@ macro dynamicLogScopeIMPL*(recordType: typedesc,
     bindingsArray = newTree(nnkBracket)
     bindingsArraySym = genSym(nskLet, "bindings")
 
-  for name, v in assignments(args):
+  for name, value in assignments(args):
     var bindingVar = genSym(nskLet, name)
-    var value = v.value
 
     bindingsVars.add quote do:
       let `bindingVar` = `makeScopeBinding`(`recordType`, `name`, `value`)

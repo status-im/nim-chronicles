@@ -8,53 +8,32 @@ export
 template activeChroniclesScope* =
   0 # track the scope revision
 
-macro logScopeIMPL(prevScopes: typed, args: varargs[untyped]): untyped =
-  clearEmptyVarargs args
-  if args.len == 0: error "logScope expects a block of bindings", args
-
+macro logScopeIMPL(prevScopes: typed,
+                   newBindings: untyped,
+                   isPublic: static[bool]): untyped =
   result = newStmtList()
   var
-    newBindings = args[^1]
     bestScope = prevScopes.lastScopeBody
     bestScopeRev = bestScope.scopeRevision
-    hasPublicProp = false
-    finalBindings = initTable[string, Binding]()
     newRevision = newLit(bestScopeRev + 1)
-    newAssingments = newTree(nnkLetSection)
-    isPublicScope = false
-    chroniclesExportNode: NimNode
-
-  for i in 0 ..< args.len - 1:
-    let arg = args[i]
-    if arg.kind == nnkExprEqExpr:
-      let
-        argName = $(arg[0])
-        argVal = arg[1]
-      case argName
-      of "public":
-        isPublicScope = expectBoolLit(argVal)
-        if isPublicScope:
-          chroniclesExportNode = newTree(nnkExportExceptStmt,
-                                         id"chronicles",
-                                         id"activeChroniclesScope")
-      else:
-        error &"unrecognized paramter: {argName}", arg
-    else:
-      error "logScope expects only named parameters", arg
+    finalBindings = initTable[string, NimNode]()
+    newAssingments = newStmtList()
+    chroniclesExportNode: NimNode = if not isPublic: nil
+                                    else: newTree(nnkExportExceptStmt,
+                                                  id"chronicles",
+                                                  id"activeChroniclesScope")
 
   for k, v in assignments(bestScope.scopeAssignments):
     finalBindings[k] = v
 
   for k, v in assignments(newBindings, false):
-    if v.public: hasPublicProp = true
     finalBindings[k] = v
 
   for k, v in finalBindings:
     if k == "stream":
-      let value = v.value
-      let streamId = id($value)
-      let errorMsg = &"{value.lineInfo}: {$streamId} is not a recognized stream name"
-      let templateName = id("activeChroniclesStream", v.public or isPublicScope)
+      let streamId = id($v)
+      let errorMsg = &"{v.lineInfo}: {$streamId} is not a recognized stream name"
+      let templateName = id("activeChroniclesStream", isPublic)
 
       result.add quote do:
         when not declared(`streamId`):
@@ -64,28 +43,30 @@ macro logScopeIMPL(prevScopes: typed, args: varargs[untyped]): untyped =
         #  {.error: `errorMsg`.}
         template `templateName`: typedesc = `streamId`
 
-      if chroniclesExportNode != nil:
+      if isPublic:
         chroniclesExportNode.add id"activeChroniclesStream"
 
     else:
-      newAssingments.add newTree(nnkIdentDefs,
-                                 id(k, v.public),
-                                 newEmptyNode(),
-                                 v.value)
+      newAssingments.add newAssignment(id(k), v)
 
-  if isPublicScope:
+  if isPublic:
     result.add chroniclesExportNode
 
-  let scopeSymName = id("activeChroniclesScope", isPublicScope)
+  let activeScope = id("activeChroniclesScope", isPublic)
   result.add quote do:
-    template `scopeSymName` =
+    template `activeScope` =
       `newRevision`
       `newAssingments`
 
-template logScope*(newBindings: varargs[untyped]) {.dirty.} =
+template logScope*(newBindings: untyped) {.dirty.} =
   bind bindSym, logScopeIMPL, brForceOpen
   logScopeIMPL(bindSym("activeChroniclesScope", brForceOpen),
-               newBindings)
+               newBindings, false)
+
+template publicLogScope*(newBindings: untyped) {.dirty.} =
+  bind bindSym, logScopeIMPL, brForceOpen
+  logScopeIMPL(bindSym("activeChroniclesScope", brForceOpen),
+               newBindings, true)
 
 template dynamicLogScope*(recordType: typedesc,
                           bindings: varargs[untyped]) {.dirty.} =
@@ -157,7 +138,7 @@ macro logIMPL(recordType: typedesc,
   clearEmptyVarargs logStmtBindings
 
   let lexicalBindings = scopes.finalLexicalBindings
-  var finalBindings = initOrderedTable[string, Binding]()
+  var finalBindings = initOrderedTable[string, NimNode]()
 
   for k, v in assignments(lexicalBindings):
     finalBindings[k] = v
@@ -172,7 +153,7 @@ macro logIMPL(recordType: typedesc,
   var currentTopics: seq[string] = @[]
 
   if finalBindings.hasKey("topics"):
-    let topicsNode = finalBindings["topics"].value
+    let topicsNode = finalBindings["topics"]
     if topicsNode.kind notin {nnkStrLit, nnkTripleStrLit}:
       error "Please specify the 'topics' list as a space separated string literal", topicsNode
 
@@ -213,7 +194,7 @@ macro logIMPL(recordType: typedesc,
       setFirstProperty(`recordRef`, "thread", `threadId`)
 
     for k, v in finalBindings:
-      code.add newCall("setProperty", recordRef, newLit(k), v.value)
+      code.add newCall("setProperty", recordRef, newLit(k), v)
 
   code.add newCall("logAllDynamicProperties", record)
   code.add newCall("flushRecord", record)
