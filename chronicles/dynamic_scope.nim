@@ -37,19 +37,15 @@ macro dynamicLogScopeIMPL*(recordType: typedesc,
   if body.kind != nnkStmtList:
     error "dynamicLogScope expects a block", body
 
-  var stream = config.streams[0]
-  for k, v in assignments(lexicalScopes.finalLexicalBindings):
-    if k == "stream":
-      stream = handleUserStreamChoice(v)
-
   var
     makeScopeBinding = bindSym"makeScopeBinding"
     bindingsVars = newTree(nnkStmtList)
     bindingsArray = newTree(nnkBracket)
     bindingsArraySym = genSym(nskLet, "bindings")
 
-  for name, value in assignments(args):
+  for name, v in assignments(args):
     var bindingVar = genSym(nskLet, name)
+    var value = v.value
 
     bindingsVars.add quote do:
       let `bindingVar` = `makeScopeBinding`(`recordType`, `name`, `value`)

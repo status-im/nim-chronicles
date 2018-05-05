@@ -1,5 +1,4 @@
 import xmldom, chronicles
-export chronicles
 
 type XmlRecord[Output] = object
   output: Output
@@ -19,6 +18,6 @@ template flushRecord*(r: var XmlRecord) =
 
 customLogStream xmlStream[XmlRecord[StdOutOutput]]
 
-logScope:
-  stream = xmlStream
+logScope(public = true):
+  let stream* = xmlStream
 
