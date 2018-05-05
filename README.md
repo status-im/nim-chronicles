@@ -9,13 +9,14 @@ nim-chronicles
 nimble install chronicles
 ```
 
+> At the moment, Chronicles requires a recent devel version of Nim.
+
 ## Introduction
 
-nim-chronicles is a logging library that adheres to the philosophy that
-you shouldn't be logging formatted text strings, instead you should be
-logging well-defined structured records featuring arbitrary properties.
-Let's illustate this with an example:
-
+Chronicles is a library for structured logging. It adheres to the philosophy
+that log files shouldn't be based on formatted text strings, but rather on
+well-defined event records with arbitrary properties that are easy to read
+for both humans and machines. Let's illustrate this with an example:
 
 ``` nim
 import net, chronicles
@@ -23,7 +24,7 @@ import net, chronicles
 socket.accept(...)
 ...
 debug "Client PSK", psk = client.getPskIdentity
-info "New icoming connection", remoteAddr = ip, remotePort = port
+info "New incoming connection", remoteAddr = ip, remotePort = port
 
 ```
 
@@ -33,7 +34,8 @@ particular event that happened during the execution of the program, while
 the rest of the arguments are the properties of this event.
 
 From these logging statements, Chronicles can be configured to produce log
-output in various structured formats. The default format is called `textblocks` and it looks like this:
+output in various structured formats. The default format is called `textblocks`
+and it looks like this:
 
 ![textblocks format example](media/textblocks.svg)
 
@@ -48,10 +50,10 @@ will look like this:
 
 ![json format example](media/json.svg)
 
-At first, switching to JSON may look like a dounting proposition, but
+At first, switching to JSON may look like a daunting proposition, but
 Chronicles provides a customized log tailing program called `chronicles-tail`
-which is able to transofm the JSON stream back into human-readable form,
-while also providing additional advanced features such as on on-the-fly
+which is able to transform the JSON stream back into the familiar human-readable
+form, while also providing additional advanced features such as on on-the-fly
 filtering, sound alerts and more.
 
 The main advantage of using JSON logging is that this facilitates the storage
@@ -60,7 +62,7 @@ search and filtering capabilities and allow you to compute various aggregated
 metrics and time-series data from the accumulated logs.
 
 Typical log storage choices for the above are open-source search engines such
-as [ElasticSearch][1] or specilized providers such as [Loggly][2].
+as [ElasticSearch][1] or specialized providers such as [Loggly][2].
 
 [1]: https://www.elastic.co/
 [2]: https://www.loggly.com/
@@ -69,15 +71,15 @@ as [ElasticSearch][1] or specilized providers such as [Loggly][2].
 
 In the introduction, we saw `debug` and `info` as examples for logging
 statements. Other similar statements include `notice`, `warn`, `error`
-and `fatal`. All of these statements accept arbitrary key-value pairs,
-but you can also specify only the name of a local variable, which will
-create a key will the same name (i.e. passing a local varialbe named
-`foo` will be translated to the pair `foo = foo`).
+and `fatal`. All of these statements accept arbitrary key-value pairs.
+As a short-cut, you are also allowed to specify only the name of a particular
+variable and Chronicles will create a key will the same name (i.e. passing
+a local variable named `foo` will be translated to the pair `foo = foo`).
 
-A typical practice enforced in other logging libraries is to associate
-the logging recrods with the name of the component that produced them
+A common practice enforced in other logging libraries is to associate
+the logging records with the name of the component that produced them
 or with a particular run-time property such as `RequestID`. Chronicles
-provides two general-purspose facilities for assigning such properties
+provides two general-purpose facilities for assigning such properties
 in an automated way:
 
 ### `logScope`
@@ -100,7 +102,7 @@ proc renderFrame(...) =
 
   logScope:
     # You can add additional properties in any scope. Only logging
-    # stetements that are in the same lexical scope will be affected:
+    # statements that are in the same lexical scope will be affected:
     frame = frameCounter
 
   var t = startTimer()
@@ -114,30 +116,39 @@ proc renderFrame(...) =
 
 A `logScope` is usually put near the top of a Nim module and used to
 specify statically assigned properties such as message origin, component
-name, etc. The special `topics` property demostrated here is important
-for the log filtering mechanism, which will be exlained in more details
+name, etc. The special `topics` property demonstrated here is important
+for the log filtering mechanism, which will be explained in more details
 later.
 
-If you want to have a program-wide set of custom properties that should be
-attached to all log statements (e.g. a `serverId`), you can create a global
-variable or a proc obtaining the property and then reference it from a
-`logScope` created inside a module that proxies the import of `chronicles`:
+### `publicLogScope`
+
+While a `logScope` affects only the current module, a `publicLogScope`
+allows you to specify a set of custom properties that may affect your
+entire program. For example, if you have an application running in a
+server cluster, you may want to assign a property such as `serverId`
+to every record. To achieve this, create a proxy logging module
+importing `chronicles` and setting up a `publicLogScope`:
 
 ``` nim
 # logging.nim
 
 import chronicles
-export chronicles
 
-proc getServerId()
+proc getServerId*()
 
-logScope:
+publicLogScope:
   serverId = getServerId()
 
 ```
 
+Every other module importing the proxy module will be able to use the
+entire Chronicles API and will be affected by the public scope.
+In fact, you should not import `chronicles` from such modules, because
+this will lead to ambiguous symbols such as `activeChroniclesScope` and
+`activeChroniclesStream`.
+
 Using Nim's `--import:` option may be a good way to enforce the use of
-this proxy module in your entire program.
+the proxy module in your entire program.
 
 ### `dynamicLogScope`
 
@@ -153,9 +164,9 @@ reading the following explanation may help you:
 
 http://wiki.c2.com/?DynamicScoping
 
-A dynamic scope is usually used to track what is the reason why a particular
-library function is being called (e.g. you are opening a file as a result of
-a particular network request):
+A dynamic scope is usually used to track the reason why a particular
+library function is being called (e.g. you are opening a file as a result
+of a particular network request):
 
 ``` nim
 proc onNewRequest(req: Request) =
@@ -173,7 +184,7 @@ key-value pairs. The use of `reqID` in the example above is a convenient short
 form for specifying the pair `reqID = reqID`.
 
 While the properties associated with lexical scopes are lazily evaluated as
-demostrated previously, all expressions at the begining of a dynamic scope
+previously demonstrated, all expressions at the beginning of a dynamic scope
 will be eagerly evaluated before the block is entered.
 
 ## Compile-Time Configuration
@@ -200,7 +211,7 @@ is called a 'sink'. You can use the `chronicles_sinks` option to provide the
 list of sinks that will be used in your program.
 
 The sinks are specified as a comma-separated list of valid Nim expressions
-that will be better illustated by the following examples:
+that will be better illustrated by the following examples:
 
 - `json`
 
@@ -235,15 +246,15 @@ info see `chronicles_colors` and `chronicles_timestamps`).
 The possible log destinations are `stdout`, `stderr`, `file` and `syslog`.
 
 Please note that Chronicles also allows you to implement custom logging
-formats thought the use of the `customLogStream` facility.
+formats through the use of the `customLogStream` facility.
 
 ### chronicles_streams
 
 While having multiple log sinks enables you to record the same stream of
 events in multiple formats and destinations, `chronicles_streams` allows
-you to define additional independent streams identified by their name.
-In the code, each logging statement is associated with exactly one log
-stream, which in turn has an associated list of sinks.
+you to define additional independent streams of events identified by their
+name. In the code, each logging statement is associated with exactly one
+log stream, which in turn has an associated list of sinks.
 
 The syntax for defining streams closely resembles the syntax for defining
 sinks:
@@ -252,8 +263,8 @@ sinks:
 
 This will create two streams, called `textlog` and `transactions`.
 The former will be considered the default stream associated with unqualified
-logging statements, but each of the strams will exist as a separate symbol
-in the code featuring the full set of logging operations:
+logging statements, but each of the streams will exist as a separate symbol
+in the code, supporting the full set of logging operations:
 
 ``` nim
 textlog.debug "about to create a transaction"
@@ -273,7 +284,7 @@ statements.
 
 You can use the `chronicles_enabled_topics` option to specify the list of
 topics for which the logging statements should produce output. All other
-logging statements will be erased from the final code at compile time.
+logging statements will be erased at compile-time from the final code.
 When the list includes multiple topics, any of them is considered a match.
 
 > In both contexts, the list of topics is written as a comma or space-separated
@@ -292,8 +303,8 @@ the program.
 
 ### chronicles_log_level
 
-This option can be used to erase all log statements, not matching the
-specified minimum log level at compile-time.
+This option can be used to erase at compile-time all log statements, not
+matching the specified minimum log level.
 
 Possible values are 'DEBUG', 'INFO', 'NOTICE', 'WARN', 'ERROR', 'FATAL',
 and 'NONE'. The default value is 'DEBUG' in debug builds and `INFO` in
@@ -312,14 +323,15 @@ type LogLevel = enum
 proc setLogLevel*(level: LogLevel)
 
 type TopicState = enum
-  Normal, Enabled, Reqired, Disabled
+  Normal, Enabled, Required, Disabled
 
 proc setTopicState*(topicName: string, state: TopicState): bool
 ```
 
-The option is disabled by default, because we recommend filtering the
+The option is disabled by default because we recommend filtering the
 log output in a tailing program. This allows you to still look at all
-logged events in case this becomes necessary. Set to `on` to enable.
+logged events in case this becomes necessary. Set the option to `on`
+to enable it.
 
 ### chronicles_timestamps
 
@@ -340,7 +352,7 @@ Possible values are:
 
   https://en.wikipedia.org/wiki/Unix_time
 
-- `None`
+- `None` or `NoTimestamps`
 
   Chronicles will not include timestamps in the log output.
 
@@ -369,7 +381,7 @@ Possible values are:
   application in older versions of Windows. On Unix-like systems, ANSI codes
   are still used.
 
-- `None`
+- `None` or `NoColors`
 
   Chronicles will produce color-less output. Please note that this is the
   default mode for sinks logging only to files or for sinks using the json
@@ -380,7 +392,9 @@ Current known limitations:
 - Chronicles will not try to detect if the standard outputs
   of the program are being redirected to another program or a file.
   It's typical for the colored output to be disabled in such circumstances.
-  ([issue](issues/1))
+  ([issue][ISSUE1])
+
+[ISSUE1]: https://github.com/status-im/nim-chronicles/issues/1
 
 ### chronicles_indent
 
@@ -389,11 +403,13 @@ use as indentation in the `textblocks` format.
 
 -----------------
 
-> All options are case-insensitive and accept a number of truthy
-and falsy values such as `on`, `off`, `true`, `false`, `0`, `1`,
+All of the discussed options are case-insensitive and accept a number of
+truthy and falsy values such as `on`, `off`, `true`, `false`, `0`, `1`,
 `yes`, `no` or `none`.
 
-## Custom Streams
+## Custom Log Streams
+
+### `logStream`
 
 As an alternative to specifying multiple output streams with the
 `chronicles_streams` option, you can also introduce additional
@@ -425,13 +441,18 @@ transactions.error "payment gateway time-out", orderId,
                     networkStatus = obtainNetworkStatus()
 ```
 
-### Implementing new Log Formats
+### `customLogStream`
 
-TBD
+`customLogStream` enables you to implement arbitrary log formats and
+destinations.
+
+Each logging statement is translated to a set of calls operating over
+a structure called "Log Record" (with one instance created per logging
+statement). New log formats can be implemented by defining a suitable
+log record type. Let's demonstrate this by implementing a simple XML logger:
 
 ``` nim
 import xmldom, chronicles
-export chronicles
 
 type XmlRecord[Output] = object
   output: Output
@@ -449,17 +470,13 @@ template flushRecord*(r: var XmlRecord) =
   r.output.append "</event>\n"
   r.output.flushOutput
 
-customLogStream xmlStream[XmlRecord[StdOutOutput]]
+customLogStream xmlout[XmlRecord[StdOutOutput]]
 
-logScope:
+publicLogScope:
   stream = xmlout
 
 info "New Video", franchise = "Tom & Jerry", episode = "Smarty Cat"
 ```
-
-As demonstrated in the example above, you can set the `stream` property in
-a Chronicles lexical scope to redirect all unqualified log statements to a
-particular default stream.
 
 The produced output from the example will be:
 
@@ -471,16 +488,47 @@ The produced output from the example will be:
 </event>
 ```
 
+As you can see, `customLogStream` looks similar to a regular `logStream`,
+but it expects a log record type as its only argument.
+
+The record type is implemented by providing suitable definitons for
+`initLogRecord`, `setFirstProperty`, `setProperty` and `flushRecord`.
+We recommend defining these operations as templates because this will
+facilitate the aggressive constant-folding employed by Chronicles (discussed
+in more details in the next section). We also recommend making your log
+record types parametric on an `Output` type, because this will allow the
+users of the code to specify any of the output types defined in Chronicles
+itself (see the module `log_output` for a list of those).
+
+As demonstrated in the example above, you can set the `stream` property in
+a Chronicles lexical scope to redirect all unqualified log statements to a
+particular default stream.
+
 ## Cost of Abstractions and Implementation Details
 
+Chronicles makes use of advanced compile-time programming techniques to
+produce very efficient run-time code with minimal footprint.
 
+The properties from lexical scopes are merged at compile-time with the
+log statement arguments and if any constant variables are about to be
+sent to the log output, they will be first concatenated by the compiler
+in order to issue the minimum number of `write` operations possible.
+
+The dynamic scopes store their run-time bindings on the stack, in special
+frame structures forming a linked list. This list is traversed on each log
+statement and each active property leads to one dynamically dispatched call.
+
+To support constant-time topic filtering and property overriding in dynamic
+scopes, Chronicles consumes a large amount of thread-local memory, roughly
+proportional to the number of unique topic names and property names used
+in the program.
 
 ## Future Directions
 
 At the moment, Chronicles intentionally omits certain features expected
 from a logging library such as log rotation and archival. We recommend
 following the guidelines set in the [12-factor app methodology][12F-LOGS]
-and sending your log output to `stdout`. It should be the responsibity
+and sending your log output to `stdout`. It should be the responsibility
 of the supervising daemon of the app to implement log rotation and archival.
 
 We understand that certain users would want to take advantage of the
@@ -498,8 +546,8 @@ through the [OpenBounty](https://openbounty.status.im/) initiative. Please
 take a look at our tracker for any issues having the [bounty][Bounties] tag.
 
 When submitting pull requests, please add test cases for any new features
-or fixed bugs and make sure `nimble test` is still able to execute the
-entire test suite successfully.
+or fixes and make sure `nimble test` is still able to execute the entire
+test suite successfully.
 
 [Bounties]: https://github.com/status-im/nim-chronicles/issues?q=is%3Aissue+is%3Aopen+label%3Abounty
 
