@@ -16,7 +16,7 @@ const
   chronicles_required_topics {.strdefine.} = ""
   chronicles_disabled_topics {.strdefine.} = ""
   chronicles_runtime_filtering {.strdefine.} = "off"
-  chronicles_log_level {.strdefine.} = when defined(debug): "ALL"
+  chronicles_log_level {.strdefine.} = when defined(debug): "DEBUG"
                                        else: "INFO"
 
   chronicles_timestamps {.strdefine.} = "RfcTime"

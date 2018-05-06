@@ -16,17 +16,17 @@ type
   AnyOutput = FileOutput|StdOutOutput|StdErrOutput|
               SysLogOutput|BufferedOutput
 
-  TextLineRecord[Output;
-                 timestamps: static[TimestampsScheme],
-                 colors: static[ColorScheme]] = object
-    output: Output
-
-  TextBlockRecord[Output;
+  TextLineRecord*[Output;
                   timestamps: static[TimestampsScheme],
                   colors: static[ColorScheme]] = object
     output: Output
 
-  JsonRecord[Output; timestamps: static[TimestampsScheme]] = object
+  TextBlockRecord*[Output;
+                   timestamps: static[TimestampsScheme],
+                   colors: static[ColorScheme]] = object
+    output: Output
+
+  JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
     output: Output
 
 # XXX: `bindSym` is currently broken and doesn't return proper type symbols
