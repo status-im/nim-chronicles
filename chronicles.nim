@@ -284,6 +284,8 @@ logFn fatal , LogLevel.FATAL
 # * evaluate the lexical expressions only once in the presence of multiple sinks
 # * syslog logging, Android and iOS logging, mixed std streams (logging both to stdout and stderr?)
 # * resource management scheme for custom streams
+# * custom streams must be able to affect third party libraries
+#   (perhaps they should work as Chronicles plugins)
 # * define a bounty for creating a better test suite
 # * define a bounty for implementing chronicles-tail
 #    - cross platform
