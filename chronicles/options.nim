@@ -26,8 +26,6 @@ const
 
   truthySwitches = ["yes", "1", "on", "true"]
   falsySwitches = ["no", "0", "off", "false", "none"]
-    # You can use any of these values when specifying on/off options.
-    # They are case-insensitive.
 
 when chronicles_streams.len > 0 and chronicles_sinks.len > 0:
   {.error: "Please specify only one of the options 'chronicles_streams' and 'chronicles_sinks'." }

@@ -5,6 +5,24 @@ import
 export
   dynamic_scope, log_output, options
 
+# So, how does Chronicles work?
+#
+# The tricky part is understanding how the lexical scopes are implemened.
+# For them to work, we need to be able to associate a mutable compile-time
+# data with a lexical scope (with a different value for each scope).
+# The regular compile-time variable are not suited for this, because they
+# offer us only a single global value that can be mutated.
+#
+# Luckily, we can use the body of a template as the storage mechanism for
+# our data. This works, because template names bound to particular scopes
+# and templates can be freely redefined as many times as necessary.
+#
+# `activeChroniclesScope` stores the current lexical scope.
+#
+# `logScopeIMPL` is used to merge a previously defined scope with some
+# new definition in order to produce a new scope:
+#
+
 template activeChroniclesScope* =
   0 # track the scope revision
 
@@ -96,6 +114,11 @@ when runtimeFilteringEnabled:
     return addr(state)
 
   proc runtimeTopicFilteringCode*(logLevel: LogLevel, topics: seq[string]): NimNode =
+    # This proc generates the run-time code used for topic filtering.
+    # Each logging statement has a statically known list of associated topics.
+    # For each of the topics in the list, we consult a TLS TopicState value
+    # created in topicStateIMPL. `break chroniclesLogStmt` exits a named
+    # block surrounding the entire log statement.
     result = newStmtList()
     var
       matchEnabledTopics = genSym(nskVar, "matchEnabledTopics")
@@ -137,6 +160,8 @@ macro logIMPL(recordType: typedesc,
   if not loggingEnabled or severity < enabledLogLevel: return
   clearEmptyVarargs logStmtBindings
 
+  # First, we merge the lexical bindings with the additional
+  # bindings passed to the logging statement itself:
   let lexicalBindings = scopes.finalLexicalBindings
   var finalBindings = initOrderedTable[string, NimNode]()
 
@@ -148,6 +173,8 @@ macro logIMPL(recordType: typedesc,
 
   finalBindings.sort do (lhs, rhs: auto) -> int: cmp(lhs[0], rhs[0])
 
+  # This is the compile-time topic filtering code, which has a similar
+  # logic to the generated run-time filtering code:
   var enabledTopicsMatch = enabledTopics.len == 0
   var requiredTopicsCount = requiredTopics.len
   var currentTopics: seq[string] = @[]
@@ -174,6 +201,10 @@ macro logIMPL(recordType: typedesc,
   when runtimeFilteringEnabled:
     code.add runtimeTopicFilteringCode(severity, currentTopics)
 
+  # The rest of the code selects the active LogRecord type (which can
+  # be a tuple when the sink has multiple destinations) and then
+  # translates the log statement to a set of calls to `initLogRecord`,
+  # `setProperty` and `flushRecord`.
   let
     recordTypeSym = skipTypedesc(recordType.getTypeImpl())
     recordTypeNodes = recordTypeSym.getTypeImpl()
@@ -187,6 +218,10 @@ macro logIMPL(recordType: typedesc,
     var `record`: `recordType`
 
   for i in 0 ..< recordArity:
+    # We do something complicated here on purpose.
+    # We want to produce the setProperty calls for each record in turn
+    # because this would allow for the write optimization rules defined
+    # in `log_output` to kick in.
     let recordRef = if recordArity == 1: record
                     else: newTree(nnkBracketExpr, record, newLit(i))
     code.add quote do:
@@ -201,6 +236,7 @@ macro logIMPL(recordType: typedesc,
 
   result = newBlockStmt(id"chroniclesLogStmt", code)
 
+# Translate all the possible overloads to `logIMPL`:
 template log*(severity: LogLevel,
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
@@ -241,3 +277,17 @@ logFn warn  , LogLevel.WARN
 logFn error , LogLevel.ERROR
 logFn fatal , LogLevel.FATAL
 
+# TODO:
+#
+# * dynamic scope overrides (plus maybe an option to control the priority
+#                            between dynamic and lexical bindings)
+# * evaluate the lexical expressions only once in the presence of multiple sinks
+# * syslog logging, Android and iOS logging, mixed std streams (logging both to stdout and stderr?)
+# * resource management scheme for custom streams
+# * define a bounty for creating a better test suite
+# * define a bounty for implementing chronicles-tail
+#    - cross platform
+#    - interactive (on-the-fly commands can be entered)
+#    - allow filtering with custom (and/or expressions)
+#    - on-the-fly transforms, perhaps using the Nim VM?
+#
