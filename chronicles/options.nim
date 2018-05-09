@@ -264,7 +264,7 @@ proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
           if sink.colorScheme != NoColors:
             error "Using a color scheme is not supported when logging to syslog."
           when not defined(posix):
-            warn "Logging to syslog is available only on POSIX systems."
+            warning "Logging to syslog is available only on POSIX systems."
         else: discard
 
 proc parseSinksSpec(spec: string): Configuration {.compileTime.} =
