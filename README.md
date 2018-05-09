@@ -73,7 +73,7 @@ In the introduction, we saw `debug` and `info` as examples for logging
 statements. Other similar statements include `notice`, `warn`, `error`
 and `fatal`. All of these statements accept arbitrary key-value pairs.
 As a short-cut, you are also allowed to specify only the name of a particular
-variable and Chronicles will create a key will the same name (i.e. passing
+variable and Chronicles will create a key with the same name (i.e. passing
 a local variable named `foo` will be translated to the pair `foo = foo`).
 
 A common practice enforced in other logging libraries is to associate
