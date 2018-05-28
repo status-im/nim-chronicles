@@ -163,7 +163,7 @@ proc logDestinationFromNode(n: NimNode): LogDestination =
              "Only 'file' destinations accept parameters."
     result.kind = toFile
     result.filename = n[1].repr.replace(" ", "")
-    if DirSep != '/': result.filename = replace("/", $DirSep)
+    if DirSep != '/': result.filename = result.filename.replace("/", $DirSep)
   else:
     error &"Invalid log destination expression '{n.repr}'. " &
            "Please refer to the documentation for the supported options."
