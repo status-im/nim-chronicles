@@ -51,11 +51,16 @@ type
     toFile,
     toSysLog
 
+  LogFileMode = enum
+    Append,
+    Truncate
+
   LogDestination* = object
     case kind*: LogDestinationKind
     of toFile:
       outputId*: int
       filename*: string
+      truncate*: bool
     else:
       discard
 
@@ -154,6 +159,7 @@ proc logDestinationFromNode(n: NimNode): LogDestination =
     of "file":
       result.kind = toFile
       result.filename = ""
+      result.truncate = false
     else:
       error &"'{destination}' is not a recognized log destination. " &
              "Allowed values are StdOut, StdErr, SysLog and File."
@@ -164,6 +170,8 @@ proc logDestinationFromNode(n: NimNode): LogDestination =
     result.kind = toFile
     result.filename = n[1].repr.replace(" ", "")
     if DirSep != '/': result.filename = result.filename.replace("/", $DirSep)
+    if n.len > 2:
+      result.truncate = handleEnumOption(LogFileMode, "file mode", $n[2]) == Truncate
   else:
     error &"Invalid log destination expression '{n.repr}'. " &
            "Please refer to the documentation for the supported options."

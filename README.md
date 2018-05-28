@@ -233,11 +233,12 @@ that will be better illustrated by the following examples:
   both to a file named 'myapp.txt' with a relative path to the current
   working directory and also to syslog.
 
-- `textlines[nocolors],json[file(logs/myapp.json)]`
+- `textlines[nocolors],json[file(logs/myapp.json,truncate)]`
 
   Send the output both in the 'textlines' format to stdout (but without
   using colors) and to a JSON file named myapp.json in the relative
-  directory 'logs'.
+  directory 'logs'. The  myapp.json file will be truncated on each
+  program execution.
 
 The built-in formats include `json`, `textlines` and `textblocks`, which
 support options for specifying the use of colors and timestamps (for more
