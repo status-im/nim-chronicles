@@ -1,11 +1,15 @@
 import
-  times, strutils, macros, options, terminal
+  times, strutils, macros, options, terminal, os
 
 export
   LogLevel
 
 type
-  FileOutput*[outputId: static[int], truncate: static[bool]] = object
+  FileOutput* = object
+    outFile: File
+    outPath: string
+    filemode: FileMode
+
   StdOutOutput* = object
   StdErrOutput* = object
   SysLogOutput* = object
@@ -29,6 +33,31 @@ type
   JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
     output: Output
 
+  StreamOutputRef[Stream; outputId: static[int]] = object
+
+  StreamCodeNodes = object
+    streamName: NimNode
+    recordType: NimNode
+    outputInitializers: NimNode
+
+proc open*(o: var FileOutput, path: string, mode = fmAppend): bool =
+  if o.outFile != nil:
+    close(o.outFile)
+    o.outFile = nil
+    o.outPath = ""
+
+  result = open(o.outFile, path, mode)
+  if result: o.outPath = path
+
+# XXX:
+# Uncomenting this leads to an error message that the Outputs tuple
+# for the created steam doesn't have a defined destuctor. How come
+# destructors are not lifted automatically for tuples?
+#
+#proc `=destroy`*(o: var FileOutput) =
+#  if o.outFile != nil:
+#    close(o.outFile)
+
 # XXX: `bindSym` is currently broken and doesn't return proper type symbols
 # (the resulting nodes should have a `tyTypeDesc` type, but they don't)
 # Until this is fixed, use regular ident nodes to work-around the problem.
@@ -36,16 +65,18 @@ template bnd(s): NimNode =
   # bindSym(s)
   newIdentNode(s)
 
-proc selectOutputType(dst: LogDestination): NimNode =
+template deref(so: StreamOutputRef): auto =
+  outputs(so.Stream)[so.outputId]
+
+proc selectOutputType(s: StreamCodeNodes, dst: LogDestination): NimNode =
   case dst.kind
   of toStdOut: bnd"StdOutOutput"
   of toStdErr: bnd"StdErrOutput"
   of toSysLog: bnd"SysLogOutput"
-  of toFile:   newTree(nnkBracketExpr, bnd"FileOutput",
-                                       newLit(dst.outputId),
-                                       newLit(dst.truncate))
+  of toFile:   newTree(nnkBracketExpr,
+                       bnd"StreamOutputRef", s.streamName, newLit(dst.outputId))
 
-proc selectRecordType(sink: SinkSpec): NimNode =
+proc selectRecordType(s: StreamCodeNodes, sink: SinkSpec): NimNode =
   # This proc translates the SinkSpecs loaded in the `options` module
   # to their corresponding LogRecord types.
   #
@@ -58,26 +89,26 @@ proc selectRecordType(sink: SinkSpec): NimNode =
   #
 
   # Determine the head symbol of the instantiation
-  let recordType = case sink.format
+  let RecordType = case sink.format
                    of json: bnd"JsonRecord"
                    of textLines: bnd"TextLineRecord"
                    of textBlocks: bnd"TextBlockRecord"
 
-  result = newTree(nnkBracketExpr, recordType)
+  result = newTree(nnkBracketExpr, RecordType)
 
   # Check if a buffered output is needed
   if sink.destinations.len > 1 or sink.destinations[0].kind == toSyslog:
     var bufferredOutput = newTree(nnkBracketExpr,
                                   bnd"BufferedOutput")
     # Here, we build the list of outputs as a tuple
-    var outputsTuple = newTree(nnkPar)
+    var outputsTuple = newTree(nnkTupleConstr)
     for dst in sink.destinations:
-      outputsTuple.add selectOutputType(dst)
+      outputsTuple.add selectOutputType(s, dst)
 
     bufferredOutput.add outputsTuple
     result.add bufferredOutput
   else:
-    result.add selectOutputType(sink.destinations[0])
+    result.add selectOutputType(s, sink.destinations[0])
 
   result.add newIdentNode($sink.timestamps)
 
@@ -85,22 +116,27 @@ proc selectRecordType(sink: SinkSpec): NimNode =
   if sink.format != json:
     result.add newIdentNode($sink.colorScheme)
 
-var
-  fileOutputs: array[config.totalFileOutputs, File]
-
 # The `append` and `flushOutput` functions implement the actual writing
 # to the log destinations (which we call Outputs).
 # The LogRecord types are parametric on their Output and this is how we
 # can support arbitrary combinations of log formats and destinations.
 
-template append*(o: var FileOutput, s: string) = fileOutputs[o.outputId].write s
-template flushOutput*(o: var FileOutput)       = fileOutputs[o.outputId].flushFile
+template append*(o: var FileOutput, s: string) =
+  assert o.outFile != nil
+  o.outFile.write s
+
+template flushOutput*(o: var FileOutput) =
+  assert o.outFile != nil
+  o.outFile.flushFile
 
 template append*(o: var StdOutOutput, s: string) = stdout.write s
 template flushOutput*(o: var StdOutOutput)       = stdout.flushFile
 
 template append*(o: var StdErrOutput, s: string) = stderr.write s
 template flushOutput*(o: var StdErrOutput)       = stderr.flushFile
+
+template append*(o: var StreamOutputRef, s: string) = append(deref(o), s)
+template flushOutput*(o: var StreamOutputRef)       = flushOutput(deref(o))
 
 # The buffered Output works in a very simple way. The log message is first
 # buffered into a sting and when it needs to be flushed, we just instantiate
@@ -114,6 +150,9 @@ template flushOutput*(o: var BufferedOutput) =
   for finalOutput in finalOuputs.fields:
     append(finalOutput, o.buffer)
     flushOutput(finalOutput)
+
+# We also define a macro form of `append` that takes multiple parameters and
+# just expands to one `append` call per parameter:
 
 macro append*(o: var AnyOutput,
               arg1, arg2: untyped,
@@ -327,39 +366,70 @@ template flushRecord*(r: var JsonRecord) =
 # configured output stream.
 #
 
-proc createCompositeLogRecord(sinks: seq[SinkSpec]): NimNode =
+proc sinkSpecsToCode(streamName: NimNode,
+                     sinks: seq[SinkSpec]): StreamCodeNodes =
+  result.streamName = streamName
   if sinks.len > 1:
-    result = newTree(nnkPar)
+    result.recordType = newTree(nnkTupleConstr)
     for i in 0 ..< sinks.len:
-      result.add selectRecordType(sinks[i])
+      result.recordType.add selectRecordType(result, sinks[i])
   else:
-    result = selectRecordType(sinks[0])
+    result.recordType = selectRecordType(result, sinks[0])
 
 import dynamic_scope_types
 
 template isStreamSymbolIMPL*(T: typed): bool = false
 
-macro createStreamSymbol(name: untyped, recordType: typedesc): untyped =
+import typetraits
+
+macro getOutputsTuple(t: typedesc): untyped =
+  result = newTree(nnkTupleConstr, bnd"FileOutput")
+
+macro createStreamSymbol(name: untyped, RecordType: typedesc): untyped =
   let tlsSlot = newIdentNode($name & "TlsSlot")
+  let Record  = newIdentNode($name & "LogRecord")
+  let outputs = newIdentNode($name & "Outputs")
 
   result = quote:
-    type `name`* {.inject.} = `recordType`
+    type `name`* {.inject.} = object
+    template isStreamSymbolIMPL*(S: type `name`): bool = true
 
-    template isStreamSymbolIMPL*(T: type `name`): bool = true
+    type `Record` = `RecordType`
+    template Record*(S: type `name`): typedesc = `Record`
 
-    var `tlsSlot` {.threadvar.}: ptr BindingsFrame[`recordType`]
-    template tlsSlot*(T: type `recordType`): auto = `tlsSlot`
+    when `Record` is tuple:
+      template initLogRecord*(r: var `Record`, lvl: LogLevel, name: string) =
+        for f in r.fields: initLogRecord(f, lvl, name)
+
+      template setFirstProperty*(r: var `Record`, key: string, val: auto) =
+        for f in r.fields: setFirstProperty(f, key, val)
+
+      template setProperty*(r: var `Record`, key: string, val: auto) =
+        for f in r.fields: setProperty(f, key, val)
+
+      template flushRecord*(r: var `Record`) =
+        for f in r.fields: flushRecord(f)
+
+    var `tlsSlot` {.threadvar.}: ptr BindingsFrame[`Record`]
+    template tlsSlot*(S: type `name`): auto = `tlsSlot`
+
+    var `outputs`: getOutputsTuple(`Record`)
+    template outputs*(S: type `name`): auto = `outputs`
+    template output* (S: type `name`): auto = `outputs`[0]
 
 macro customLogStream*(streamDef: untyped): untyped =
   syntaxCheckStreamExpr streamDef
   return newCall(bindSym"createStreamSymbol", streamDef[0], streamDef[1])
 
 macro logStream*(streamDef: untyped): untyped =
-  syntaxCheckStreamExpr streamDef
-  let streamSinks = sinkSpecsFromNode(streamDef)
+  # syntaxCheckStreamExpr streamDef
+  let
+    streamSinks = sinkSpecsFromNode(streamDef)
+    streamName  = streamDef[0]
+    streamCode = sinkSpecsToCode(streamName, streamSinks)
+
   return newCall(bindSym"createStreamSymbol",
-                 streamDef[0],
-                 createCompositeLogRecord(streamSinks))
+                 streamName, streamCode.recordType)
 
 macro createStreamRecordTypes: untyped =
   result = newStmtList()
@@ -368,27 +438,9 @@ macro createStreamRecordTypes: untyped =
     let
       s = config.streams[i]
       streamName = newIdentNode(s.name)
-      typeName = newIdentNode(s.name & "LogRecord")
-      tlsSlot = newIdentNode($typeName & "TlsSlot")
-      typeDef = createCompositeLogRecord(s.sinks)
+      streamCode = sinkSpecsToCode(streamName, s.sinks)
 
-    result.add quote do:
-      type `typeName`* = `typeDef`
-
-      when `typeName` is tuple:
-        template initLogRecord*(r: var `typeName`, lvl: LogLevel, name: string) =
-          for f in r.fields: initLogRecord(f, lvl, name)
-
-        template setFirstProperty*(r: var `typeName`, key: string, val: auto) =
-          for f in r.fields: setFirstProperty(f, key, val)
-
-        template setProperty*(r: var `typeName`, key: string, val: auto) =
-          for f in r.fields: setProperty(f, key, val)
-
-        template flushRecord*(r: var `typeName`) =
-          for f in r.fields: flushRecord(f)
-
-      createStreamSymbol(`streamName`, `typeName`)
+    result.add getAst(createStreamSymbol(streamName, streamCode.recordType))
 
     if i == 0:
       result.add quote do:
@@ -412,8 +464,6 @@ createStreamRecordTypes()
 #    to the final file name.
 #
 
-import os
-
 for stream in config.streams:
   var
     autoLogsPrefix = if stream.name != "default": stream.name
@@ -433,9 +483,5 @@ for stream in config.streams:
         createDir(filename.splitFile.dir)
 
         let openFlags = if dst.truncate: fmWrite else: fmAppend
-        fileOutputs[dst.outputId] = open(filename, openFlags)
-
-addQuitProc proc() {.noconv.} =
-  for f in fileOutputs:
-    if f != nil: close(f)
+        # fileOutputs[dst.outputId] = open(filename, openFlags)
 

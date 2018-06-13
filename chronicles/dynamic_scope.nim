@@ -8,15 +8,15 @@ proc appenderIMPL[LogRecord, PropertyType](log: var LogRecord,
   let v = cast[ActualType](keyValuePair)
   log.setProperty v.name, v.value
 
-proc logAllDynamicProperties*[LogRecord](log: var LogRecord) =
+proc logAllDynamicProperties*[LogRecord](Stream: typedesc, r: var LogRecord) =
   # This proc is intended for internal use only
   mixin tlsSlot
 
-  var frame = tlsSlot(LogRecord)
+  var frame = tlsSlot(Stream)
   while frame != nil:
     for i in 0 ..< frame.bindingsCount:
       let binding = frame.bindings[i]
-      binding.appender(log, binding)
+      binding.appender(r, binding)
     frame = frame.prev
 
 proc makeScopeBinding[T](LogRecord: typedesc,
@@ -26,7 +26,7 @@ proc makeScopeBinding[T](LogRecord: typedesc,
   result.appender = appenderIMPL[LogRecord, T]
   result.value = value
 
-macro dynamicLogScopeIMPL*(recordType: typedesc,
+macro dynamicLogScopeIMPL*(Stream: typedesc,
                            lexicalScopes: typed,
                            args: varargs[untyped]): untyped =
   # XXX: open question: should we support overriding of dynamic props
@@ -47,14 +47,14 @@ macro dynamicLogScopeIMPL*(recordType: typedesc,
     var bindingVar = genSym(nskLet, name)
 
     bindingsVars.add quote do:
-      let `bindingVar` = `makeScopeBinding`(`recordType`, `name`, `value`)
+      let `bindingVar` = `makeScopeBinding`(`Stream`.Record, `name`, `value`)
 
     bindingsArray.add newCall("unsafeAddr", bindingVar)
 
   let totalBindingVars = bindingsVars.len
 
   result = quote:
-    var prevBindingFrame = tlsSlot(`recordType`)
+    var prevBindingFrame = tlsSlot(`Stream`)
 
     try:
       # All of the dynamic binding pairs are placed on the stack.
@@ -66,13 +66,13 @@ macro dynamicLogScopeIMPL*(recordType: typedesc,
 
       # A `BindingFrame` object is also placed on the stack, holding
       # meta-data about the array and a link to the previous BindingFrame.
-      let bindingFrame = BindingsFrame[`recordType`](
+      let bindingFrame = BindingsFrame[`Stream`.Record](
         prev: prevBindingFrame,
-        bindings: cast[BindingsArray[`recordType`]](unsafeAddr `bindingsArraySym`),
+        bindings: cast[BindingsArray[`Stream`.Record]](unsafeAddr `bindingsArraySym`),
         bindingsCount: `totalBindingVars`)
 
       # The address of the new BindingFrame is written to a TLS location.
-      tlsSlot(`recordType`) = unsafeAddr(bindingFrame)
+      tlsSlot(`Stream`) = unsafeAddr(bindingFrame)
 
       # XXX: In resumable functions, we need help from the compiler to let us
       # intercept yields and resumes so we can restore our context.
@@ -82,5 +82,5 @@ macro dynamicLogScopeIMPL*(recordType: typedesc,
     finally:
       # After the scope block has been executed, we restore the previous
       # top BindingFrame.
-      tlsSlot(`recordType`) = prevBindingFrame
+      tlsSlot(`Stream`) = prevBindingFrame
 

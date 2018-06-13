@@ -137,7 +137,7 @@ proc logFormatFromIdent(n: NimNode): LogFormat =
     return textBlocks
   else:
     error &"'{format}' is not a recognized output format. " &
-           "Allowed values are {enumValues LogFormat}."
+          &"Allowed values are {enumValues LogFormat}."
 
 proc makeSinkSpec(fmt: LogFormat,
                   colors: ColorScheme,
@@ -276,7 +276,7 @@ proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
         else: discard
 
 proc parseSinksSpec(spec: string): Configuration {.compileTime.} =
-  return parseStreamsSpec(&"defaultStream[{spec}]")
+  return parseStreamsSpec(&"defaultChroniclesStream[{spec}]")
 
 const
   loggingEnabled*    = handleYesNoOption chronicles_enabled
