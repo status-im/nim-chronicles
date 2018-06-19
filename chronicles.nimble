@@ -1,9 +1,9 @@
 mode = ScriptMode.Verbose
 
 packageName   = "chronicles"
-version       = "0.1.0"
+version       = "0.2.0"
 author        = "Status Research & Development GmbH"
-description   = "The premier structured logging library for Nim"
+description   = "A crafty implementation of structured logging for Nim"
 license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 

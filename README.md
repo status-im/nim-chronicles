@@ -11,6 +11,7 @@ nimble install chronicles
 
 > At the moment, Chronicles requires a recent devel version of Nim.
 
+
 ## Introduction
 
 Chronicles is a library for structured logging. It adheres to the philosophy
@@ -66,6 +67,7 @@ as [ElasticSearch][1] or specialized providers such as [Loggly][2].
 
 [1]: https://www.elastic.co/
 [2]: https://www.loggly.com/
+
 
 ## Logging Scopes
 
@@ -186,6 +188,7 @@ form for specifying the pair `reqID = reqID`.
 While the properties associated with lexical scopes are lazily evaluated as
 previously demonstrated, all expressions at the beginning of a dynamic scope
 will be eagerly evaluated before the block is entered.
+
 
 ## Compile-Time Configuration
 
@@ -408,6 +411,48 @@ All of the discussed options are case-insensitive and accept a number of
 truthy and falsy values such as `on`, `off`, `true`, `false`, `0`, `1`,
 `yes`, `no` or `none`.
 
+
+## Working with `file` outputs
+
+When a stream has `file` outputs, you may choose to provide the log file
+location at run-time. Chronicles will create each log file lazily when the
+first log record is written. This gives you a chance to modify the default
+compile-time path associated with each file output by calling the `open`
+proc on an `output` symbol associated with the stream.
+
+```
+nim c -d:chronicles_sink=file my_program.nim
+```
+
+``` nim
+# my_pgoram.nim
+
+var config = loadConfiguration()
+defaultChroniclesStream.output.open(config.logFile, fmAppend))
+
+info "APPLICATION STARTED"
+
+```
+
+As you can see above, the default stream in Chronicles is called
+`defaultChroniclesStream`. If the stream had multiple file outputs,
+they would have been accessible separately as `outputs[0]`, `outputs[1]`
+and so on. `output` is a simple short-cut referring to the first of them.
+
+When the compile-time configuration doesn't specify a default file name for
+a particular file output, Chronicles will use the following rules for picking
+the default automatically:
+
+1. The log file is created in the current working directory and its name
+   matches the name of the stream (plus a '.log' extension). The exception
+   for this rule is the default stream, for which the log file will be
+   assigned the name of the application binary.
+
+2. If more than one unnamed file outputs exist for a given stream,
+   chronicles will add an index such as '.2.log', '.3.log' .. '.N.log'
+   to the final file name.
+
+
 ## Custom Log Streams
 
 ### `logStream`
@@ -524,6 +569,7 @@ scopes, Chronicles consumes a large amount of thread-local memory, roughly
 proportional to the number of unique topic names and property names used
 in the program.
 
+
 ## Future Directions
 
 At the moment, Chronicles intentionally omits certain features expected
@@ -540,6 +586,7 @@ file, Chronicles will provide options for using it.
 
 [12F-LOGS]: https://12factor.net/logs
 
+
 ## Contributing
 
 The development of Chronicles is Sponsored by [Status.im](https://status.im/)
@@ -551,6 +598,7 @@ or fixes and make sure `nimble test` is still able to execute the entire
 test suite successfully.
 
 [Bounties]: https://github.com/status-im/nim-chronicles/issues?q=is%3Aissue+is%3Aopen+label%3Abounty
+
 
 ## License
 

@@ -58,7 +58,6 @@ type
   LogDestination* = object
     case kind*: LogDestinationKind
     of toFile:
-      outputId*: int
       filename*: string
       truncate*: bool
     else:
@@ -85,8 +84,9 @@ type
     sinks*: seq[SinkSpec]
 
   Configuration* = object
-    totalFileOutputs*: int
     streams*: seq[StreamSpec]
+
+const defaultChroniclesStreamName* = "defaultChroniclesStream"
 
 proc handleYesNoOption(optName: string,
                        optValue: string): bool {.compileTime.} =
@@ -257,9 +257,6 @@ proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
     for sink in mitems(stream.sinks):
       for dst in mitems(sink.destinations):
         case dst.kind
-        of toFile:
-          dst.outputId = result.totalFileOutputs
-          inc result.totalFileOutputs
         of toStdOut:
           inc stdoutSinks
           if stdoutSinks > 1: overlappingOutputsError(stream, "stdout")

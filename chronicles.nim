@@ -86,10 +86,10 @@ template publicLogScope*(newBindings: untyped) {.dirty.} =
   logScopeIMPL(bindSym("activeChroniclesScope", brForceOpen),
                newBindings, true)
 
-template dynamicLogScope*(recordType: typedesc,
+template dynamicLogScope*(stream: typedesc,
                           bindings: varargs[untyped]) {.dirty.} =
   bind bindSym, brForceOpen
-  dynamicLogScopeIMPL(recordType,
+  dynamicLogScopeIMPL(stream,
                       bindSym("activeChroniclesScope", brForceOpen),
                       bindings)
 
@@ -152,7 +152,8 @@ else:
   template setTopicState*(name, state) = runtimeFilteringDisabledError
   template setLogLevel*(name, state) = runtimeFilteringDisabledError
 
-macro logIMPL(recordType: typedesc,
+macro logIMPL(Stream: typed,
+              RecordType: typedesc,
               eventName: static[string],
               severity: static[LogLevel],
               scopes: typed,
@@ -206,7 +207,7 @@ macro logIMPL(recordType: typedesc,
   # translates the log statement to a set of calls to `initLogRecord`,
   # `setProperty` and `flushRecord`.
   let
-    recordTypeSym = skipTypedesc(recordType.getTypeImpl())
+    recordTypeSym = skipTypedesc(RecordType.getTypeImpl())
     recordTypeNodes = recordTypeSym.getTypeImpl()
     recordArity = if recordTypeNodes.kind != nnkTupleConstr: 1
                   else: recordTypeNodes.len
@@ -215,7 +216,7 @@ macro logIMPL(recordType: typedesc,
                else: newLit(0)
 
   code.add quote do:
-    var `record`: `recordType`
+    var `record`: `RecordType`
 
   for i in 0 ..< recordArity:
     # We do something complicated here on purpose.
@@ -231,7 +232,7 @@ macro logIMPL(recordType: typedesc,
     for k, v in finalBindings:
       code.add newCall("setProperty", recordRef, newLit(k), v)
 
-  code.add newCall("logAllDynamicProperties", record)
+  code.add newCall("logAllDynamicProperties", Stream, record)
   code.add newCall("flushRecord", record)
 
   result = newBlockStmt(id"chroniclesLogStmt", code)
@@ -242,16 +243,17 @@ template log*(severity: LogLevel,
               props: varargs[untyped]) {.dirty.} =
 
   bind logIMPL, bindSym, brForceOpen
-  logIMPL(activeChroniclesStream(), eventName, severity,
+  logIMPL(activeChroniclesStream(),
+          activeChroniclesStream().Record, eventName, severity,
           bindSym("activeChroniclesScope", brForceOpen), props)
 
-template log*(recordType: typedesc,
+template log*(stream: typedesc,
               severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
 
   bind logIMPL, bindSym, brForceOpen
-  logIMPL(recordType, eventName, severity,
+  logIMPL(stream, stream.Record, eventName, severity,
           bindSym("activeChroniclesScope", brForceOpen), props)
 
 template logFn(name, severity) {.dirty.} =
@@ -259,15 +261,16 @@ template logFn(name, severity) {.dirty.} =
                    props: varargs[untyped]) {.dirty.} =
 
     bind logIMPL, bindSym, brForceOpen
-    logIMPL(activeChroniclesStream(), eventName, severity,
+    logIMPL(activeChroniclesStream(),
+            activeChroniclesStream().Record, eventName, severity,
             bindSym("activeChroniclesScope", brForceOpen), props)
 
-  template `name`*(recordType: typedesc,
+  template `name`*(stream: typedesc,
                    eventName: static[string],
                    props: varargs[untyped])  {.dirty.} =
 
     bind logIMPL, bindSym, brForceOpen
-    logIMPL(recordType, eventName, severity,
+    logIMPL(stream, stream.Record, eventName, severity,
             bindSym("activeChroniclesScope", brForceOpen), props)
 
 logFn debug , LogLevel.DEBUG

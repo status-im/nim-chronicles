@@ -8,7 +8,7 @@ type
   FileOutput* = object
     outFile: File
     outPath: string
-    filemode: FileMode
+    mode: FileMode
 
   StdOutOutput* = object
   StdErrOutput* = object
@@ -38,25 +38,7 @@ type
   StreamCodeNodes = object
     streamName: NimNode
     recordType: NimNode
-    outputInitializers: NimNode
-
-proc open*(o: var FileOutput, path: string, mode = fmAppend): bool =
-  if o.outFile != nil:
-    close(o.outFile)
-    o.outFile = nil
-    o.outPath = ""
-
-  result = open(o.outFile, path, mode)
-  if result: o.outPath = path
-
-# XXX:
-# Uncomenting this leads to an error message that the Outputs tuple
-# for the created steam doesn't have a defined destuctor. How come
-# destructors are not lifted automatically for tuples?
-#
-#proc `=destroy`*(o: var FileOutput) =
-#  if o.outFile != nil:
-#    close(o.outFile)
+    outputsTuple: NimNode
 
 # XXX: `bindSym` is currently broken and doesn't return proper type symbols
 # (the resulting nodes should have a `tyTypeDesc` type, but they don't)
@@ -68,15 +50,85 @@ template bnd(s): NimNode =
 template deref(so: StreamOutputRef): auto =
   outputs(so.Stream)[so.outputId]
 
-proc selectOutputType(s: StreamCodeNodes, dst: LogDestination): NimNode =
+proc open*(o: var FileOutput, path: string, mode = fmAppend): bool =
+  if o.outFile != nil:
+    close(o.outFile)
+    o.outFile = nil
+    o.outPath = ""
+
+  createDir path.splitFile.dir
+  result = open(o.outFile, path, mode)
+  if result:
+    o.outPath = path
+    o.mode = mode
+
+proc openOutput(o: var FileOutput) =
+  assert o.outPath.len > 0 and o.mode != fmRead
+  createDir o.outPath.splitFile.dir
+  o.outFile = open(o.outPath, o.mode)
+
+proc createFileOutput(path: string, mode: FileMode): FileOutput =
+  result.mode = mode
+  result.outPath = path
+
+# XXX:
+# Uncomenting this leads to an error message that the Outputs tuple
+# for the created steam doesn't have a defined destuctor. How come
+# destructors are not lifted automatically for tuples?
+#
+#proc `=destroy`*(o: var FileOutput) =
+#  if o.outFile != nil:
+#    close(o.outFile)
+
+#
+# All file outputs are stored inside an `outputs` tuple created for each
+# stream (see createStreamSymbol). The files are opened lazily when the
+# first log entries are about to be written and they are closed automatically
+# at program exit through their destructors (XXX: not working yet, see above).
+#
+# If some of the file outputs don't have assigned paths in the compile-time
+# configuration, chronicles will automatically choose the log file names using
+# the following rules:
+#
+# 1. The log file is created in the current working directory and its name
+#    matches the name of the stream (plus a '.log' extension). The exception
+#    for this rule is the 'default' stream, for which the log file will be
+#    assigned the name of the application binary.
+#
+# 2. If more than one unnamed file outputs exist for a given stream,
+#    chronicles will add an index such as '.2.log', '.3.log' .. '.N.log'
+#    to the final file name.
+#
+
+proc selectLogName(stream: string, outputId: int): string =
+  result = if stream != defaultChroniclesStreamName: stream
+           else: getAppFilename().splitFile.name
+
+  if outputId > 1: result.add("." & $outputId)
+  result.add ".log"
+
+proc selectOutputType(s: var StreamCodeNodes, dst: LogDestination): NimNode =
+  var outputId = 0
+  if dst.kind == toFile:
+    outputId = s.outputsTuple.len
+
+    let mode = if dst.truncate: bindSym"fmWrite"
+               else: bindSym"fmAppend"
+
+    let fileName = if dst.filename.len > 0: newLit(dst.filename)
+                   else: newCall(bindSym"selectLogName",
+                                 newLit($s.streamName), newLit(outputId))
+
+    s.outputsTuple.add newCall(bindSym"createFileOutput", fileName, mode)
+
   case dst.kind
   of toStdOut: bnd"StdOutOutput"
   of toStdErr: bnd"StdErrOutput"
   of toSysLog: bnd"SysLogOutput"
-  of toFile:   newTree(nnkBracketExpr,
-                       bnd"StreamOutputRef", s.streamName, newLit(dst.outputId))
+  of toFile: newTree(nnkBracketExpr,
+                     bnd"StreamOutputRef", s.streamName, newLit(outputId))
 
-proc selectRecordType(s: StreamCodeNodes, sink: SinkSpec): NimNode =
+proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   # This proc translates the SinkSpecs loaded in the `options` module
   # to their corresponding LogRecord types.
   #
@@ -122,7 +174,7 @@ proc selectRecordType(s: StreamCodeNodes, sink: SinkSpec): NimNode =
 # can support arbitrary combinations of log formats and destinations.
 
 template append*(o: var FileOutput, s: string) =
-  assert o.outFile != nil
+  if o.outFile == nil: openOutput(o)
   o.outFile.write s
 
 template flushOutput*(o: var FileOutput) =
@@ -369,6 +421,7 @@ template flushRecord*(r: var JsonRecord) =
 proc sinkSpecsToCode(streamName: NimNode,
                      sinks: seq[SinkSpec]): StreamCodeNodes =
   result.streamName = streamName
+  result.outputsTuple = newTree(nnkTupleConstr)
   if sinks.len > 1:
     result.recordType = newTree(nnkTupleConstr)
     for i in 0 ..< sinks.len:
@@ -382,10 +435,8 @@ template isStreamSymbolIMPL*(T: typed): bool = false
 
 import typetraits
 
-macro getOutputsTuple(t: typedesc): untyped =
-  result = newTree(nnkTupleConstr, bnd"FileOutput")
-
-macro createStreamSymbol(name: untyped, RecordType: typedesc): untyped =
+macro createStreamSymbol(name: untyped, RecordType: typedesc,
+                         outputsTuple: typed): untyped =
   let tlsSlot = newIdentNode($name & "TlsSlot")
   let Record  = newIdentNode($name & "LogRecord")
   let outputs = newIdentNode($name & "Outputs")
@@ -413,13 +464,23 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc): untyped =
     var `tlsSlot` {.threadvar.}: ptr BindingsFrame[`Record`]
     template tlsSlot*(S: type `name`): auto = `tlsSlot`
 
-    var `outputs`: getOutputsTuple(`Record`)
+    var `outputs` = `outputsTuple`
     template outputs*(S: type `name`): auto = `outputs`
     template output* (S: type `name`): auto = `outputs`[0]
 
+# This is a placeholder that will be overriden in the user code.
+# XXX: replace that with a proper check that the user type requires
+# an output resource.
+proc createOutput(T: typedesc): byte = discard
+
 macro customLogStream*(streamDef: untyped): untyped =
   syntaxCheckStreamExpr streamDef
-  return newCall(bindSym"createStreamSymbol", streamDef[0], streamDef[1])
+  let
+    createOutput = bindSym("createOutput", brForceOpen)
+    outputsTuple = newTree(nnkTupleConstr, newCall(createOutput, streamDef[1]))
+
+  return newCall(bindSym"createStreamSymbol",
+                 streamDef[0], streamDef[1], outputsTuple)
 
 macro logStream*(streamDef: untyped): untyped =
   # syntaxCheckStreamExpr streamDef
@@ -429,7 +490,7 @@ macro logStream*(streamDef: untyped): untyped =
     streamCode = sinkSpecsToCode(streamName, streamSinks)
 
   return newCall(bindSym"createStreamSymbol",
-                 streamName, streamCode.recordType)
+                 streamName, streamCode.recordType, streamCode.outputsTuple)
 
 macro createStreamRecordTypes: untyped =
   result = newStmtList()
@@ -440,48 +501,15 @@ macro createStreamRecordTypes: untyped =
       streamName = newIdentNode(s.name)
       streamCode = sinkSpecsToCode(streamName, s.sinks)
 
-    result.add getAst(createStreamSymbol(streamName, streamCode.recordType))
+    result.add getAst(createStreamSymbol(streamName,
+                                         streamCode.recordType,
+                                         streamCode.outputsTuple))
 
     if i == 0:
       result.add quote do:
         template activeChroniclesStream*: typedesc = `streamName`
 
+  echo result.repr
+
 createStreamRecordTypes()
-
-#
-# We open all file outputs at program start-up and close them automatically
-# via a proc registered with `addQuitProc`. If some of the file outputs don't
-# have assigned paths in the compile-time configuration, chronicles will
-# automatically choose the log file names using the following rules:
-#
-# 1. The log file is created in the current working directory and its name
-#    matches the name of the stream (plus a '.log' extension). The exception
-#    for this rule is the 'default' stream, for which the log file will be
-#    assigned the name of the application binary.
-#
-# 2. If more than one unnamed file outputs exist for a given stream,
-#    chronicles will add an index such as '.2.log', '.3.log' .. '.N.log'
-#    to the final file name.
-#
-
-for stream in config.streams:
-  var
-    autoLogsPrefix = if stream.name != "default": stream.name
-                    else: getAppFilename().splitFile.name
-    autoLogsCount = 0
-
-  for sink in stream.sinks:
-    for dst in sink.destinations:
-      if dst.kind == toFile:
-        var filename = dst.filename
-        if filename.len == 0:
-          inc autoLogsCount
-          filename = autoLogsPrefix
-          if autoLogsCount > 1: filename.add("." & $autoLogsCount)
-          filename.add ".log"
-
-        createDir(filename.splitFile.dir)
-
-        let openFlags = if dst.truncate: fmWrite else: fmAppend
-        # fileOutputs[dst.outputId] = open(filename, openFlags)
 
