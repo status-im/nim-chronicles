@@ -304,6 +304,17 @@ template initLogRecord*(r: var TextLineRecord, lvl: LogLevel, name: string) =
   when r.colors == AnsiColors: append(r.output, ansiResetCode)
 
 template setPropertyImpl(r: var TextLineRecord, key: string, val: auto) =
+  let valText = $val
+  var
+    escaped: string
+    valToWrite: ptr string
+
+  if valText.find(NewLines) == -1:
+    valToWrite = unsafeAddr valText
+  else:
+    escaped = escape(valText)
+    valToWrite = addr escaped
+
   when r.colors == AnsiColors:
     append(r.output, ansiForegroundColorCode(fgBlue, false))
 
@@ -313,7 +324,7 @@ template setPropertyImpl(r: var TextLineRecord, key: string, val: auto) =
   when r.colors == AnsiColors:
     append(r.output, static ansiStyleCode(styleBright))
 
-  append(r.output, $val)
+  append(r.output, valToWrite[])
 
   when r.colors == AnsiColors:
     append(r.output, ansiResetCode)
@@ -351,6 +362,8 @@ template initLogRecord*(r: var TextBlockRecord, lvl: LogLevel, name: string) =
     append(r.output, ansiResetCode)
 
 template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
+  let valText = $val
+
   append(r.output, textBlockIndent)
 
   when r.colors == AnsiColors:
@@ -362,8 +375,15 @@ template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
   when r.colors == AnsiColors:
     append(r.output, static ansiStyleCode(styleBright))
 
-  append(r.output, $val)
-  append(r.output, "\n")
+  if valText.find(NewLines) == -1:
+    append(r.output, valText)
+    append(r.output, "\n")
+  else:
+    # XXX: This should be a const, but the compiler fails with an ICE
+    let indentNextLine = static("\n" & textBlockIndent & repeat(' ', key.len + 2))
+    for line in splitLines(valText):
+      append(r.output, line)
+      append(r.output, indentNextLine)
 
   when r.colors == AnsiColors:
     append(r.output, ansiResetCode)
