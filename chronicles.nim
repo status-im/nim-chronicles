@@ -44,7 +44,7 @@ macro logScopeIMPL(prevScopes: typed,
   for k, v in assignments(bestScope.scopeAssignments):
     finalBindings[k] = v
 
-  for k, v in assignments(newBindings, false):
+  for k, v in assignments(newBindings):
     finalBindings[k] = v
 
   for k, v in finalBindings:

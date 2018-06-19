@@ -9,7 +9,7 @@ proc id*(key: string, public = false): NimNode =
   result = newIdentNode(key)
   if public: result = postfix(result, "*")
 
-iterator assignments*(n: NimNode, liftIdentifiers = true): (string, NimNode) =
+iterator assignments*(n: NimNode): (string, NimNode) =
   # extract the assignment pairs from a block with assigments
   # or a call-site with keyword arguments.
   for child in n:
@@ -18,7 +18,7 @@ iterator assignments*(n: NimNode, liftIdentifiers = true): (string, NimNode) =
       let value = child[1]
       yield (name, value)
 
-    elif child.kind == nnkIdent and liftIdentifiers:
+    elif child.kind == nnkIdent:
       yield ($child, child)
 
     else:

@@ -11,8 +11,9 @@ logScope:
 logScope:
   c = 100
 
-proc main =
+proc main(arg: int) =
   logScope:
+    arg
     c = 10
 
   logScope:
@@ -20,7 +21,7 @@ proc main =
 
   info("main started", a = 10, b = "inner-b", d = "some-d")
 
-main()
+main(50)
 
 info("exiting", msg = "bye bye")
 
