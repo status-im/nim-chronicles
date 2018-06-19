@@ -33,7 +33,7 @@ type
   JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
     output: Output
 
-  StreamOutputRef[Stream; outputId: static[int]] = object
+  StreamOutputRef*[Stream; outputId: static[int]] = object
 
   StreamCodeNodes = object
     streamName: NimNode
@@ -479,8 +479,9 @@ macro customLogStream*(streamDef: untyped): untyped =
     createOutput = bindSym("createOutput", brForceOpen)
     outputsTuple = newTree(nnkTupleConstr, newCall(createOutput, streamDef[1]))
 
-  return newCall(bindSym"createStreamSymbol",
-                 streamDef[0], streamDef[1], outputsTuple)
+  result = getAst(createStreamSymbol(streamDef[0],
+                                     streamDef[1],
+                                     outputsTuple))
 
 macro logStream*(streamDef: untyped): untyped =
   # syntaxCheckStreamExpr streamDef
@@ -489,8 +490,9 @@ macro logStream*(streamDef: untyped): untyped =
     streamName  = streamDef[0]
     streamCode = sinkSpecsToCode(streamName, streamSinks)
 
-  return newCall(bindSym"createStreamSymbol",
-                 streamName, streamCode.recordType, streamCode.outputsTuple)
+  result = getAst(createStreamSymbol(streamName,
+                                     streamCode.recordType,
+                                     streamCode.outputsTuple))
 
 macro createStreamRecordTypes: untyped =
   result = newStmtList()
@@ -508,8 +510,6 @@ macro createStreamRecordTypes: untyped =
     if i == 0:
       result.add quote do:
         template activeChroniclesStream*: typedesc = `streamName`
-
-  echo result.repr
 
 createStreamRecordTypes()
 
