@@ -307,8 +307,8 @@ the program.
 This option can be used to erase at compile-time all log statements, not
 matching the specified minimum log level.
 
-Possible values are 'DEBUG', 'INFO', 'NOTICE', 'WARN', 'ERROR', 'FATAL',
-and 'NONE'. The default value is 'DEBUG' in debug builds and `INFO` in
+Possible values are `DEBUG`, `INFO`, `NOTICE`, `WARN`, `ERROR`, `FATAL`,
+and `NONE`. The default value is `DEBUG` in debug builds and `INFO` in
 release mode.
 
 ### chronicles_runtime_filtering
