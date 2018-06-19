@@ -418,20 +418,22 @@ When a stream has `file` outputs, you may choose to provide the log file
 location at run-time. Chronicles will create each log file lazily when the
 first log record is written. This gives you a chance to modify the default
 compile-time path associated with each file output by calling the `open`
-proc on an `output` symbol associated with the stream.
-
-```
-nim c -d:chronicles_sink=file my_program.nim
-```
+proc on an `output` symbol associated with the stream:
 
 ``` nim
 # my_pgoram.nim
 
 var config = loadConfiguration()
-defaultChroniclesStream.output.open(config.logFile, fmAppend))
+let success = defaultChroniclesStream.output.open(config.logFile, fmAppend)
 
 info "APPLICATION STARTED"
 
+```
+
+Compiled with:
+
+```
+nim c -d:chronicles_sinks=file my_program.nim
 ```
 
 As you can see above, the default stream in Chronicles is called
@@ -444,12 +446,12 @@ a particular file output, Chronicles will use the following rules for picking
 the default automatically:
 
 1. The log file is created in the current working directory and its name
-   matches the name of the stream (plus a '.log' extension). The exception
+   matches the name of the stream (plus a `.log` extension). The exception
    for this rule is the default stream, for which the log file will be
    assigned the name of the application binary.
 
 2. If more than one unnamed file outputs exist for a given stream,
-   chronicles will add an index such as '.2.log', '.3.log' .. '.N.log'
+   chronicles will add an index such as `.2.log`, `.3.log` .. `.N.log`
    to the final file name.
 
 
