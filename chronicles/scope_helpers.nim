@@ -37,7 +37,10 @@ proc scopeRevision*(scopeBody: NimNode): int =
 
 proc lastScopeBody*(scopes: NimNode): NimNode =
   # get the most recent `activeChroniclesScope` body from a symChoice node
-  if scopes.kind in {nnkClosedSymChoice, nnkOpenSymChoice}:
+  case scopes.kind
+  of nnkCall:
+    result = lastScopeBody(scopes[^1])
+  of {nnkClosedSymChoice, nnkOpenSymChoice}:
     var bestScopeRev = 0
     assert scopes.len > 0
     for scope in scopes:
@@ -46,8 +49,10 @@ proc lastScopeBody*(scopes: NimNode): NimNode =
       if result == nil or rev > bestScopeRev:
         result = scopeBody
         bestScopeRev = rev
-  else:
+  of nnkSym:
     result = scopes.getImpl.body
+  else:
+    error &"Unexpected scope AST node ({scopes.kind}). Please report an issue."
 
 template finalLexicalBindings*(scopes: NimNode): NimNode =
   scopes.lastScopeBody.scopeAssignments
