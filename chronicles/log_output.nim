@@ -166,7 +166,11 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
 
   # Set the color scheme for the record types that require it
   if sink.format != json:
-    result.add newIdentNode($sink.colorScheme)
+    var colorScheme = sink.colorScheme
+    when not defined(windows):
+      # `NativeColors' means `AnsiColors` on non-Windows platforms:
+      if colorScheme == NativeColors: colorScheme = AnsiColors
+    result.add newIdentNode($colorScheme)
 
 # The `append` and `flushOutput` functions implement the actual writing
 # to the log destinations (which we call Outputs).
@@ -186,6 +190,9 @@ template flushOutput*(o: var StdOutOutput)       = stdout.flushFile
 
 template append*(o: var StdErrOutput, s: string) = stderr.write s
 template flushOutput*(o: var StdErrOutput)       = stderr.flushFile
+
+template getOutputStream(o: StdOutOutput): File = stdout
+template getOutputStream(o: StdErrOutput): File = stderr
 
 template append*(o: var StreamOutputRef, s: string) = append(deref(o), s)
 template flushOutput*(o: var StreamOutputRef)       = flushOutput(deref(o))
@@ -253,10 +260,28 @@ template writeTs(record) =
   else:
     append(record.output, $epochTime())
 
+template fgColor(record, color, brightness) =
+  when record.colors == AnsiColors:
+    append(record.output, ansiForegroundColorCode(color, brightness))
+  elif record.colors == NativeColors:
+    setForegroundColor(getOutputStream(record.output), color, brightness)
+
+template resetColors(record) =
+  when record.colors == AnsiColors:
+    append(record.output, ansiResetCode)
+  elif record.colors == NativeColors:
+    resetAttributes(getOutputStream(record.output))
+
+template applyStyle(record, style) =
+  when record.colors == AnsiColors:
+    append(record.output, ansiStyleCode(style))
+  elif record.colors == NativeColors:
+    setStyle(getOutputStream(record.output), {style})
+
 template appendLogLevelMarker(r: var auto, lvl: LogLevel) =
   append(r.output, "[")
 
-  when r.colors == AnsiColors:
+  when r.colors != NoColors:
     let (color, bright) = case lvl
                           of DEBUG: (fgGreen, true)
                           of INFO:  (fgGreen, false)
@@ -266,14 +291,14 @@ template appendLogLevelMarker(r: var auto, lvl: LogLevel) =
                           of FATAL: (fgRed, true)
                           else:     (fgWhite, false)
 
-    append(r.output, ansiForegroundColorCode(color, bright))
+    fgColor(r, color, bright)
 
   append(r.output, $lvl)
-
-  when r.colors == AnsiColors:
-    append(r.output, ansiResetCode)
-
+  resetColors(r)
   append(r.output, "] ")
+
+const
+  propColor = if defined(windows): fgCyan else: fgBlue
 
 #
 # A LogRecord is a single "logical line" in the output.
@@ -299,35 +324,28 @@ template initLogRecord*(r: var TextLineRecord, lvl: LogLevel, name: string) =
     append(r.output, "] ")
 
   appendLogLevelMarker(r, lvl)
-  when r.colors == AnsiColors: append(r.output, ansiStyleCode(styleBright))
+  applyStyle(r, styleBright)
   append(r.output, name)
-  when r.colors == AnsiColors: append(r.output, ansiResetCode)
+  resetColors(r)
 
 template setPropertyImpl(r: var TextLineRecord, key: string, val: auto) =
   let valText = $val
   var
     escaped: string
-    valToWrite: ptr string
+    valueToWrite: ptr string
 
   if valText.find(NewLines) == -1:
-    valToWrite = unsafeAddr valText
+    valueToWrite = unsafeAddr valText
   else:
     escaped = escape(valText)
-    valToWrite = addr escaped
+    valueToWrite = addr escaped
 
-  when r.colors == AnsiColors:
-    append(r.output, ansiForegroundColorCode(fgBlue, false))
-
+  fgColor(r, propColor, false)
   append(r.output, key)
   append(r.output, "=")
-
-  when r.colors == AnsiColors:
-    append(r.output, static ansiStyleCode(styleBright))
-
-  append(r.output, valToWrite[])
-
-  when r.colors == AnsiColors:
-    append(r.output, ansiResetCode)
+  applyStyle(r, styleBright)
+  append(r.output, valueToWrite[])
+  resetColors(r)
 
 template setFirstProperty*(r: var TextLineRecord, key: string, val: auto) =
   append(r.output, " (")
@@ -352,28 +370,18 @@ template initLogRecord*(r: var TextBlockRecord, lvl: LogLevel, name: string) =
     append(r.output, "] ")
 
   appendLogLevelMarker(r, lvl)
-
-  when r.colors == AnsiColors:
-    append(r.output, static ansiStyleCode(styleBright))
-
+  applyStyle(r, styleBright)
   append(r.output, name & "\n")
-
-  when r.colors == AnsiColors:
-    append(r.output, ansiResetCode)
+  resetColors(r)
 
 template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
   let valText = $val
 
   append(r.output, textBlockIndent)
-
-  when r.colors == AnsiColors:
-    append(r.output, ansiForegroundColorCode(fgBlue, false))
-
+  fgColor(r, propColor, false)
   append(r.output, key)
   append(r.output, ": ")
-
-  when r.colors == AnsiColors:
-    append(r.output, static ansiStyleCode(styleBright))
+  applyStyle(r, styleBright)
 
   if valText.find(NewLines) == -1:
     append(r.output, valText)
@@ -385,8 +393,7 @@ template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
       append(r.output, line)
       append(r.output, indentNextLine)
 
-  when r.colors == AnsiColors:
-    append(r.output, ansiResetCode)
+  resetColors(r)
 
 template setProperty*(r: var TextBlockRecord, key: string, val: auto) =
   setFirstProperty(r, key, val)
@@ -533,3 +540,28 @@ macro createStreamRecordTypes: untyped =
 
 createStreamRecordTypes()
 
+when defined(windows) and false:
+  # This is some experimental code that enables native ANSI color codes
+  # support on Windows 10 (it has been confirmed to work, but the feature
+  # detection should be done in a more robust way).
+  # Please note that Nim's terminal module already has some provisions for
+  # enabling the ANSI codes through calling `enableTrueColors`, but this
+  # relies internally on `getVersionExW` which doesn't always return the
+  # correct Windows version (the returned value depends on the manifest
+  # file shipped with the application). For more info, see MSDN:
+  # https://msdn.microsoft.com/en-us/library/windows/desktop/ms724451(v=vs.85).aspx
+  import winlean
+  const ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+
+  proc getConsoleMode(hConsoleHandle: Handle, dwMode: ptr DWORD): WINBOOL{.
+      stdcall, dynlib: "kernel32", importc: "GetConsoleMode".}
+
+  proc setConsoleMode(hConsoleHandle: Handle, dwMode: DWORD): WINBOOL{.
+      stdcall, dynlib: "kernel32", importc: "SetConsoleMode".}
+
+  var mode: DWORD = 0
+  if getConsoleMode(getStdHandle(STD_OUTPUT_HANDLE), addr(mode)) != 0:
+    mode = mode or ENABLE_VIRTUAL_TERMINAL_PROCESSING
+    if setConsoleMode(getStdHandle(STD_OUTPUT_HANDLE), mode) != 0:
+      discard
+      # echo "ANSI MODE ENABLED"

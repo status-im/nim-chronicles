@@ -370,7 +370,13 @@ its human-readable text formats when sent to the standard output streams.
 
 Possible values are:
 
-- `AnsiColors` (used by default)
+- `NativeColors` (used by default)
+
+  In this mode, Windows builds will produce output suitable for the console
+  application in older versions of Windows. On Unix-like systems, ANSI codes
+  are still used.
+
+- `AnsiColors` 
 
   Output suitable for terminals supporting the standard ANSI escape codes:
   https://en.wikipedia.org/wiki/ANSI_escape_code
@@ -378,12 +384,6 @@ Possible values are:
   This includes most terminal emulators on modern Unix-like systems,
   Windows console replacements such as ConEmu, and the native Console
   and PowerShell applications on Windows 10.
-
-- `NativeColors` (affects Windows only)
-
-  In this mode, Windows builds will produce output suitable for the console
-  application in older versions of Windows. On Unix-like systems, ANSI codes
-  are still used.
 
 - `None` or `NoColors`
 

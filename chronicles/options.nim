@@ -20,7 +20,7 @@ const
                                        else: "DEBUG"
 
   chronicles_timestamps {.strdefine.} = "RfcTime"
-  chronicles_colors* {.strdefine.} = "AnsiColors"
+  chronicles_colors* {.strdefine.} = "NativeColors"
 
   chronicles_indent {.intdefine.} = 2
 
