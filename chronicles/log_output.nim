@@ -1,5 +1,5 @@
 import
-  times, strutils, macros, options, terminal, os
+  times, macros, options, terminal, os
 
 export
   LogLevel
@@ -351,7 +351,8 @@ template setPropertyImpl(r: var TextLineRecord, key: string, val: auto) =
   if valText.find(NewLines) == -1:
     valueToWrite = unsafeAddr valText
   else:
-    escaped = escape(valText)
+    escaped = newStringOfCap(valText.len * valText.len div 8)
+    addQuoted(escaped, valText)
     valueToWrite = addr escaped
 
   fgColor(r, propColor, false)
