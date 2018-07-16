@@ -3,7 +3,8 @@ import xmldom, chronicles
 type XmlRecord[Output] = object
   output: Output
 
-template initLogRecord*(r: var XmlRecord, lvl: LogLevel, name: string) =
+template initLogRecord*(r: var XmlRecord, lvl: LogLevel,
+                        topics: string, name: string) =
   r.output.append "<event type=\"", escapeXml(name), "\" severity=\"", $lvl, "\">\n"
 
 template setProperty*(r: var XmlRecord, key: string, val: auto) =

@@ -13,6 +13,7 @@ logScope:
 
 proc main(arg: int) =
   logScope:
+    topics = "main"
     arg
     c = 10
 

@@ -120,7 +120,8 @@ A `logScope` is usually put near the top of a Nim module and used to
 specify statically assigned properties such as message origin, component
 name, etc. The special `topics` property demonstrated here is important
 for the log filtering mechanism, which will be explained in more details
-later.
+later. If present, this property will always appear first in the formatted
+log output.
 
 ### `publicLogScope`
 
@@ -505,7 +506,8 @@ import xmldom, chronicles
 type XmlRecord[Output] = object
   output: Output
 
-template initLogRecord*(r: var XmlRecord, lvl: LogLevel, name: string) =
+template initLogRecord*(r: var XmlRecord, lvl: LogLevel,
+                        topics: string, name: string) =
   r.output.append "<event name=\"", escapeXml(name), "\" severity=\"", $lvl, "\">\n"
 
 template setProperty*(r: var XmlRecord, key: string, val: auto) =

@@ -260,6 +260,10 @@ template writeTs(record) =
   else:
     append(record.output, $epochTime())
 
+const
+  propColor = if defined(windows): fgCyan else: fgBlue
+  topicsColor = fgYellow
+
 template fgColor(record, color, brightness) =
   when record.colors == AnsiColors:
     append(record.output, ansiForegroundColorCode(color, brightness))
@@ -297,8 +301,13 @@ template appendLogLevelMarker(r: var auto, lvl: LogLevel) =
   resetColors(r)
   append(r.output, "] ")
 
-const
-  propColor = if defined(windows): fgCyan else: fgBlue
+template appendTopics(r: var auto, topics: string) =
+  when topics.len > 0:
+    append(r.output, "[")
+    fgColor(r, topicsColor, true)
+    append(r.output, topics)
+    resetColors(r)
+    append(r.output, "] ")
 
 #
 # A LogRecord is a single "logical line" in the output.
@@ -317,13 +326,18 @@ const
 # Text line records:
 #
 
-template initLogRecord*(r: var TextLineRecord, lvl: LogLevel, name: string) =
+template initLogRecord*(r: var TextLineRecord,
+                        lvl: LogLevel,
+                        topics: string,
+                        name: string) =
   when r.timestamps != NoTimestamps:
     append(r.output, "[")
     writeTs(r)
     append(r.output, "] ")
 
   appendLogLevelMarker(r, lvl)
+  appendTopics(r, topics)
+
   applyStyle(r, styleBright)
   append(r.output, name)
   resetColors(r)
@@ -363,13 +377,17 @@ template flushRecord*(r: var TextLineRecord) =
 # Textblock records:
 #
 
-template initLogRecord*(r: var TextBlockRecord, lvl: LogLevel, name: string) =
+template initLogRecord*(r: var TextBlockRecord,
+                        lvl: LogLevel,
+                        topics: string,
+                        name: string) =
   when r.timestamps != NoTimestamps:
     append(r.output, "[")
     writeTs(r)
     append(r.output, "] ")
 
   appendLogLevelMarker(r, lvl)
+  appendTopics(r, topics)
   applyStyle(r, styleBright)
   append(r.output, name & "\n")
   resetColors(r)
@@ -410,9 +428,15 @@ import json
 
 template jsonEncode(x: auto): string = $(%x)
 
-template initLogRecord*(r: var JsonRecord, lvl: LogLevel, name: string) =
+template initLogRecord*(r: var JsonRecord,
+                        lvl: LogLevel,
+                        topics: string,
+                        name: string) =
   append(r.output, """{"msg": """ & jsonEncode(name) &
                    """, "lvl": """ & jsonEncode($lvl))
+
+  if topics.len > 0:
+    append(r.output, """, "topics": """ &  jsonEncode(topics))
 
   when r.timestamps != NoTimestamps:
     append(r.output, """, "ts": """")
@@ -476,8 +500,9 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
     template Record*(S: type `name`): typedesc = `Record`
 
     when `Record` is tuple:
-      template initLogRecord*(r: var `Record`, lvl: LogLevel, name: string) =
-        for f in r.fields: initLogRecord(f, lvl, name)
+      template initLogRecord*(r: var `Record`, lvl: LogLevel,
+                              topics: string, name: string) =
+        for f in r.fields: initLogRecord(f, lvl, topics, name)
 
       template setFirstProperty*(r: var `Record`, key: string, val: auto) =
         for f in r.fields: setFirstProperty(f, key, val)

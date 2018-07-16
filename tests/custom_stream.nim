@@ -4,7 +4,8 @@ import
 type
   MyRecord = object
 
-template initLogRecord*(r: var MyRecord, lvl: LogLevel, name: string) =
+template initLogRecord*(r: var MyRecord, lvl: LogLevel,
+                        topics: string, name: string) =
   stdout.write "[", lvl, "] ", name, ": "
 
 template setPropertyImpl(r: var MyRecord, key: string, val: auto) =

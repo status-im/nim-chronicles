@@ -178,16 +178,19 @@ macro logIMPL(Stream: typed,
   # logic to the generated run-time filtering code:
   var enabledTopicsMatch = enabledTopics.len == 0
   var requiredTopicsCount = requiredTopics.len
-  var currentTopics: seq[string] = @[]
+  var topicsNode = newLit("")
+  var activeTopics: seq[string] = @[]
 
   if finalBindings.hasKey("topics"):
-    let topicsNode = finalBindings["topics"]
+    topicsNode = finalBindings["topics"]
+    finalBindings.del("topics")
+
     if topicsNode.kind notin {nnkStrLit, nnkTripleStrLit}:
       error "Please specify the 'topics' list as a space separated string literal", topicsNode
 
-    currentTopics = topicsNode.strVal.split(Whitespace)
+    activeTopics = topicsNode.strVal.split(Whitespace)
 
-    for t in currentTopics:
+    for t in activeTopics:
       if t in disabledTopics:
         return
       elif t in enabledTopics:
@@ -200,7 +203,7 @@ macro logIMPL(Stream: typed,
 
   var code = newStmtList()
   when runtimeFilteringEnabled:
-    code.add runtimeTopicFilteringCode(severity, currentTopics)
+    code.add runtimeTopicFilteringCode(severity, activeTopics)
 
   # The rest of the code selects the active LogRecord type (which can
   # be a tuple when the sink has multiple destinations) and then
@@ -226,7 +229,8 @@ macro logIMPL(Stream: typed,
     let recordRef = if recordArity == 1: record
                     else: newTree(nnkBracketExpr, record, newLit(i))
     code.add quote do:
-      initLogRecord(`recordRef`, LogLevel(`severity`), `eventName`)
+      initLogRecord(`recordRef`, LogLevel(`severity`),
+                    `topicsNode`, `eventName`)
       setFirstProperty(`recordRef`, "thread", `threadId`)
 
     for k, v in finalBindings:
