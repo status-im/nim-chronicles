@@ -1,5 +1,5 @@
 import
-  times, macros, options, terminal, os
+  strutils, times, macros, options, terminal, os
 
 export
   LogLevel
