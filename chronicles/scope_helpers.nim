@@ -22,7 +22,7 @@ iterator assignments*(n: NimNode): (string, NimNode) =
       yield ($child, child)
 
     else:
-      error "A scope definitions should consist only of key-value assignments"
+      error "A scope definition should consist only of key-value assignments"
 
 proc scopeAssignments*(scopeBody: NimNode): NimNode =
   if scopeBody.len > 1:
