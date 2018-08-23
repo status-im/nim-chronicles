@@ -40,10 +40,11 @@ and it looks like this:
 
 ```
 time="2018-08-22 20:01:58" level=INFO msg="New incoming connection" thread=0 remoteAddr=192.168.1.2 remotePort=26532
-`
+```
+
 Chronicles also supports a format called `textblocks`, as seen in this
 example:
-``
+
 
 ![textblocks format example](media/textblocks.svg)
 
