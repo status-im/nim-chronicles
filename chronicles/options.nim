@@ -289,5 +289,8 @@ const
 
   config* = when chronicles_streams.len > 0: parseStreamsSpec(chronicles_streams)
             elif chronicles_sinks.len > 0:   parseSinksSpec(chronicles_sinks)
-            else: parseSinksSpec "textblocks"
+            # default is textlines - single-line format is good for interop with
+            # text processing tools like grep and logstash, good use of screen
+            # real estate
+            else: parseSinksSpec "textlines"
 

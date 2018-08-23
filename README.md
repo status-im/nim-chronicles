@@ -35,14 +35,14 @@ particular event that happened during the execution of the program, while
 the rest of the arguments are the properties of this event.
 
 From these logging statements, Chronicles can be configured to produce log
-output in various structured formats. The default format is called `textblocks`
+output in various structured formats. The default format is called `textlines`
 and it looks like this:
 
-![textblocks format example](media/textblocks.svg)
-
-Alternatively, you can use another human-readable format called `textlines`:
-
 ![textblocks format example](media/textlines.svg)
+
+Alternatively, you can use a multi-line format called `textblocks`:
+
+![textblocks format example](media/textblocks.svg)
 
 While these human-readable formats provide a more traditional and familiar
 experience of using a logging library, the true power of Chronicles is
@@ -377,7 +377,7 @@ Possible values are:
   application in older versions of Windows. On Unix-like systems, ANSI codes
   are still used.
 
-- `AnsiColors` 
+- `AnsiColors`
 
   Output suitable for terminals supporting the standard ANSI escape codes:
   https://en.wikipedia.org/wiki/ANSI_escape_code
