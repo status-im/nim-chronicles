@@ -20,6 +20,11 @@ type
   AnyOutput = FileOutput|StdOutOutput|StdErrOutput|
               SysLogOutput|BufferedOutput
 
+  LogFmtRecord*[Output;
+                timestamps: static[TimestampsScheme],
+                colors: static[ColorScheme]] = object
+    output: Output
+
   TextLineRecord*[Output;
                   timestamps: static[TimestampsScheme],
                   colors: static[ColorScheme]] = object
@@ -143,6 +148,7 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   # Determine the head symbol of the instantiation
   let RecordType = case sink.format
                    of json: bnd"JsonRecord"
+                   of logFmt: bnd"LogFmtRecord"
                    of textLines: bnd"TextLineRecord"
                    of textBlocks: bnd"TextBlockRecord"
 
@@ -282,9 +288,7 @@ template applyStyle(record, style) =
   elif record.colors == NativeColors:
     setStyle(getOutputStream(record.output), {style})
 
-template appendLogLevelMarker(r: var auto, lvl: LogLevel) =
-  append(r.output, "[")
-
+template appendLogLevelName(r: var auto, lvl: LogLevel) =
   when r.colors != NoColors:
     let (color, bright) = case lvl
                           of DEBUG: (fgGreen, true)
@@ -299,6 +303,10 @@ template appendLogLevelMarker(r: var auto, lvl: LogLevel) =
 
   append(r.output, $lvl)
   resetColors(r)
+
+template appendLogLevelMarker(r: var auto, lvl: LogLevel) =
+  append(r.output, "[")
+  appendLogLevelName(r, lvl)
   append(r.output, "] ")
 
 template appendTopics(r: var auto, topics: string) =
@@ -308,6 +316,85 @@ template appendTopics(r: var auto, topics: string) =
     append(r.output, topics)
     resetColors(r)
     append(r.output, "] ")
+
+#
+# logfmt, as described by https://brandur.org/logfmt
+#
+
+proc appendEscapedLogFmt(r: var auto, s: string) =
+  # see https://github.com/csquared/node-logfmt/blob/master/lib/stringify.js
+
+  if s.len == 0:
+    append(r, "\"\"")
+    return
+
+  # TODO: should we replace newlines? probably - this is supposed to be a
+  #       one-line-per-event format...
+  let
+    needs_quoting  = s.find(' ') > -1 or s.find('=') > -1
+    needs_escaping = s.find('"') > -1 or s.find("\\") > -1
+
+  if needs_quoting:
+    append(r, "\"")
+
+  if needs_escaping:
+    append(r, s.multiReplace(("\\", "\\\\"), ("\"", "\\\"")))
+  else:
+    append(r, s)
+
+  if needs_quoting:
+    append(r, "\"")
+
+template initLogRecord*(r: var LogFmtRecord,
+                        lvl: LogLevel,
+                        topics: string,
+                        name: string) =
+  when r.timestamps != NoTimestamps:
+    # TODO time could be unquoted if it didn't use space as separator..
+    append(r.output, "time=\"")
+    writeTs(r)
+    append(r.output, "\" ")
+
+  append(r.output, "level=")
+  appendLogLevelName(r, lvl)
+  append(r.output, " ")
+
+  when topics.len > 0:
+    append(r.output, "topics=\"")
+    fgColor(r, topicsColor, true)
+    append(r.output, topics)
+    resetColors(r)
+    append(r.output, "\" ")
+
+  applyStyle(r, styleBright)
+
+  when name.len > 0:
+    append(r.output, "msg=")
+    appendEscapedLogFmt(r.output, name)
+    append(r.output, " ")
+
+  resetColors(r)
+
+template setPropertyImpl(r: var LogFmtRecord, key: string, val: auto) =
+  let valText = $val
+
+  fgColor(r, propColor, false)
+  append(r.output, key)
+  append(r.output, "=")
+  applyStyle(r, styleBright)
+  appendEscapedLogFmt(r.output, valText)
+  resetColors(r)
+
+template setFirstProperty*(r: var LogFmtRecord, key: string, val: auto) =
+  setPropertyImpl(r, key, val)
+
+template setProperty*(r: var LogFmtRecord, key: string, val: auto) =
+  append(r.output, " ")
+  setPropertyImpl(r, key, val)
+
+template flushRecord*(r: var LogFmtRecord) =
+  append(r.output, "\n")
+  flushOutput(r.output)
 
 #
 # A LogRecord is a single "logical line" in the output.
