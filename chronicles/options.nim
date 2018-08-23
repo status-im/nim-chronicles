@@ -42,6 +42,7 @@ type
 
   LogFormat* = enum
     json,
+    logFmt,
     textLines,
     textBlocks
 
@@ -131,6 +132,8 @@ proc logFormatFromIdent(n: NimNode): LogFormat =
   case format.toLowerAscii
   of "json":
     return json
+  of "logfmt":
+    return logFmt
   of "textlines":
     return textLines
   of "textblocks":

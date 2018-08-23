@@ -44,6 +44,13 @@ Alternatively, you can use another human-readable format called `textlines`:
 
 ![textblocks format example](media/textlines.svg)
 
+Chronicles also supports [logfmt](https://brandur.org/logfmt), as seen in this
+example:
+
+```
+time="2018-08-22 20:01:58" level=INFO msg="New incoming connection" thread=0 remoteAddr=192.168.1.2 remotePort=26532
+```
+
 While these human-readable formats provide a more traditional and familiar
 experience of using a logging library, the true power of Chronicles is
 unlocked only after switching to the `JSON` format. Then, the same log output
@@ -377,7 +384,7 @@ Possible values are:
   application in older versions of Windows. On Unix-like systems, ANSI codes
   are still used.
 
-- `AnsiColors` 
+- `AnsiColors`
 
   Output suitable for terminals supporting the standard ANSI escape codes:
   https://en.wikipedia.org/wiki/ANSI_escape_code
