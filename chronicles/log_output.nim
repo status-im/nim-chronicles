@@ -24,6 +24,7 @@ type
                   timestamps: static[TimestampsScheme],
                   colors: static[ColorScheme]] = object
     output: Output
+    level: LogLevel
 
   TextBlockRecord*[Output;
                    timestamps: static[TimestampsScheme],
@@ -282,32 +283,62 @@ template applyStyle(record, style) =
   elif record.colors == NativeColors:
     setStyle(getOutputStream(record.output), {style})
 
-template appendLogLevelMarker(r: var auto, lvl: LogLevel) =
-  append(r.output, "[")
+template levelToStyle(lvl: LogLevel): untyped =
+  case lvl
+  of DEBUG: (fgGreen, true)
+  of INFO:  (fgGreen, false)
+  of NOTICE:(fgYellow, false)
+  of WARN:  (fgYellow, true)
+  of ERROR: (fgRed, false)
+  of FATAL: (fgRed, true)
+  of NONE:  (fgWhite, false)
 
-  when r.colors != NoColors:
-    let (color, bright) = case lvl
-                          of DEBUG: (fgGreen, true)
-                          of INFO:  (fgGreen, false)
-                          of NOTICE:(fgYellow, false)
-                          of WARN:  (fgYellow, true)
-                          of ERROR: (fgRed, false)
-                          of FATAL: (fgRed, true)
-                          else:     (fgWhite, false)
-
-    fgColor(r, color, bright)
-
-  append(r.output, $lvl)
+template appendLogLevelMarker(r: var auto, lvl: LogLevel, align: bool) =
+  let (color, bright) = levelToStyle(lvl)
+  let lvlString =
+    if align:
+      # using 4 characters for level brings it down to an acceptable
+      ($lvl)[0..3]
+    else:
+      $lvl
+  fgColor(r, color, bright)
+  append(r.output, $lvlString)
   resetColors(r)
-  append(r.output, "] ")
 
-template appendTopics(r: var auto, topics: string) =
-  when topics.len > 0:
-    append(r.output, "[")
+template appendHeader(r: var TextLineRecord | var TextBlockRecord,
+                      lvl: LogLevel,
+                      topics: string,
+                      name: string,
+                      pad: bool) =
+  # Log level comes first - allows for easy regex match with ^
+  appendLogLevelMarker(r, lvl, true)
+
+  when compiles(r.level):  # textlines color keys by level, so keep a record here
+    r.level = lvl
+
+  when r.timestamps != NoTimestamps:
+    append(r.output, " ")
+    writeTs(r)
+
+  if name.len > 0:
+    # no good way to tell how much padding is going to be needed so we
+    # choose an arbitrary number and use that - should be fine even for
+    # 80-char terminals
+    let padding = static(repeat(' ', if pad: 42 - min(42, name.len) else: 0))
+
+    append(r.output, " ")
+    applyStyle(r, styleBright)
+    append(r.output, name)
+    append(r.output, padding)
+    resetColors(r)
+
+  if topics.len > 0:
+    append(r.output, " topics=\"")
     fgColor(r, topicsColor, true)
     append(r.output, topics)
     resetColors(r)
-    append(r.output, "] ")
+    append(r.output, "\"")
+
 
 #
 # A LogRecord is a single "logical line" in the output.
@@ -330,48 +361,58 @@ template initLogRecord*(r: var TextLineRecord,
                         lvl: LogLevel,
                         topics: string,
                         name: string) =
-  when r.timestamps != NoTimestamps:
-    append(r.output, "[")
-    writeTs(r)
-    append(r.output, "] ")
-
-  appendLogLevelMarker(r, lvl)
-  appendTopics(r, topics)
-
-  applyStyle(r, styleBright)
-  append(r.output, name)
-  resetColors(r)
+  appendHeader(r, lvl, topics, name, true)
 
 template setPropertyImpl(r: var TextLineRecord, key: string, val: auto) =
   let valText = $val
+
   var
     escaped: string
     valueToWrite: ptr string
 
-  if valText.find(NewLines) == -1:
-    valueToWrite = unsafeAddr valText
-  else:
-    escaped = newStringOfCap(valText.len * valText.len div 8)
-    addQuoted(escaped, valText)
-    valueToWrite = addr escaped
+  # Escaping is done to avoid issues with quoting and newlines
+  # Quoting is done to distinguish strings with spaces in them from a new
+  # key-value pair
+  # This is similar to how it's done in logfmt:
+  # https://github.com/csquared/node-logfmt/blob/master/lib/stringify.js#L13
+  let
+    needsEscape = valText.find(NewLines + {'"', '\\'}) > -1
+    needsQuote = valText.find({' ', '='}) > -1
 
-  fgColor(r, propColor, false)
+  if needsEscape or needsQuote:
+    escaped = newStringOfCap(valText.len * valText.len div 8)
+    if needsEscape:
+      # addQuoted adds quotes and escapes a bunch of characters
+      # XXX addQuoted escapes more characters than what we look for in above
+      #     needsEscape check - it's a bit weird that way
+      addQuoted(escaped, valText)
+    elif needsQuote:
+      add(escaped, '"')
+      add(escaped, valText)
+      add(escaped, '"')
+    valueToWrite = addr escaped
+  else:
+    valueToWrite = unsafeAddr valText
+
+  let (color, bright) = levelToStyle(r.level)
+  fgColor(r, color, bright)
   append(r.output, key)
+  resetColors(r)
   append(r.output, "=")
-  applyStyle(r, styleBright)
+  fgColor(r, propColor, true)
   append(r.output, valueToWrite[])
   resetColors(r)
 
 template setFirstProperty*(r: var TextLineRecord, key: string, val: auto) =
-  append(r.output, " (")
+  append(r.output, " ")
   setPropertyImpl(r, key, val)
 
 template setProperty*(r: var TextLineRecord, key: string, val: auto) =
-  append(r.output, ", ")
+  append(r.output, " ")
   setPropertyImpl(r, key, val)
 
 template flushRecord*(r: var TextLineRecord) =
-  append(r.output, ")\n")
+  append(r.output, "\n")
   flushOutput(r.output)
 
 #
@@ -382,16 +423,8 @@ template initLogRecord*(r: var TextBlockRecord,
                         lvl: LogLevel,
                         topics: string,
                         name: string) =
-  when r.timestamps != NoTimestamps:
-    append(r.output, "[")
-    writeTs(r)
-    append(r.output, "] ")
-
-  appendLogLevelMarker(r, lvl)
-  appendTopics(r, topics)
-  applyStyle(r, styleBright)
-  append(r.output, name & "\n")
-  resetColors(r)
+  appendHeader(r, lvl, topics, name, false)
+  append(r.output, "\n")
 
 template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
   let valText = $val
