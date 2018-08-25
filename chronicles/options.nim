@@ -289,8 +289,17 @@ const
 
   config* = when chronicles_streams.len > 0: parseStreamsSpec(chronicles_streams)
             elif chronicles_sinks.len > 0:   parseSinksSpec(chronicles_sinks)
-            # default is textlines - single-line format is good for interop with
-            # text processing tools like grep and logstash, good use of screen
-            # real estate
+            # default is textlines because:
+            # * better compatibility with typical log processing tools
+            #   like grep, logstash etc where newline delieates events or units
+            # * easier to match with a regex
+            # * good use of screen real estate
+            # * wins nimbus developer straw poll
+            # alternatively, one could prefer to use "textblocks" - it can be
+            # enabled by passing -d:chronicles_sinks=textblocks
+            # * some tools understand that indented lines following newline
+            #   "belong" to the same logging eevent
+            # * wrapping more likely to happen making line hard to read on
+            #   narrow terminals
+            # * properies may be easier to find
             else: parseSinksSpec "textlines"
-
