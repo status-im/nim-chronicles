@@ -293,14 +293,22 @@ template levelToStyle(lvl: LogLevel): untyped =
   of FATAL: (fgRed, true)
   of NONE:  (fgWhite, false)
 
+template shortName(lvl: LogLevel): string =
+  # Same-length strings make for nice alignment
+  case lvl
+  of DEBUG: "DBG"
+  of INFO:  "INF"
+  of NOTICE:"NOT"
+  of WARN:  "WRN"
+  of ERROR: "ERR"
+  of FATAL: "FAT"
+  of NONE:  "   "
+
 template appendLogLevelMarker(r: var auto, lvl: LogLevel, align: bool) =
   let (color, bright) = levelToStyle(lvl)
   let lvlString =
-    if align:
-      # using 4 characters for level brings it down to an acceptable
-      ($lvl)[0..3]
-    else:
-      $lvl
+    if align: shortName(lvl)
+    else: $lvl
   fgColor(r, color, bright)
   append(r.output, $lvlString)
   resetColors(r)
@@ -470,7 +478,7 @@ template initLogRecord*(r: var JsonRecord,
                    """, "lvl": """ & jsonEncode($lvl))
 
   if topics.len > 0:
-    append(r.output, """, "topics": """ &  jsonEncode(topics))
+    append(r.output, """, "topics": """ & jsonEncode(topics))
 
   when r.timestamps != NoTimestamps:
     append(r.output, """, "ts": """")
