@@ -243,17 +243,7 @@ template optimizeBufferAppends*{
 
 proc appendRfcTimestamp(o: var auto) =
   var ts = now()
-  append(o, $ts.year)
-  append(o, "-")
-  append(o, intToStr(ord(ts.month), 2))
-  append(o, "-")
-  append(o, intToStr(ts.monthday, 2))
-  append(o, " ")
-  append(o, intToStr(ts.hour, 2))
-  append(o, ":")
-  append(o, intToStr(ts.minute, 2))
-  append(o, ":")
-  append(o, intToStr(ts.second, 2))
+  append(o, ts.format("yyyy-MM-dd HH:mm:sszzz"))
 
 template writeTs(record) =
   when record.timestamps == RfcTime:
@@ -305,12 +295,12 @@ template shortName(lvl: LogLevel): string =
   of NONE:  "   "
 
 template appendLogLevelMarker(r: var auto, lvl: LogLevel, align: bool) =
-  let (color, bright) = levelToStyle(lvl)
-  let lvlString =
-    if align: shortName(lvl)
-    else: $lvl
-  fgColor(r, color, bright)
-  append(r.output, $lvlString)
+  when r.colors != NoColors:
+    let (color, bright) = levelToStyle(lvl)
+    fgColor(r, color, bright)
+
+  append(r.output, when align: shortName(lvl)
+                   else: $lvl)
   resetColors(r)
 
 template appendHeader(r: var TextLineRecord | var TextBlockRecord,
@@ -321,7 +311,7 @@ template appendHeader(r: var TextLineRecord | var TextBlockRecord,
   # Log level comes first - allows for easy regex match with ^
   appendLogLevelMarker(r, lvl, true)
 
-  when compiles(r.level):  # textlines color keys by level, so keep a record here
+  when compiles(r.level): # textlines color keys by level, so keep a record here
     r.level = lvl
 
   when r.timestamps != NoTimestamps:
@@ -332,6 +322,7 @@ template appendHeader(r: var TextLineRecord | var TextBlockRecord,
     # no good way to tell how much padding is going to be needed so we
     # choose an arbitrary number and use that - should be fine even for
     # 80-char terminals
+    # XXX: This should be const, but the compiler fails with an ICE
     let padding = static(repeat(' ', if pad: 42 - min(42, name.len) else: 0))
 
     append(r.output, " ")
@@ -346,7 +337,6 @@ template appendHeader(r: var TextLineRecord | var TextBlockRecord,
     append(r.output, topics)
     resetColors(r)
     append(r.output, "\"")
-
 
 #
 # A LogRecord is a single "logical line" in the output.
@@ -402,8 +392,9 @@ template setPropertyImpl(r: var TextLineRecord, key: string, val: auto) =
   else:
     valueToWrite = unsafeAddr valText
 
-  let (color, bright) = levelToStyle(r.level)
-  fgColor(r, color, bright)
+  when r.colors != NoColors:
+    let (color, bright) = levelToStyle(r.level)
+    fgColor(r, color, bright)
   append(r.output, key)
   resetColors(r)
   append(r.output, "=")
