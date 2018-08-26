@@ -41,10 +41,10 @@ macro logScopeIMPL(prevScopes: typed,
                                                   id"chronicles",
                                                   id"activeChroniclesScope")
 
-  for k, v in assignments(bestScope.scopeAssignments):
+  for k, v in assignments(bestScope.scopeAssignments, acScopeBlock):
     finalBindings[k] = v
 
-  for k, v in assignments(newBindings):
+  for k, v in assignments(newBindings, acScopeBlock):
     finalBindings[k] = v
 
   for k, v in finalBindings:
@@ -166,10 +166,10 @@ macro logIMPL(Stream: typed,
   let lexicalBindings = scopes.finalLexicalBindings
   var finalBindings = initOrderedTable[string, NimNode]()
 
-  for k, v in assignments(lexicalBindings):
+  for k, v in assignments(lexicalBindings, acLogStatement):
     finalBindings[k] = v
 
-  for k, v in assignments(logStmtBindings):
+  for k, v in assignments(logStmtBindings, acLogStatement):
     finalBindings[k] = v
 
   finalBindings.sort do (lhs, rhs: auto) -> int: cmp(lhs[0], rhs[0])

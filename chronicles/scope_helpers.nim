@@ -4,12 +4,13 @@ import
 type
   BindingsSet* = Table[string, NimNode]
   FinalBindingsSet* = OrderedTable[string, NimNode]
+  AssignmentsContext* = enum acScopeBlock, acLogStatement
 
 proc id*(key: string, public = false): NimNode =
   result = newIdentNode(key)
   if public: result = postfix(result, "*")
 
-iterator assignments*(n: NimNode): (string, NimNode) =
+iterator assignments*(n: NimNode, c: AssignmentsContext): (string, NimNode) =
   # extract the assignment pairs from a block with assigments
   # or a call-site with keyword arguments.
   for child in n:
@@ -22,7 +23,10 @@ iterator assignments*(n: NimNode): (string, NimNode) =
       yield ($child, child)
 
     else:
-      error "A scope definition should consist only of key-value assignments"
+      if c == acScopeBlock:
+        error "A scope definition should consist only of key-value assignments"
+      else:
+        error "Log statements should use keyword parameters to specify the log event properties"
 
 proc scopeAssignments*(scopeBody: NimNode): NimNode =
   if scopeBody.len > 1:

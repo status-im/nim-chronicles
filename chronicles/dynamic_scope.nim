@@ -43,7 +43,7 @@ macro dynamicLogScopeIMPL*(Stream: typedesc,
     bindingsArray = newTree(nnkBracket)
     bindingsArraySym = genSym(nskLet, "bindings")
 
-  for name, value in assignments(args):
+  for name, value in assignments(args, acLogStatement):
     var bindingVar = genSym(nskLet, name)
 
     bindingsVars.add quote do:
