@@ -23,6 +23,7 @@ const
   chronicles_colors* {.strdefine.} = "NativeColors"
 
   chronicles_indent {.intdefine.} = 2
+  chronicles_line_numbers {.strdefine.} = "off"
 
   truthySwitches = ["yes", "1", "on", "true"]
   falsySwitches = ["no", "0", "off", "false", "none"]
@@ -286,6 +287,7 @@ const
   enabledTopics*  = topicsAsSeq chronicles_enabled_topics
   disabledTopics* = topicsAsSeq chronicles_disabled_topics
   requiredTopics* = topicsAsSeq chronicles_required_topics
+  lineNumbersEnabled* = handleYesNoOption chronicles_line_numbers
 
   config* = when chronicles_streams.len > 0: parseStreamsSpec(chronicles_streams)
             elif chronicles_sinks.len > 0:   parseSinksSpec(chronicles_sinks)

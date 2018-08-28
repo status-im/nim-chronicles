@@ -152,7 +152,10 @@ else:
   template setTopicState*(name, state) = runtimeFilteringDisabledError
   template setLogLevel*(name, state) = runtimeFilteringDisabledError
 
-macro logIMPL(Stream: typed,
+type InstInfo = tuple[filename: string, line: int, column: int]
+
+macro logIMPL(lineInfo: static InstInfo,
+              Stream: typed,
               RecordType: typedesc,
               eventName: static[string],
               severity: static[LogLevel],
@@ -180,6 +183,7 @@ macro logIMPL(Stream: typed,
   var requiredTopicsCount = requiredTopics.len
   var topicsNode = newLit("")
   var activeTopics: seq[string] = @[]
+  var lineNumbersSpec:bool = lineNumbersEnabled
 
   if finalBindings.hasKey("topics"):
     topicsNode = finalBindings["topics"]
@@ -197,7 +201,12 @@ macro logIMPL(Stream: typed,
         enabledTopicsMatch = true
       elif t in requiredTopics:
         dec requiredTopicsCount
-
+  
+  # Handling file name and line numbers on/off (lineNumbersEnabled) for particular log statements
+  if finalBindings.hasKey("chroniclesLineNumbers"):
+    lineNumbersSpec = $finalBindings["chroniclesLineNumbers"] == "true"
+    finalBindings.del("chroniclesLineNumbers")
+   
   if not enabledTopicsMatch or requiredTopicsCount > 0:
     return
 
@@ -217,6 +226,7 @@ macro logIMPL(Stream: typed,
     record = genSym(nskVar, "record")
     threadId = when compileOption("threads"): newCall("getThreadId")
                else: newLit(0)
+  var lineNumbersNN = newLit(lineNumbersSpec)
 
   code.add quote do:
     var `record`: `RecordType`
@@ -228,10 +238,13 @@ macro logIMPL(Stream: typed,
     # in `log_output` to kick in.
     let recordRef = if recordArity == 1: record
                     else: newTree(nnkBracketExpr, record, newLit(i))
+    var filename = lineInfo.filename & ":" & $lineInfo.line
     code.add quote do:
       initLogRecord(`recordRef`, LogLevel(`severity`),
                     `topicsNode`, `eventName`)
       setFirstProperty(`recordRef`, "thread", `threadId`)
+      if `lineNumbersNN`:
+        setProperty(`recordRef`, "file", `filename`)
 
     for k, v in finalBindings:
       code.add newCall("setProperty", recordRef, newLit(k), v)
@@ -240,14 +253,14 @@ macro logIMPL(Stream: typed,
   code.add newCall("flushRecord", record)
 
   result = newBlockStmt(id"chroniclesLogStmt", code)
-
+  echo result.repr
 # Translate all the possible overloads to `logIMPL`:
 template log*(severity: LogLevel,
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
 
   bind logIMPL, bindSym, brForceOpen
-  logIMPL(activeChroniclesStream(),
+  logIMPL(instantiationInfo(), activeChroniclesStream(),
           activeChroniclesStream().Record, eventName, severity,
           bindSym("activeChroniclesScope", brForceOpen), props)
 
@@ -257,7 +270,7 @@ template log*(stream: typedesc,
               props: varargs[untyped]) {.dirty.} =
 
   bind logIMPL, bindSym, brForceOpen
-  logIMPL(stream, stream.Record, eventName, severity,
+  logIMPL(instantiationInfo(), stream, stream.Record, eventName, severity,
           bindSym("activeChroniclesScope", brForceOpen), props)
 
 template logFn(name, severity) {.dirty.} =
@@ -265,7 +278,7 @@ template logFn(name, severity) {.dirty.} =
                    props: varargs[untyped]) {.dirty.} =
 
     bind logIMPL, bindSym, brForceOpen
-    logIMPL(activeChroniclesStream(),
+    logIMPL(instantiationInfo(), activeChroniclesStream(),
             activeChroniclesStream().Record, eventName, severity,
             bindSym("activeChroniclesScope", brForceOpen), props)
 
@@ -274,7 +287,7 @@ template logFn(name, severity) {.dirty.} =
                    props: varargs[untyped])  {.dirty.} =
 
     bind logIMPL, bindSym, brForceOpen
-    logIMPL(stream, stream.Record, eventName, severity,
+    logIMPL(instantiationInfo(), stream, stream.Record, eventName, severity,
             bindSym("activeChroniclesScope", brForceOpen), props)
 
 logFn debug , LogLevel.DEBUG
