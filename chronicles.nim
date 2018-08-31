@@ -183,7 +183,7 @@ macro logIMPL(lineInfo: static InstInfo,
   var requiredTopicsCount = requiredTopics.len
   var topicsNode = newLit("")
   var activeTopics: seq[string] = @[]
-  var lineNumbersSpec:bool = lineNumbersEnabled
+  var useLineNumbers = lineNumbersEnabled
 
   if finalBindings.hasKey("topics"):
     topicsNode = finalBindings["topics"]
@@ -201,12 +201,16 @@ macro logIMPL(lineInfo: static InstInfo,
         enabledTopicsMatch = true
       elif t in requiredTopics:
         dec requiredTopicsCount
-  
+
   # Handling file name and line numbers on/off (lineNumbersEnabled) for particular log statements
   if finalBindings.hasKey("chroniclesLineNumbers"):
-    lineNumbersSpec = $finalBindings["chroniclesLineNumbers"] == "true"
+    let chroniclesLineNumbers = $finalBindings["chroniclesLineNumbers"]
+    if chroniclesLineNumbers notin ["true", "false"]:
+      error("chroniclesLineNumbers should be set to either true or false",
+            finalBindings["chroniclesLineNumbers"])
+    useLineNumbers = chroniclesLineNumbers == "true"
     finalBindings.del("chroniclesLineNumbers")
-   
+
   if not enabledTopicsMatch or requiredTopicsCount > 0:
     return
 
@@ -226,7 +230,6 @@ macro logIMPL(lineInfo: static InstInfo,
     record = genSym(nskVar, "record")
     threadId = when compileOption("threads"): newCall("getThreadId")
                else: newLit(0)
-  var lineNumbersNN = newLit(lineNumbersSpec)
 
   code.add quote do:
     var `record`: `RecordType`
@@ -243,9 +246,9 @@ macro logIMPL(lineInfo: static InstInfo,
       initLogRecord(`recordRef`, LogLevel(`severity`),
                     `topicsNode`, `eventName`)
       setFirstProperty(`recordRef`, "thread", `threadId`)
-      if `lineNumbersNN`:
-        setProperty(`recordRef`, "file", `filename`)
 
+    if useLineNumbers:
+        code.add newCall("setProperty", recordRef, newLit("file"), newLit(filename))
     for k, v in finalBindings:
       code.add newCall("setProperty", recordRef, newLit(k), v)
 
@@ -253,7 +256,7 @@ macro logIMPL(lineInfo: static InstInfo,
   code.add newCall("flushRecord", record)
 
   result = newBlockStmt(id"chroniclesLogStmt", code)
-  echo result.repr
+
 # Translate all the possible overloads to `logIMPL`:
 template log*(severity: LogLevel,
               eventName: static[string],
