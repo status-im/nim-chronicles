@@ -364,6 +364,16 @@ Possible values are:
 Please note that the timestamp format can also be specified
 for individual sinks (see `chronicles_sinks`).
 
+### chronicles_line_numbers
+ This option, disabled by default, enables the display of filename and line number
+ where each record was instantiated. It adds a property `file` to the output, for example:
+
+> file: example.nim:15
+
+  While `chronicles_line_numbers` sets the default option for all records, it is
+  also possible to control the same property in a lexical scope or for a particular
+  log statement with `chroniclesLineNumbers`, which can be either `true` or `false`.
+
 ### chronicles_colors
 
 This option controls the default color scheme used by Chronicles for

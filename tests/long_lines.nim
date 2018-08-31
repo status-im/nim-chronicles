@@ -7,7 +7,7 @@ more lines"""
 
 logStream lines[textlines]
 
-lines.info "long info", str
+lines.info "long info", str, chroniclesLineNumbers = true
 lines.warn "long warning", str
 
 logStream blocks[textblocks]
