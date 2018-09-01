@@ -33,6 +33,7 @@ when chronicles_streams.len > 0 and chronicles_sinks.len > 0:
 
 type
   LogLevel* = enum
+    TRACE,
     DEBUG,
     INFO,
     NOTICE,

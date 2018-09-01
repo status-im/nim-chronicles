@@ -13,5 +13,5 @@ lines.warn "long warning", str
 logStream blocks[textblocks]
 
 blocks.info "long info", str
-blocks.warn "long warning", str
+blocks.warn "long warning", str, z = 10
 

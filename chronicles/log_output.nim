@@ -1,5 +1,5 @@
 import
-  strutils, times, macros, options, terminal, os
+  strutils, times, macros, options, terminal, os, syslog
 
 export
   LogLevel
@@ -12,27 +12,30 @@ type
 
   StdOutOutput* = object
   StdErrOutput* = object
+
   SysLogOutput* = object
+    currentRecordLevel: LogLevel
 
   BufferedOutput*[FinalOutputs: tuple] = object
+    finalOutputs: FinalOutputs
     buffer: string
 
-  AnyOutput = FileOutput|StdOutOutput|StdErrOutput|
-              SysLogOutput|BufferedOutput
+  AnyFileOutput = FileOutput|StdOutOutput|StdErrOutput
+  AnyOutput = AnyFileOutput|SysLogOutput|BufferedOutput
 
   TextLineRecord*[Output;
                   timestamps: static[TimestampsScheme],
                   colors: static[ColorScheme]] = object
-    output: Output
+    output*: Output
     level: LogLevel
 
   TextBlockRecord*[Output;
                    timestamps: static[TimestampsScheme],
                    colors: static[ColorScheme]] = object
-    output: Output
+    output*: Output
 
   JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
-    output: Output
+    output*: Output
 
   StreamOutputRef*[Stream; outputId: static[int]] = object
 
@@ -178,6 +181,15 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
 # The LogRecord types are parametric on their Output and this is how we
 # can support arbitrary combinations of log formats and destinations.
 
+template beginRecord*(o: var AnyFileOutput, level: LogLevel) = discard
+
+template beginRecord*(o: var SysLogOutput, level: LogLevel) =
+  o.currentRecordLevel = level
+
+template beginRecord*(o: var BufferedOutput, level: LogLevel) =
+  for f in o.finalOutputs.fields:
+    beginRecord(f, level)
+
 template append*(o: var FileOutput, s: string) =
   if o.outFile == nil: openOutput(o)
   o.outFile.write s
@@ -198,6 +210,17 @@ template getOutputStream(o: StdErrOutput): File = stderr
 template append*(o: var StreamOutputRef, s: string) = append(deref(o), s)
 template flushOutput*(o: var StreamOutputRef)       = flushOutput(deref(o))
 
+template append*(o: var SysLogOutput, s: string) =
+  case o.currentRecordLevel
+  of TRACE, DEBUG, NONE: syslog.debug(s)
+  of INFO:               syslog.info(s)
+  of NOTICE:             syslog.notice(s)
+  of WARN:               syslog.warning(s)
+  of ERROR:              syslog.error(s)
+  of FATAL:              syslog.crit(s)
+
+template flushOutput*(o: var SysLogOutput) = discard
+
 # The buffered Output works in a very simple way. The log message is first
 # buffered into a sting and when it needs to be flushed, we just instantiate
 # each of the Output types and call `append` and `flush` on the instance:
@@ -206,10 +229,9 @@ template append*(o: var BufferedOutput, s: string) =
   o.buffer.add(s)
 
 template flushOutput*(o: var BufferedOutput) =
-  var finalOuputs: o.FinalOutputs
-  for finalOutput in finalOuputs.fields:
-    append(finalOutput, o.buffer)
-    flushOutput(finalOutput)
+  for f in o.finalOutputs.fields:
+    append(f, o.buffer)
+    flushOutput(f)
 
 # We also define a macro form of `append` that takes multiple parameters and
 # just expands to one `append` call per parameter:
@@ -275,6 +297,7 @@ template applyStyle(record, style) =
 
 template levelToStyle(lvl: LogLevel): untyped =
   case lvl
+  of TRACE: (fgGreen, true)
   of DEBUG: (fgGreen, true)
   of INFO:  (fgGreen, false)
   of NOTICE:(fgYellow, false)
@@ -286,6 +309,7 @@ template levelToStyle(lvl: LogLevel): untyped =
 template shortName(lvl: LogLevel): string =
   # Same-length strings make for nice alignment
   case lvl
+  of TRACE: "TRC"
   of DEBUG: "DBG"
   of INFO:  "INF"
   of NOTICE:"NOT"
@@ -439,10 +463,13 @@ template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
     append(r.output, "\n")
   else:
     # XXX: This should be a const, but the compiler fails with an ICE
-    let indentNextLine = static("\n" & textBlockIndent & repeat(' ', key.len + 2))
+    let indent = static(textBlockIndent & repeat(' ', key.len + 2))
+    var first = true
     for line in splitLines(valText):
+      if not first: append(r.output, indent)
       append(r.output, line)
-      append(r.output, indentNextLine)
+      append(r.output, "\n")
+      first = false
 
   resetColors(r)
 

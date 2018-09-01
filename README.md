@@ -72,7 +72,7 @@ as [ElasticSearch][1] or specialized providers such as [Loggly][2].
 ## Logging Scopes
 
 In the introduction, we saw `debug` and `info` as examples for logging
-statements. Other similar statements include `notice`, `warn`, `error`
+statements. Other similar statements include `trace`, `notice`, `warn`, `error`
 and `fatal`. All of these statements accept arbitrary key-value pairs.
 As a short-cut, you are also allowed to specify only the name of a particular
 variable and Chronicles will create a key with the same name (i.e. passing
@@ -311,7 +311,7 @@ the program.
 This option can be used to erase at compile-time all log statements, not
 matching the specified minimum log level.
 
-Possible values are `DEBUG`, `INFO`, `NOTICE`, `WARN`, `ERROR`, `FATAL`,
+Possible values are `TRACE`, `DEBUG`, `INFO`, `NOTICE`, `WARN`, `ERROR`, `FATAL`,
 and `NONE`. The default value is `DEBUG` in debug builds and `INFO` in
 release mode.
 
@@ -323,7 +323,7 @@ and `setTopicState`:
 
 ```nim
 type LogLevel = enum
-  DEBUG, INFO, NOTICE, WARN, ERROR, FATAL, NONE
+  TRACE, DEBUG, INFO, NOTICE, WARN, ERROR, FATAL, NONE
 
 proc setLogLevel*(level: LogLevel)
 
@@ -365,14 +365,17 @@ Please note that the timestamp format can also be specified
 for individual sinks (see `chronicles_sinks`).
 
 ### chronicles_line_numbers
- This option, disabled by default, enables the display of filename and line number
- where each record was instantiated. It adds a property `file` to the output, for example:
 
-> file: example.nim:15
+This option, disabled by default, enables the display of filename and line number
+where each record was instantiated. It adds a property `file` to the output, for example:
 
-  While `chronicles_line_numbers` sets the default option for all records, it is
-  also possible to control the same property in a lexical scope or for a particular
-  log statement with `chroniclesLineNumbers`, which can be either `true` or `false`.
+```
+file: example.nim:15
+```
+
+While `chronicles_line_numbers` sets the default option for all records, it is
+also possible to control the same property in a lexical scope or for a particular
+log statement with `chroniclesLineNumbers`, which can be either `true` or `false`.
 
 ### chronicles_colors
 

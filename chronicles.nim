@@ -233,6 +233,7 @@ macro logIMPL(lineInfo: static InstInfo,
 
   code.add quote do:
     var `record`: `RecordType`
+    beginRecord(`record`.output, LogLevel(`severity`))
 
   for i in 0 ..< recordArity:
     # We do something complicated here on purpose.
@@ -248,7 +249,9 @@ macro logIMPL(lineInfo: static InstInfo,
       setFirstProperty(`recordRef`, "thread", `threadId`)
 
     if useLineNumbers:
-        code.add newCall("setProperty", recordRef, newLit("file"), newLit(filename))
+        code.add newCall("setProperty", recordRef,
+                         newLit("file"), newLit(filename))
+
     for k, v in finalBindings:
       code.add newCall("setProperty", recordRef, newLit(k), v)
 
@@ -293,6 +296,7 @@ template logFn(name, severity) {.dirty.} =
     logIMPL(instantiationInfo(), stream, stream.Record, eventName, severity,
             bindSym("activeChroniclesScope", brForceOpen), props)
 
+logFn trace , LogLevel.TRACE
 logFn debug , LogLevel.DEBUG
 logFn info  , LogLevel.INFO
 logFn notice, LogLevel.NOTICE
@@ -302,17 +306,11 @@ logFn fatal , LogLevel.FATAL
 
 # TODO:
 #
+# * dynamic sinks
+# * Android and iOS logging, mixed std streams (logging both to stdout and stderr?)
+# * evaluate the lexical expressions only once in the presence of multiple sinks
 # * dynamic scope overrides (plus maybe an option to control the priority
 #                            between dynamic and lexical bindings)
-# * evaluate the lexical expressions only once in the presence of multiple sinks
-# * syslog logging, Android and iOS logging, mixed std streams (logging both to stdout and stderr?)
-# * resource management scheme for custom streams
 # * custom streams must be able to affect third party libraries
 #   (perhaps they should work as Chronicles plugins)
-# * define a bounty for creating a better test suite
-# * define a bounty for implementing chronicles-tail
-#    - cross platform
-#    - interactive (on-the-fly commands can be entered)
-#    - allow filtering with custom (and/or expressions)
-#    - on-the-fly transforms, perhaps using the Nim VM?
 #

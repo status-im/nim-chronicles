@@ -7,7 +7,7 @@ description   = "A crafty implementation of structured logging for Nim"
 license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
-requires "nim >= 0.18.1"
+requires "nim >= 0.18.1", "syslog"
 
 proc configForTests() =
   --hints: off
