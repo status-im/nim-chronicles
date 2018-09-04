@@ -295,6 +295,13 @@ When the list includes multiple topics, any of them is considered a match.
 > In both contexts, the list of topics is written as a comma or space-separated
 string of case-sensitive topic names.
 
+In the list of topics, you can also optionally provide a log level after the
+topic, separated with a colon from the topic. If a log level is provided it will
+overrule the `chronicles_log_level` setting. The log level can be defined as
+`LogLevel` values or directly as the corresponding integer values.
+
+e.g. `-d:chronicles_enabled_topics:MyTopic:DEBUG,AnotherTopic:5`
+
 ### chronicles_required_topics
 
 Similar to `chronicles_enabled_topics`, but requires the logging statements
