@@ -330,8 +330,14 @@ proc setLogLevel*(level: LogLevel)
 type TopicState = enum
   Normal, Enabled, Required, Disabled
 
-proc setTopicState*(topicName: string, state: TopicState): bool
+proc setTopicState*(name: string,
+                    newState: TopicState,
+                    logLevel = LogLevel.NONE): bool
 ```
+
+It is also possible for a specific topic to overrule the global `LogLevel`, set
+by `setLogLevel`, by setting the optional `logLevel` parameter in
+`setTopicState` to a valid `LogLevel`.
 
 The option is disabled by default because we recommend filtering the
 log output in a tailing program. This allows you to still look at all
