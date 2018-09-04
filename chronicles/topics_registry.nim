@@ -1,4 +1,5 @@
 import macros, tables
+from options import LogLevel
 
 type
   TopicState* = enum
@@ -7,31 +8,37 @@ type
     Required,
     Disabled
 
+  Topic* = object
+    state*: TopicState
+    logLevel*: LogLevel
+
   TopicsRegisty* = object
     totalEnabledTopics*: int
     totalRequiredTopics*: int
-    topicStatesTable*: Table[string, ptr TopicState]
+    topicStatesTable*: Table[string, ptr Topic]
 
 proc initTopicsRegistry: TopicsRegisty =
-  result.topicStatesTable = initTable[string, ptr TopicState]()
+  result.topicStatesTable = initTable[string, ptr Topic]()
 
 var registry* = initTopicsRegistry()
 
 iterator topicStates*: (string, TopicState) =
-  for name, state in registry.topicStatesTable:
-    yield (name, state[])
+  for name, topic in registry.topicStatesTable:
+    yield (name, topic[].state)
 
-proc registerTopic*(name: string, state: ptr TopicState): ptr TopicState =
-  registry.topicStatesTable[name] = state
-  return state
+proc registerTopic*(name: string, topic: ptr Topic): ptr Topic =
+  registry.topicStatesTable[name] = topic
+  return topic
 
-proc setTopicState*(name: string, newState: TopicState): bool =
+proc setTopicState*(name: string,
+                    newState: TopicState,
+                    logLevel = LogLevel.NONE): bool =
   if not registry.topicStatesTable.hasKey(name):
     return false
 
-  var statePtr = registry.topicStatesTable[name]
+  var topicPtr = registry.topicStatesTable[name]
 
-  case statePtr[]
+  case topicPtr[].state
   of Enabled: dec registry.totalEnabledTopics
   of Required: dec registry.totalRequiredTopics
   else: discard
@@ -41,6 +48,7 @@ proc setTopicState*(name: string, newState: TopicState): bool =
   of Required: inc registry.totalRequiredTopics
   else: discard
 
-  statePtr[] = newState
-  return true
+  topicPtr[].state = newState
+  topicPtr[].logLevel = logLevel
 
+  return true

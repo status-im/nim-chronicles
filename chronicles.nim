@@ -108,10 +108,10 @@ when runtimeFilteringEnabled:
   proc setLogLevel*(lvl: LogLevel) =
     gActiveLogLevel = lvl
 
-  proc topicStateIMPL(topicName: static[string]): ptr TopicState =
-    var state {.global.}: TopicState
-    var dummy {.global.} = registerTopic(topicName, addr(state))
-    return addr(state)
+  proc topicStateIMPL(topicName: static[string]): ptr Topic =
+    var topic {.global.}: Topic = Topic(state: Normal, logLevel: NONE)
+    var dummy {.global.} = registerTopic(topicName, addr(topic))
+    return addr(topic)
 
   proc runtimeTopicFilteringCode*(logLevel: LogLevel, topics: seq[string]): NimNode =
     # This proc generates the run-time code used for topic filtering.
@@ -126,20 +126,24 @@ when runtimeFilteringEnabled:
       topicChecks = newStmtList()
 
     result.add quote do:
-      if LogLevel(`logLevel`) < gActiveLogLevel:
-        break chroniclesLogStmt
 
       var `matchEnabledTopics` = registry.totalEnabledTopics == 0
       var `requiredTopicsCount` = registry.totalRequiredTopics
 
     for topic in topics:
       result.add quote do:
-        let s = topicStateIMPL(`topic`)
-        case s[]
+        let t = topicStateIMPL(`topic`)
+        case t[].state
         of Normal: discard
         of Enabled: `matchEnabledTopics` = true
         of Disabled: break chroniclesLogStmt
         of Required: dec `requiredTopicsCount`
+
+        if t[].logLevel == NONE:
+          if LogLevel(`logLevel`) < gActiveLogLevel:
+            break chroniclesLogStmt
+        elif LogLevel(`logLevel`) < t[].logLevel:
+          break chroniclesLogStmt
 
     result.add quote do:
       if not `matchEnabledTopics` or `requiredTopicsCount` > 0:

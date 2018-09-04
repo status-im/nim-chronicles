@@ -62,3 +62,27 @@ echo setTopicState("bar", Normal)
 foo()
 bar()
 
+echo "> set main to WARN, none should print:"
+echo setTopicState("main", Normal, WARN)
+echo setTopicState("foo", Normal)
+echo setTopicState("bar", Normal)
+
+foo()
+bar()
+
+echo "> set foo to INFO, main back to default, foo should print:"
+echo setTopicState("main", Normal)
+echo setTopicState("foo", Normal, INFO)
+echo setTopicState("bar", Normal, WARN)
+
+foo()
+bar()
+
+echo "> set global LogLevel to WARN, set main and foo to INFO, foo should print:"
+setLogLevel(WARN)
+echo setTopicState("main", Normal, INFO)
+echo setTopicState("foo", Normal, INFO)
+echo setTopicState("bar", Normal)
+
+foo()
+bar()
