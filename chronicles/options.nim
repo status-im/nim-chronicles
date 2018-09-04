@@ -88,6 +88,10 @@ type
   Configuration* = object
     streams*: seq[StreamSpec]
 
+  Topic* = object
+    name*: string
+    logLevel*: LogLevel
+
 const defaultChroniclesStreamName* = "defaultChroniclesStream"
 
 proc handleYesNoOption(optName: string,
@@ -124,9 +128,25 @@ template handleEnumOption(E, varName: untyped): auto =
 
 template topicsAsSeq(topics: string): untyped =
   when topics.len > 0:
-    topics.split(Whitespace)
+    topics.split({','} + Whitespace)
   else:
     newSeq[string](0)
+
+template topicsWithLogLevelAsSeq(topics: string): untyped =
+  var sequence = newSeq[Topic](0)
+  when topics.len > 0:
+    for topic in split(topics, {','} + Whitespace):
+      var values = topic.split(':')
+      if values.len > 1:
+        if values[1].isDigit:
+          sequence.add(Topic(name: values[0],
+                             logLevel: LogLevel(parseInt(values[1]))))
+        else:
+          sequence.add(Topic(name: values[0],
+                             logLevel: handleEnumOption(LogLevel, values[1])))
+      else:
+        sequence.add(Topic(name: values[0], logLevel: None))
+  sequence
 
 proc logFormatFromIdent(n: NimNode): LogFormat =
   let format = $n
@@ -285,7 +305,7 @@ const
 
   textBlockIndent* = repeat(' ', chronicles_indent)
 
-  enabledTopics*  = topicsAsSeq chronicles_enabled_topics
+  enabledTopics*  = topicsWithLogLevelAsSeq chronicles_enabled_topics
   disabledTopics* = topicsAsSeq chronicles_disabled_topics
   requiredTopics* = topicsAsSeq chronicles_required_topics
   lineNumbersEnabled* = handleYesNoOption chronicles_line_numbers

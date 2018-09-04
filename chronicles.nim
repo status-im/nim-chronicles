@@ -165,7 +165,7 @@ macro logIMPL(lineInfo: static InstInfo,
               severity: static[LogLevel],
               scopes: typed,
               logStmtBindings: varargs[untyped]): untyped =
-  if not loggingEnabled or severity < enabledLogLevel: return
+  if not loggingEnabled: return
   clearEmptyVarargs logStmtBindings
 
   # First, we merge the lexical bindings with the additional
@@ -184,6 +184,7 @@ macro logIMPL(lineInfo: static InstInfo,
   # This is the compile-time topic filtering code, which has a similar
   # logic to the generated run-time filtering code:
   var enabledTopicsMatch = enabledTopics.len == 0
+  var enabledTopicsLevel = enabledLogLevel
   var requiredTopicsCount = requiredTopics.len
   var topicsNode = newLit("")
   var activeTopics: seq[string] = @[]
@@ -196,15 +197,19 @@ macro logIMPL(lineInfo: static InstInfo,
     if topicsNode.kind notin {nnkStrLit, nnkTripleStrLit}:
       error "Please specify the 'topics' list as a space separated string literal", topicsNode
 
-    activeTopics = topicsNode.strVal.split(Whitespace)
+    activeTopics = topicsNode.strVal.split({','} + Whitespace)
 
     for t in activeTopics:
       if t in disabledTopics:
         return
-      elif t in enabledTopics:
-        enabledTopicsMatch = true
-      elif t in requiredTopics:
-        dec requiredTopicsCount
+      else:
+        for topic in enabledTopics:
+          if topic.name == t:
+            enabledTopicsMatch = true
+            if topic.logLevel != None:
+              enabledTopicsLevel = topic.logLevel
+        if t in requiredTopics:
+          dec requiredTopicsCount
 
   # Handling file name and line numbers on/off (lineNumbersEnabled) for particular log statements
   if finalBindings.hasKey("chroniclesLineNumbers"):
@@ -215,7 +220,7 @@ macro logIMPL(lineInfo: static InstInfo,
     useLineNumbers = chroniclesLineNumbers == "true"
     finalBindings.del("chroniclesLineNumbers")
 
-  if not enabledTopicsMatch or requiredTopicsCount > 0:
+  if not enabledTopicsMatch or requiredTopicsCount > 0 or severity < enabledTopicsLevel:
     return
 
   var code = newStmtList()
