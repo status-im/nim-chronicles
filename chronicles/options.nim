@@ -33,14 +33,14 @@ when chronicles_streams.len > 0 and chronicles_sinks.len > 0:
 
 type
   LogLevel* = enum
+    NONE,
     TRACE,
     DEBUG,
     INFO,
     NOTICE,
     WARN,
     ERROR,
-    FATAL,
-    NONE
+    FATAL
 
   LogFormat* = enum
     json,
@@ -88,7 +88,7 @@ type
   Configuration* = object
     streams*: seq[StreamSpec]
 
-  Topic* = object
+  EnabledTopic* = object
     name*: string
     logLevel*: LogLevel
 
@@ -132,21 +132,22 @@ template topicsAsSeq(topics: string): untyped =
   else:
     newSeq[string](0)
 
-template topicsWithLogLevelAsSeq(topics: string): untyped =
-  var sequence = newSeq[Topic](0)
-  when topics.len > 0:
+proc topicsWithLogLevelAsSeq(topics: string): untyped =
+  var sequence = newSeq[EnabledTopic](0)
+  if topics.len > 0:
     for topic in split(topics, {','} + Whitespace):
       var values = topic.split(':')
       if values.len > 1:
         if values[1].isDigit:
-          sequence.add(Topic(name: values[0],
-                             logLevel: LogLevel(parseInt(values[1]))))
+          sequence.add(EnabledTopic(name: values[0],
+                                    logLevel: LogLevel(parseInt(values[1]))))
         else:
-          sequence.add(Topic(name: values[0],
-                             logLevel: handleEnumOption(LogLevel, values[1])))
+          sequence.add(EnabledTopic(name: values[0],
+                                    logLevel: handleEnumOption(LogLevel,
+                                                               values[1])))
       else:
-        sequence.add(Topic(name: values[0], logLevel: None))
-  sequence
+        sequence.add(EnabledTopic(name: values[0], logLevel: NONE))
+  return sequence
 
 proc logFormatFromIdent(n: NimNode): LogFormat =
   let format = $n

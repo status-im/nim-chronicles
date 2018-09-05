@@ -133,16 +133,16 @@ when runtimeFilteringEnabled:
     for topic in topics:
       result.add quote do:
         let t = topicStateIMPL(`topic`)
-        case t[].state
+        case t.state
         of Normal: discard
         of Enabled: `matchEnabledTopics` = true
         of Disabled: break chroniclesLogStmt
         of Required: dec `requiredTopicsCount`
 
-        if t[].logLevel == NONE:
+        if t.logLevel == NONE:
           if LogLevel(`logLevel`) < gActiveLogLevel:
             break chroniclesLogStmt
-        elif LogLevel(`logLevel`) < t[].logLevel:
+        elif LogLevel(`logLevel`) < t.logLevel:
           break chroniclesLogStmt
 
     result.add quote do:
@@ -183,8 +183,7 @@ macro logIMPL(lineInfo: static InstInfo,
 
   # This is the compile-time topic filtering code, which has a similar
   # logic to the generated run-time filtering code:
-  var enabledTopicsMatch = enabledTopics.len == 0
-  var enabledTopicsLevel = enabledLogLevel
+  var enabledTopicsMatch = enabledTopics.len == 0 and severity >= enabledLogLevel
   var requiredTopicsCount = requiredTopics.len
   var topicsNode = newLit("")
   var activeTopics: seq[string] = @[]
@@ -205,11 +204,16 @@ macro logIMPL(lineInfo: static InstInfo,
       else:
         for topic in enabledTopics:
           if topic.name == t:
-            enabledTopicsMatch = true
-            if topic.logLevel != None:
-              enabledTopicsLevel = topic.logLevel
+            if topic.logLevel != NONE:
+              if severity >= topic.logLevel:
+                enabledTopicsMatch = true
+            elif severity >= enabledLogLevel:
+              enabledTopicsMatch = true
         if t in requiredTopics:
           dec requiredTopicsCount
+
+  if not enabledTopicsMatch or requiredTopicsCount > 0:
+    return
 
   # Handling file name and line numbers on/off (lineNumbersEnabled) for particular log statements
   if finalBindings.hasKey("chroniclesLineNumbers"):
@@ -219,9 +223,6 @@ macro logIMPL(lineInfo: static InstInfo,
             finalBindings["chroniclesLineNumbers"])
     useLineNumbers = chroniclesLineNumbers == "true"
     finalBindings.del("chroniclesLineNumbers")
-
-  if not enabledTopicsMatch or requiredTopicsCount > 0 or severity < enabledTopicsLevel:
-    return
 
   var code = newStmtList()
   when runtimeFilteringEnabled:
