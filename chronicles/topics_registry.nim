@@ -24,7 +24,7 @@ var registry* = initTopicsRegistry()
 
 iterator topicStates*: (string, TopicState) =
   for name, topic in registry.topicStatesTable:
-    yield (name, topic[].state)
+    yield (name, topic.state)
 
 proc registerTopic*(name: string, topic: ptr Topic): ptr Topic =
   registry.topicStatesTable[name] = topic
@@ -38,7 +38,7 @@ proc setTopicState*(name: string,
 
   var topicPtr = registry.topicStatesTable[name]
 
-  case topicPtr[].state
+  case topicPtr.state
   of Enabled: dec registry.totalEnabledTopics
   of Required: dec registry.totalRequiredTopics
   else: discard
@@ -48,7 +48,7 @@ proc setTopicState*(name: string,
   of Required: inc registry.totalRequiredTopics
   else: discard
 
-  topicPtr[].state = newState
-  topicPtr[].logLevel = logLevel
+  topicPtr.state = newState
+  topicPtr.logLevel = logLevel
 
   return true
