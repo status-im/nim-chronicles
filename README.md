@@ -616,10 +616,12 @@ test suite successfully.
 
 [Bounties]: https://github.com/status-im/nim-chronicles/issues?q=is%3Aissue+is%3Aopen+label%3Abounty
 
-
 ## License
 
-Licensed at your option under either of:
+Licensed and distributed under either of
 
- * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+* MIT license: [LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT
+* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+
+at your option. This file may not be copied, modified, or distributed except according to those terms.
+
