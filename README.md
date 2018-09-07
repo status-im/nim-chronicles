@@ -307,11 +307,17 @@ e.g. `-d:chronicles_enabled_topics:MyTopic:DEBUG,AnotherTopic:5`
 Similar to `chronicles_enabled_topics`, but requires the logging statements
 to have all of the topics specified in this list.
 
+You cannot specify `chronicles_enabled_topics` and `chronicles_required_topics`
+at the same time.
+
 ### chronicles_disabled_topics
 
 The dual of `chronicles_enabled_topics`. This option specifies a black-list
 of topics for which the associated logging statements should be erased from
 the program.
+
+Topics in `chronicles_disabled_topics` have precedence over the ones in
+`chronicles_enabled_topics` or `chronicles_required_topics`.
 
 ### chronicles_log_level
 
