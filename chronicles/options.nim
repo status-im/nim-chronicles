@@ -30,6 +30,8 @@ const
 
 when chronicles_streams.len > 0 and chronicles_sinks.len > 0:
   {.error: "Please specify only one of the options 'chronicles_streams' and 'chronicles_sinks'." }
+when chronicles_enabled_topics.len > 0 and chronicles_required_topics.len > 0:
+  {.error: "Please specify only one of the options 'chronicles_enabled_topics' and 'chronicles_required_topics'." }
 
 type
   LogLevel* = enum
