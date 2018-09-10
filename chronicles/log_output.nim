@@ -182,6 +182,7 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
 # can support arbitrary combinations of log formats and destinations.
 
 template beginRecord*(o: var AnyFileOutput, level: LogLevel) = discard
+template beginRecord*(o: var StreamOutputRef, level: LogLevel) = discard
 
 template beginRecord*(o: var SysLogOutput, level: LogLevel) =
   o.currentRecordLevel = level
