@@ -1,5 +1,5 @@
 import
-  strutils, times, macros, options, terminal, os, syslog
+  strutils, times, macros, options, terminal, os
 
 export
   LogLevel
@@ -43,6 +43,24 @@ type
     streamName: NimNode
     recordType: NimNode
     outputsTuple: NimNode
+
+when defined(posix):
+  {.pragma: syslog_h, importc, header: "<syslog.h>"}
+
+  # proc openlog(ident: cstring, option, facility: int) {.syslog_h.}
+  proc syslog(priority: int, format: cstring, msg: cstring) {.syslog_h.}
+  # proc closelog() {.syslog_h.}
+
+  var LOG_EMERG {.syslog_h.}: int
+  var LOG_ALERT {.syslog_h.}: int
+  var LOG_CRIT {.syslog_h.}: int
+  var LOG_ERR {.syslog_h.}: int
+  var LOG_WARNING {.syslog_h.}: int
+  var LOG_NOTICE {.syslog_h.}: int
+  var LOG_INFO {.syslog_h.}: int
+  var LOG_DEBUG {.syslog_h.}: int
+
+  var LOG_PID {.syslog_h.}: int
 
 # XXX: `bindSym` is currently broken and doesn't return proper type symbols
 # (the resulting nodes should have a `tyTypeDesc` type, but they don't)
@@ -212,13 +230,15 @@ template append*(o: var StreamOutputRef, s: string) = append(deref(o), s)
 template flushOutput*(o: var StreamOutputRef)       = flushOutput(deref(o))
 
 template append*(o: var SysLogOutput, s: string) =
-  case o.currentRecordLevel
-  of TRACE, DEBUG, NONE: syslog.debug(s)
-  of INFO:               syslog.info(s)
-  of NOTICE:             syslog.notice(s)
-  of WARN:               syslog.warning(s)
-  of ERROR:              syslog.error(s)
-  of FATAL:              syslog.crit(s)
+  let syslogLevel = case o.currentRecordLevel
+                    of TRACE, DEBUG, NONE: LOG_DEBUG
+                    of INFO:               LOG_INFO
+                    of NOTICE:             LOG_NOTICE
+                    of WARN:               LOG_WARNING
+                    of ERROR:              LOG_ERR
+                    of FATAL:              LOG_CRIT
+
+  syslog(syslogLevel or LOG_PID, "%s", s)
 
 template flushOutput*(o: var SysLogOutput) = discard
 
