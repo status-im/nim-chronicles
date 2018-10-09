@@ -292,7 +292,7 @@ template writeTs(record) =
   when record.timestamps == RfcTime:
     appendRfcTimestamp(record.output)
   else:
-    append(record.output, $epochTime())
+    append(record.output, formatFloat(epochTime(), ffDecimal, 6))
 
 const
   propColor = if defined(windows): fgCyan else: fgBlue
