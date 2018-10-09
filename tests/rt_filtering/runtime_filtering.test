@@ -1,0 +1,17 @@
+program="runtime_filtering"
+chronicles_sinks="textlines[file]"
+chronicles_runtime_filtering="on"
+chronicles_colors="AnsiColors"
+chronicles_timestamps=None
+
+[Output]
+runtime_filtering.log="""[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
+[32mINF[0m [1mfrom bar                                  [0m topics="[93mmain bar[0m" [32mthread[0m=[94m0[0m
+[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
+[32mINF[0m [1mfrom bar                                  [0m topics="[93mmain bar[0m" [32mthread[0m=[94m0[0m
+[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
+[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
+[32mINF[0m [1mfrom bar                                  [0m topics="[93mmain bar[0m" [32mthread[0m=[94m0[0m
+[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
+[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
+"""

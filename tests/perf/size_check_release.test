@@ -1,0 +1,111 @@
+--skip ; this test takes long indeed, see issue #29
+program=size
+max_size=1
+release
+
+chronicles_sinks="textlines[stdout]"
+chronicles_colors=AnsiColors
+chronicles_timestamps="None"
+
+[Output]
+stdout="""[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+[32mINF[0m [1mhello                                     [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m2[0m [32mc[0m=[94m3[0m [32md[0m=[94m4[0m [32me[0m=[94m5[0m
+"""

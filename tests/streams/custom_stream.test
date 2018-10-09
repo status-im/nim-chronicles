@@ -1,0 +1,11 @@
+program="custom_stream"
+chronicles_sinks="textlines[stdout]"
+chronicles_colors="AnsiColors"
+chronicles_timestamps=None
+
+[Output]
+stdout="""[32mINF[0m [1mbefore main                               [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m1[0m [32mb[0m=[94m3[0m
+[INFO] inside main:  (thread=0, key=val)
+[32mINF[0m [1mafter main                                [0m [32mthread[0m=[94m0[0m
+[WARN] exiting:  (thread=0)
+"""

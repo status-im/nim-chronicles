@@ -1,0 +1,9 @@
+program=runtime_path
+chronicles_sinks="textlines[file]"
+chronicles_colors="AnsiColors"
+chronicles_timestamps=None
+
+[Output]
+stdout=""""""
+mylog.log="""[32mINF[0m [1mlog record                                [0m [32mthread[0m=[94m0[0m [32mprop[0m=[94m10[0m
+"""

@@ -1,0 +1,16 @@
+program=lexical_scopes
+chronicles_sinks="textlines[stdout,file]"
+chronicles_colors=AnsiColors
+chronicles_timestamps="UnixTime"
+
+; any float
+timestamp_peg=r"{\d+} '.' {\d+} \s"
+
+[Output]
+stdout="""[32mINF[0m 1536609774.375361 [1mmain started                              [0m topics="[93mmain[0m" [32mthread[0m=[94m0[0m [32ma[0m=[94m10[0m [32marg[0m=[94m50[0m [32mb[0m=[94minner-b[0m [32mc[0m=[94m10[0m [32md[0m=[94msome-d[0m [32mx[0m=[94m16[0m [32mz[0m=[94m20[0m
+[32mINF[0m 1536609774.375431 [1mexiting                                   [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m12[0m [32mb[0m=[94moverriden-b[0m [32mc[0m=[94m100[0m [32mmsg[0m=[94m"bye bye"[0m [32mx[0m=[94m16[0m
+"""
+
+lexical_scopes.log="""[32mINF[0m 1536609774.375361 [1mmain started                              [0m topics="[93mmain[0m" [32mthread[0m=[94m0[0m [32ma[0m=[94m10[0m [32marg[0m=[94m50[0m [32mb[0m=[94minner-b[0m [32mc[0m=[94m10[0m [32md[0m=[94msome-d[0m [32mx[0m=[94m16[0m [32mz[0m=[94m20[0m
+[32mINF[0m 1536609774.375431 [1mexiting                                   [0m [32mthread[0m=[94m0[0m [32ma[0m=[94m12[0m [32mb[0m=[94moverriden-b[0m [32mc[0m=[94m100[0m [32mmsg[0m=[94m"bye bye"[0m [32mx[0m=[94m16[0m
+"""

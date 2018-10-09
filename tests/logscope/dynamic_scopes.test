@@ -1,0 +1,8 @@
+program="dynamic_scopes"
+chronicles_sinks="textlines[stdout]"
+chronicles_colors="AnsiColors"
+
+[Output]
+stdout="""[32mINF[0m 2018-10-01 18:02:01+02:00 [1mtest                                      [0m topics="[93mmain[0m" [32mthread[0m=[94m0[0m [32mreqId[0m=[94m10[0m [32muserId[0m=[94m20[0m
+[93mWRN[0m 2018-10-01 18:02:01+02:00 [1mabout to exit                             [0m topics="[93mmain[0m" [93mthread[0m=[94m0[0m [93mtimeSpent[0m=[94m2s[0m
+"""

@@ -1,0 +1,11 @@
+program=multiple_streams
+chronicles_streams="foo[textlines],default[textlines]"
+chronicles_colors="AnsiColors"
+
+[Output]
+stdout="""[32mINF[0m 2018-10-01 22:05:17+02:00 [1mdynamic scope starts                      [0m [32mthread[0m=[94m0[0m [32mreqId[0m=[94m10[0m [32muserId[0m=[94m20[0m
+[32mINF[0m 2018-10-01 22:05:17+02:00 [1mlogging to foo                            [0m [32mthread[0m=[94m0[0m
+[32mINF[0m 2018-10-01 22:05:17+02:00 [1mdynamic scope ends                        [0m [32mthread[0m=[94m0[0m [32mreqId[0m=[94m10[0m [32muserId[0m=[94m20[0m
+[32mINF[0m 2018-10-01 22:05:17+02:00 [1mlogging to foo                            [0m [32mthread[0m=[94m0[0m
+[93mWRN[0m 2018-10-01 22:05:17+02:00 [1mabout to exit main                        [0m [93mthread[0m=[94m0[0m
+"""
