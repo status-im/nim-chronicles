@@ -19,7 +19,7 @@ iterator assignments*(n: NimNode, c: AssignmentsContext): (string, NimNode) =
       let value = child[1]
       yield (name, value)
 
-    elif child.kind == nnkIdent:
+    elif child.kind in {nnkIdent, nnkSym}:
       yield ($child, child)
 
     else:
