@@ -33,13 +33,14 @@ type
   TestError* = enum
     SourceFileNotFound,
     ExeFileNotFound,
+    OutputFileNotFound,
     CompileError,
     RuntimeError,
     OutputsDiffer,
     FileSizeTooLarge,
     CompileErrorDiffers
 
-proc logFailure(test: TestSpec, error: TestError, data = "") =
+proc logFailure(test: TestSpec, error: TestError, data: varargs[string] = [""]) =
   case error
     of SourceFileNotFound:
       styledEcho(fgYellow, styleBright, "source file not found: ",
@@ -47,35 +48,38 @@ proc logFailure(test: TestSpec, error: TestError, data = "") =
     of ExeFileNotFound:
       styledEcho(fgYellow, styleBright, "file not found: ",
                  resetStyle, test.program.addFileExt(ExeExt))
+    of OutputFileNotFound:
+      styledEcho(fgYellow, styleBright, "file not found: ",
+                 resetStyle, data[0])
     of CompileError:
       styledEcho(fgYellow, styleBright, "compile error:\p",
-                 resetStyle, data)
+                 resetStyle, data[0])
     of RuntimeError:
       styledEcho(fgYellow, styleBright, "runtime error:\p",
-                 resetStyle, data)
+                 resetStyle, data[0])
     of OutputsDiffer:
       styledEcho(fgYellow, styleBright, "outputs are different:\p",
-                 resetStyle, data)
+                 resetStyle,"Expected output to $#:\p$#" % [data[0], data[1]],
+                            "Resulted output to $#:\p$#" % [data[0], data[2]])
     of FileSizeTooLarge:
       styledEcho(fgYellow, styleBright, "file size is too large: ",
-                 resetStyle, data & " > " & $test.maxSize)
+                 resetStyle, data[0] & " > " & $test.maxSize)
     of CompileErrorDiffers:
       styledEcho(fgYellow, styleBright, "compile error is different:\p",
-                 resetStyle, data)
+                 resetStyle, data[0])
 
   styledEcho(fgCyan, styleBright, "command: ", resetStyle,
              "nim c $#$#$#" % [defaultOptions, test.flags,
                                  test.program.addFileExt(".nim")])
 
 proc logResult(testName: string, status: TestStatus, time: float) =
-  let prefix = if false: "  " else: ""
   var color = case status
               of OK: fgGreen
               of FAILED: fgRed
               of SKIPPED: fgYellow
               of INVALID: fgRed
               else: fgWhite
-  styledEcho(styleBright, color, prefix, "[", $status, "] ",
+  styledEcho(styleBright, color, "[", $status, "] ",
              resetStyle, testName,
              fgYellow, " ", time.formatFloat(ffDecimal, 3), " s")
 
@@ -92,22 +96,22 @@ proc cmpOutputs(test: TestSpec, stdout: string): TestStatus =
     if output.name == "stdout":
       testOutput = stdout
     else:
+      if not existsFile(output.name):
+        logFailure(test, OutputFileNotFound, output.name)
+        result = FAILED
+        continue
+
       testOutput = readFile(output.name)
 
     # Would be nice to do a real diff here instead of simple compare
     if test.timestampPeg.len > 0:
       if not cmpIgnorePeg(testOutput, output.expectedOutput, peg(test.timestampPeg)):
+        logFailure(test, OutputsDiffer, output.name, output.expectedOutput, testOutput)
         result = FAILED
     else:
       if not cmpIgnoreDefaultTimestamps(testOutput, output.expectedOutput):
+        logFailure(test, OutputsDiffer, output.name, output.expectedOutput, testOutput)
         result = FAILED
-
-    if result == FAILED:
-      let data = "Expected output to $#:\p$#" %
-                 [output.name, output.expectedOutput] &
-                 "Resulted output to $#:\p$#" %
-                 [output.name, testOutput]
-      logFailure(test, OutputsDiffer, data)
 
     if output.name != "stdout":
       removeFile(output.name)
@@ -141,7 +145,7 @@ proc compile(test: TestSpec): TestStatus =
 
   # Lets also check file size here as it kinda belongs to the compilation result
   if test.maxSize != 0:
-    var size = getFileSize(test.program)
+    var size = getFileSize(test.program.addFileExt(ExeExt))
     if size > test.maxSize:
       logFailure(test, FileSizeTooLarge, $size)
       return FAILED

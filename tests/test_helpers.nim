@@ -22,10 +22,9 @@ let
   pegSuccess = peg"'Hint: operation successful' {[^;]*} '; '  {\d+} '.' {\d+} .*"
 
   # Timestamp pegs
-  # peg for any float with 4 or more digits after the decimal as currently the
-  # unix timestamp is not necessary 6 digits after decimal in chronicles
+  # peg for unix timestamp, basically any float with 6 digits after the decimal
   # Not ideal - could also improve by checking for the location in the line
-  pegUnixTimestamp = peg"{\d+} '.' {\d\d\d\d} {\d*} \s"
+  pegUnixTimestamp = peg"{\d+} '.' {\d\d\d\d\d\d} \s"
   # peg for timestamp with format yyyy-MM-dd HH:mm:sszzz
   pegRfcTimestamp = peg"{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"
 
