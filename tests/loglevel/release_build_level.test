@@ -1,0 +1,17 @@
+program=topics_and_loglvls
+chronicles_sinks="textlines[stdout]"
+chronicles_colors=None
+chronicles_timestamps=None
+
+release
+
+[Output]
+stdout="""WRN inside main                                topics="main" thread=0 a=1 arg=50 b=10
+INF inside main                                topics="main" thread=0 a=1 arg=50 b=10
+WRN inside foo                                 topics="foo" thread=0 arg=10 b=10
+INF inside foo                                 topics="foo" thread=0 arg=10 b=10
+WRN inside foobar                              topics="foo bar" thread=0 arg=20 b=10
+INF inside foobar                              topics="foo bar" thread=0 arg=20 b=10
+INF after main                                 topics="general" thread=0
+INF exiting                                    thread=0 msg="bye bye"
+"""

@@ -1,6 +1,6 @@
 program=topics_and_loglvls
 chronicles_sinks="textlines[stdout]"
-chronicles_colors=AnsiColors
+chronicles_colors=None
 chronicles_timestamps=None
 
 chronicles_enabled_topics:"main foo"

@@ -1,6 +1,8 @@
+--skip
+; NativeColors test for Windows 7, actually just compares the non colored output
 program=long_lines
 chronicles_sinks="textlines[stdout]"
-chronicles_colors=None
+chronicles_colors=NativeColors
 chronicles_timestamps=None
 
 [Output]

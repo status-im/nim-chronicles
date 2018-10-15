@@ -1,17 +1,59 @@
 program="runtime_filtering"
-chronicles_sinks="textlines[file]"
+chronicles_sinks="textlines[stdout,file]"
 chronicles_runtime_filtering="on"
-chronicles_colors="AnsiColors"
+chronicles_colors=None
 chronicles_timestamps=None
 
 [Output]
-runtime_filtering.log="""[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
-[32mINF[0m [1mfrom bar                                  [0m topics="[93mmain bar[0m" [32mthread[0m=[94m0[0m
-[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
-[32mINF[0m [1mfrom bar                                  [0m topics="[93mmain bar[0m" [32mthread[0m=[94m0[0m
-[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
-[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
-[32mINF[0m [1mfrom bar                                  [0m topics="[93mmain bar[0m" [32mthread[0m=[94m0[0m
-[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
-[32mINF[0m [1mfrom foo                                  [0m topics="[93mmain foo[0m" [32mthread[0m=[94m0[0m
+stdout="""> start by printing both:
+INF from foo                                   topics="main foo" thread=0
+INF from bar                                   topics="main bar" thread=0
+> disabling main, both should be omitted:
+true
+> set foo to required, only foo should be printed:
+true
+true
+INF from foo                                   topics="main foo" thread=0
+> set bar to enabled, only bar should be printed:
+true
+true
+INF from bar                                   topics="main bar" thread=0
+> disable main again, both should be omitted:
+true
+> try a wrong call to setTopicState, disable bar and print out only foo:
+true
+false
+true
+INF from foo                                   topics="main foo" thread=0
+> restore everything to normal, both should print:
+true
+true
+true
+INF from foo                                   topics="main foo" thread=0
+INF from bar                                   topics="main bar" thread=0
+> set main to WARN, none should print:
+true
+true
+true
+> set foo to INFO, bar to WARN, main back to default, foo should print:
+true
+true
+true
+INF from foo                                   topics="main foo" thread=0
+> set global LogLevel to WARN, set main and foo to INFO, foo should print:
+true
+true
+true
+INF from foo                                   topics="main foo" thread=0
+"""
+
+runtime_filtering.log="""INF from foo                                   topics="main foo" thread=0
+INF from bar                                   topics="main bar" thread=0
+INF from foo                                   topics="main foo" thread=0
+INF from bar                                   topics="main bar" thread=0
+INF from foo                                   topics="main foo" thread=0
+INF from foo                                   topics="main foo" thread=0
+INF from bar                                   topics="main bar" thread=0
+INF from foo                                   topics="main foo" thread=0
+INF from foo                                   topics="main foo" thread=0
 """

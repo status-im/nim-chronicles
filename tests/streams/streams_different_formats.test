@@ -1,0 +1,14 @@
+program=multiple_streams
+chronicles_streams="foo[textlines],default[json[file]]"
+chronicles_colors=None
+chronicles_timestamps=None
+
+[Output]
+stdout="""INF logging to foo                             thread=0
+INF logging to foo                             thread=0
+"""
+
+default.log="""{"msg": "dynamic scope starts", "lvl": "INFO", "thread": 0, "reqId": 10, "userId": 20}
+{"msg": "dynamic scope ends", "lvl": "INFO", "thread": 0, "reqId": 10, "userId": 20}
+{"msg": "about to exit main", "lvl": "WARN", "thread": 0}
+"""

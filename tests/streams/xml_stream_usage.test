@@ -1,5 +1,5 @@
 program=xml_stream_usage
-chronicles_colors="AnsiColors"
+chronicles_colors=None
 chronicles_timestamps=None
 
 [Output]

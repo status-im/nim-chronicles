@@ -1,0 +1,28 @@
+program=lexical_scopes
+chronicles_sinks="textlines[file(lines.txt)],textblocks[file(blocks.txt)]"
+chronicles_timestamps=None
+chronicles_colors=None
+
+[Output]
+lines.txt="""INF main started                               topics="main" thread=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
+INF exiting                                    thread=0 a=12 b=overriden-b c=100 msg="bye bye" x=16"""
+
+blocks.txt="""INF main started topics="main"
+  thread: 0
+  a: 10
+  arg: 50
+  b: inner-b
+  c: 10
+  d: some-d
+  x: 16
+  z: 20
+
+INF exiting
+  thread: 0
+  a: 12
+  b: overriden-b
+  c: 100
+  msg: bye bye
+  x: 16
+
+"""

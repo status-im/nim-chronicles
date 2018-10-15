@@ -1,11 +1,11 @@
 program=file_log_stream
 chronicles_sinks="textlines[stdout]"
-chronicles_colors=AnsiColors
+chronicles_colors=None
 chronicles_timestamps=None
 
 [Output]
 stdout=""""""
-logger.log="""[32mINF[0m [1mhello[0m
-  [34mthread: [1m0
-[0m
+logger.log="""INF hello
+  thread: 0
+
 """

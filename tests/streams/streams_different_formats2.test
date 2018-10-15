@@ -1,0 +1,9 @@
+program=multiple_streams
+chronicles_streams="foo[textlines],default[textblocks[file]]"
+chronicles_colors=None
+chronicles_timestamps=None
+
+[Output]
+stdout=""""""
+
+default.log=""""""
