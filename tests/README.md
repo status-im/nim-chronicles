@@ -23,6 +23,9 @@ your own timestamp peg here.
 should be expected.
 - **error_file**: When expecting a compilation failure, the source file where the
 error should occur.
+- **os**: Space and/or comma separated list of operating systems for which the
+test should be run. Defaults to `"linux, macosx, windows"`. Tests meant for a
+different OS than the host will be marked as `SKIPPED`.
 - **--skip**: This will simply skip the test (will not be marked as failure).
 
 ### Forwarded Options

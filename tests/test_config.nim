@@ -26,6 +26,7 @@ type
     errorFile*: string
     errorLine*: int
     errorColumn*: int
+    os*: seq[string]
 
 proc processArguments*(): TestConfig =
   var opt = initOptParser()
@@ -47,7 +48,11 @@ proc processArguments*(): TestConfig =
   if result.path == "":
     quit(Usage)
 
+proc defaults(result: var TestSpec) =
+  result.os = @["linux", "macosx", "windows"]
+
 proc parseTestFile*(filePath:string): TestSpec =
+  result.defaults()
   result.name = extractFilename(filePath)
   var f = newFileStream(filePath, fmRead)
   var outputSection = false
@@ -81,6 +86,8 @@ proc parseTestFile*(filePath:string): TestSpec =
             result.compileError = e.value
           of "error_file":
             result.errorFile = e.value
+          of "os":
+            result.os = e.value.normalize.split({','} + Whitespace)
           else:
             result.flags &= ("-d:$#:$#" % [e.key, e.value]).quoteShell & " "
       of cfgOption:

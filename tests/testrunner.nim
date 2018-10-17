@@ -187,7 +187,7 @@ proc test(testPath: string): TestStatus =
     if test.program.len == 0: # a program name is bare minimum of a test file
       result = INVALID
       break
-    if test.skip:
+    if test.skip or hostOS notin test.os:
       result = SKIPPED
       break
 
