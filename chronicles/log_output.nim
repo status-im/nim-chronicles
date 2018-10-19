@@ -604,7 +604,7 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
 
     var `outputs` = `outputsTuple`
     template outputs*(S: type `name`): auto = `outputs`
-    template primaryOutput* (S: type `name`): auto = `outputs`[0]
+    template output* (S: type `name`): auto = `outputs`[0]
 
 # This is a placeholder that will be overriden in the user code.
 # XXX: replace that with a proper check that the user type requires

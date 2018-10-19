@@ -269,6 +269,7 @@ macro logIMPL(lineInfo: static InstInfo,
   code.add newCall("flushRecord", record)
 
   result = newBlockStmt(id"chroniclesLogStmt", code)
+  # echo result.repr
 
 # Translate all the possible overloads to `logIMPL`:
 template log*(severity: LogLevel,

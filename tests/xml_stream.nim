@@ -1,7 +1,7 @@
 import xmldom, chronicles
 
 type XmlRecord[Output] = object
-  output: Output
+  output*: Output
 
 template initLogRecord*(r: var XmlRecord, lvl: LogLevel,
                         topics: string, name: string) =
