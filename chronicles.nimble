@@ -9,13 +9,7 @@ skipDirs      = @["tests"]
 
 requires "nim >= 0.18.1"
 
-proc configForTests() =
-  --hints: off
-  --debuginfo
-  --path: "."
-  --run
-
 task test, "run CPU tests":
-  configForTests()
-  setCommand "c", "tests/all.nim"
+  cd "tests"
+  exec "nim c -r testrunner ."
 
