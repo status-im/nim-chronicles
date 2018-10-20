@@ -1,0 +1,11 @@
+program=xml_stream_usage
+chronicles_colors=None
+chronicles_timestamps=None
+
+[Output]
+stdout="""<event type="New Stream" severity="INFO">
+  <thread>0</thread>
+  <episode>Smarty Cat</episode>
+  <franchise>Tom &amp; Jerry</franchise>
+</event>
+"""

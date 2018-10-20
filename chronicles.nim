@@ -243,7 +243,6 @@ macro logIMPL(lineInfo: static InstInfo,
 
   code.add quote do:
     var `record`: `RecordType`
-    beginRecord(`record`.output, LogLevel(`severity`))
 
   for i in 0 ..< recordArity:
     # We do something complicated here on purpose.
@@ -254,6 +253,7 @@ macro logIMPL(lineInfo: static InstInfo,
                     else: newTree(nnkBracketExpr, record, newLit(i))
     var filename = lineInfo.filename & ":" & $lineInfo.line
     code.add quote do:
+      prepareOutputForRecord(`recordRef`.output, LogLevel(`severity`))
       initLogRecord(`recordRef`, LogLevel(`severity`),
                     `topicsNode`, `eventName`)
       setFirstProperty(`recordRef`, "thread", `threadId`)
@@ -269,6 +269,7 @@ macro logIMPL(lineInfo: static InstInfo,
   code.add newCall("flushRecord", record)
 
   result = newBlockStmt(id"chroniclesLogStmt", code)
+  # echo result.repr
 
 # Translate all the possible overloads to `logIMPL`:
 template log*(severity: LogLevel,

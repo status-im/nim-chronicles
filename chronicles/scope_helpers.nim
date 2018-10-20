@@ -76,7 +76,8 @@ proc handleUserStreamChoice*(n: NimNode): StreamSpec =
 
 proc skipTypedesc*(n: NimNode): NimNode =
   result = n
-  if result.kind == nnkBracketExpr and $result[0] in ["type", "typedesc"]:
+  if result.kind == nnkBracketExpr and result.len == 2 and
+     (eqIdent(result[0], "type") or eqIdent(result[0], "typedesc")):
     result = result[1]
 
 proc clearEmptyVarargs*(args: NimNode) =

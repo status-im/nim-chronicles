@@ -1,0 +1,9 @@
+program=runtime_path
+chronicles_sinks="textlines[file]"
+chronicles_colors=None
+chronicles_timestamps=None
+
+[Output]
+stdout=""""""
+mylog.log="""INF log record                                 thread=0 prop=10
+"""

@@ -1,0 +1,27 @@
+program=lexical_scopes
+chronicles_sinks="textlines[file(lines.txt,truncate),nocolors],textblocks[file(blocks.txt,truncate),notimestamps]"
+
+[Output]
+lines.txt="""INF 2018-10-12 12:24:21+02:00 main started                               topics="main" thread=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
+INF 2018-10-12 12:24:21+02:00 exiting                                    thread=0 a=12 b=overriden-b c=100 msg="bye bye" x=16
+"""
+
+blocks.txt="""[32mINF[0m [1mmain started[0m topics="[93mmain[0m"
+  [34mthread: [1m0
+[0m  [34ma: [1m10
+[0m  [34marg: [1m50
+[0m  [34mb: [1minner-b
+[0m  [34mc: [1m10
+[0m  [34md: [1msome-d
+[0m  [34mx: [1m16
+[0m  [34mz: [1m20
+[0m
+[32mINF[0m [1mexiting[0m
+  [34mthread: [1m0
+[0m  [34ma: [1m12
+[0m  [34mb: [1moverriden-b
+[0m  [34mc: [1m100
+[0m  [34mmsg: [1mbye bye
+[0m  [34mx: [1m16
+[0m
+"""

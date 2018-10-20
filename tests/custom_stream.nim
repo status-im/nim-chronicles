@@ -2,27 +2,29 @@ import
   chronicles
 
 type
-  MyRecord = object
+  MyRecord[Output] = object
+    output*: Output
 
 template initLogRecord*(r: var MyRecord, lvl: LogLevel,
                         topics: string, name: string) =
-  stdout.write "[", lvl, "] ", name, ": "
+  r.output.append "[", $lvl, "] ", name, ": "
 
 template setPropertyImpl(r: var MyRecord, key: string, val: auto) =
-  stdout.write key, "=", val
+  r.output.append key, "=", $val
 
 template setFirstProperty*(r: var MyRecord, key: string, val: auto) =
-  stdout.write " ("
-  setPropertyImpl(r, key, val)
+  r.output.append " ("
+  r.setPropertyImpl(key, val)
 
 template setProperty*(r: var MyRecord, key: string, val: auto) =
-  stdout.write ", "
-  setPropertyImpl(r, key, val)
+  r.output.append ", "
+  r.setPropertyImpl(key, val)
 
 template flushRecord*(r: var MyRecord) =
-  stdout.write ")\n"
+  r.output.append ")\n"
+  r.output.flushOutput
 
-customLogStream myStream[MyRecord]
+customLogStream myStream[MyRecord[StdOutOutput]]
 
 var x = 10
 

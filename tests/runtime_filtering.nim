@@ -70,7 +70,7 @@ echo setTopicState("bar", Normal)
 foo()
 bar()
 
-echo "> set foo to INFO, main back to default, foo should print:"
+echo "> set foo to INFO, bar to WARN, main back to default, foo should print:"
 echo setTopicState("main", Normal)
 echo setTopicState("foo", Normal, INFO)
 echo setTopicState("bar", Normal, WARN)

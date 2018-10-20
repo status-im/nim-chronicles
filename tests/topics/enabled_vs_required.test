@@ -1,0 +1,10 @@
+program=topics_and_loglvls
+chronicles_sinks="textlines[stdout]"
+chronicles_colors=None
+chronicles_timestamps=None
+
+chronicles_enabled_topics:"main foo"
+chronicles_required_topics:"main foo"
+
+compile_error="Please specify only one of the options 'chronicles_enabled_topics' and 'chronicles_required_topics'."
+error_file=options.nim

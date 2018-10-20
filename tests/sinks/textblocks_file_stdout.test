@@ -1,0 +1,45 @@
+program=lexical_scopes
+chronicles_sinks="textblocks[stdout,file]"
+chronicles_colors=None
+chronicles_timestamps=None
+
+[Output]
+stdout="""INF main started topics="main"
+  thread: 0
+  a: 10
+  arg: 50
+  b: inner-b
+  c: 10
+  d: some-d
+  x: 16
+  z: 20
+
+INF exiting
+  thread: 0
+  a: 12
+  b: overriden-b
+  c: 100
+  msg: bye bye
+  x: 16
+
+"""
+
+lexical_scopes.log="""INF main started topics="main"
+  thread: 0
+  a: 10
+  arg: 50
+  b: inner-b
+  c: 10
+  d: some-d
+  x: 16
+  z: 20
+
+INF exiting
+  thread: 0
+  a: 12
+  b: overriden-b
+  c: 100
+  msg: bye bye
+  x: 16
+
+"""

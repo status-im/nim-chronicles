@@ -199,22 +199,27 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
 # The LogRecord types are parametric on their Output and this is how we
 # can support arbitrary combinations of log formats and destinations.
 
-template beginRecord*(o: var AnyFileOutput, level: LogLevel) = discard
-template beginRecord*(o: var StreamOutputRef, level: LogLevel) = discard
+template prepareOutputForRecord*(o: var AnyFileOutput, level: LogLevel) =
+  discard
 
-template beginRecord*(o: var SysLogOutput, level: LogLevel) =
+template prepareOutputForRecord*(o: var StreamOutputRef, level: LogLevel) =
+  discard
+
+template prepareOutputForRecord*(o: var SysLogOutput, level: LogLevel) =
   o.currentRecordLevel = level
 
-template beginRecord*(o: var BufferedOutput, level: LogLevel) =
+template prepareOutputForRecord*(o: var BufferedOutput, level: LogLevel) =
   for f in o.finalOutputs.fields:
-    beginRecord(f, level)
+    prepareOutputForRecord(f, level)
 
 template append*(o: var FileOutput, s: string) =
   if o.outFile == nil: openOutput(o)
   o.outFile.write s
 
 template flushOutput*(o: var FileOutput) =
-  assert o.outFile != nil
+  # XXX: Uncommenting this triggers a strange compile-time error
+  #      when multiple sinks are used.
+  # assert o.outFile != nil
   o.outFile.flushFile
 
 template append*(o: var StdOutOutput, s: string) = stdout.write s
@@ -483,8 +488,7 @@ template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
     append(r.output, valText)
     append(r.output, "\n")
   else:
-    # XXX: This should be a const, but the compiler fails with an ICE
-    let indent = static(textBlockIndent & repeat(' ', key.len + 2))
+    let indent = textBlockIndent & repeat(' ', key.len + 2)
     var first = true
     for line in splitLines(valText):
       if not first: append(r.output, indent)
@@ -643,6 +647,8 @@ macro createStreamRecordTypes: untyped =
     if i == 0:
       result.add quote do:
         template activeChroniclesStream*: typedesc = `streamName`
+
+  # echo result.repr
 
 createStreamRecordTypes()
 

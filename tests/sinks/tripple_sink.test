@@ -1,0 +1,33 @@
+program=lexical_scopes
+chronicles_sinks="textlines[file(lines.txt,truncate)],textblocks[file(blocks.txt,truncate)],json[file(log.json,truncate)]"
+chronicles_colors=None
+chronicles_timestamps=None
+
+[Output]
+lines.txt="""INF main started                               topics="main" thread=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
+INF exiting                                    thread=0 a=12 b=overriden-b c=100 msg="bye bye" x=16
+"""
+
+blocks.txt="""INF main started topics="main"
+  thread: 0
+  a: 10
+  arg: 50
+  b: inner-b
+  c: 10
+  d: some-d
+  x: 16
+  z: 20
+
+INF exiting
+  thread: 0
+  a: 12
+  b: overriden-b
+  c: 100
+  msg: bye bye
+  x: 16
+
+"""
+
+log.json="""{"msg": "main started", "lvl": "INFO", "topics": "main", "thread": 0, "a": 10, "arg": 50, "b": "inner-b", "c": 10, "d": "some-d", "x": 16, "z": 20}
+{"msg": "exiting", "lvl": "INFO", "thread": 0, "a": 12, "b": "overriden-b", "c": 100, "msg": "bye bye", "x": 16}
+"""
