@@ -178,7 +178,7 @@ proc scanTestPath(path: string): seq[string] =
       if file.match re".*\.test":
         result.add(file)
 
-proc test(testPath: string): TestStatus =
+proc test(config: TestConfig, testPath: string): TestStatus =
   var test: TestSpec
   var duration: float
 
@@ -187,7 +187,7 @@ proc test(testPath: string): TestStatus =
     if test.program.len == 0: # a program name is bare minimum of a test file
       result = INVALID
       break
-    if test.skip or hostOS notin test.os:
+    if test.skip or hostOS notin test.os or config.shouldSkip(test.name):
       result = SKIPPED
       break
 
@@ -215,7 +215,7 @@ proc main() =
     # but we will have to work with different nim caches per test
     # and also the executables have to be in a unique location as several tests
     # can use the same source
-    var result = test(testFile)
+    var result = test(config, testFile)
     if result == OK:
       successful += 1
     elif result == SKIPPED:

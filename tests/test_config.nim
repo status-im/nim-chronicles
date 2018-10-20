@@ -12,6 +12,8 @@ Options:
 type
   TestConfig* = object
     path*: string
+    includedTests*: seq[string]
+    excludedTests*: seq[string]
 
   TestSpec* = object
     name*: string
@@ -41,6 +43,10 @@ proc processArguments*(): TestConfig =
       case key.toLowerAscii()
         of "help", "h": quit(Usage, QuitSuccess)
         of "targets", "t": discard # not implemented
+        of "include":
+          result.includedTests.add value.split(Whitespace + {','})
+        of "exclude":
+          result.excludedTests.add value.split(Whitespace + {','})
         else: quit(Usage)
     of cmdEnd:
       quit(Usage)
@@ -51,9 +57,9 @@ proc processArguments*(): TestConfig =
 proc defaults(result: var TestSpec) =
   result.os = @["linux", "macosx", "windows"]
 
-proc parseTestFile*(filePath:string): TestSpec =
+proc parseTestFile*(filePath: string): TestSpec =
   result.defaults()
-  result.name = extractFilename(filePath)
+  result.name = splitFile(filePath).name
   var f = newFileStream(filePath, fmRead)
   var outputSection = false
   if f != nil:
@@ -103,3 +109,13 @@ proc parseTestFile*(filePath:string): TestSpec =
       echo("Parsing error: no program value")
   else:
     echo("Parsing error: cannot open " & filePath)
+
+func shouldSkip*(c: TestConfig, testName: string): bool =
+  if testName in c.excludedTests:
+    return true
+
+  if c.includedTests.len > 0:
+    return testName notin c.includedTests
+
+  return false
+
