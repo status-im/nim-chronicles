@@ -488,8 +488,7 @@ template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
     append(r.output, valText)
     append(r.output, "\n")
   else:
-    # XXX: This should be a const, but the compiler fails with an ICE
-    let indent = static(textBlockIndent & repeat(' ', key.len + 2))
+    let indent = textBlockIndent & repeat(' ', key.len + 2)
     var first = true
     for line in splitLines(valText):
       if not first: append(r.output, indent)
