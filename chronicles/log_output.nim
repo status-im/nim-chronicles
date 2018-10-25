@@ -375,7 +375,7 @@ template appendHeader(r: var TextLineRecord | var TextBlockRecord,
     # choose an arbitrary number and use that - should be fine even for
     # 80-char terminals
     # XXX: This should be const, but the compiler fails with an ICE
-    let padding = static(repeat(' ', if pad: 42 - min(42, name.len) else: 0))
+    let padding = repeat(' ', if pad: 42 - min(42, name.len) else: 0)
 
     append(r.output, " ")
     applyStyle(r, styleBright)

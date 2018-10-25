@@ -121,32 +121,15 @@ when runtimeFilteringEnabled:
     # block surrounding the entire log statement.
     result = newStmtList()
     var
-      matchEnabledTopics = genSym(nskVar, "matchEnabledTopics")
-      requiredTopicsCount = genSym(nskVar, "requiredTopicsCount")
-      topicChecks = newStmtList()
+      topicStateIMPL = bindSym("topicStateIMPL")
+      topicsMatch = bindSym("topicsMatch")
 
-    result.add quote do:
-
-      var `matchEnabledTopics` = registry.totalEnabledTopics == 0
-      var `requiredTopicsCount` = registry.totalRequiredTopics
-
+    var topicsArray = newTree(nnkBracket)
     for topic in topics:
-      result.add quote do:
-        let t = topicStateIMPL(`topic`)
-        case t.state
-        of Normal: discard
-        of Enabled: `matchEnabledTopics` = true
-        of Disabled: break chroniclesLogStmt
-        of Required: dec `requiredTopicsCount`
-
-        if t.logLevel == NONE:
-          if LogLevel(`logLevel`) < gActiveLogLevel:
-            break chroniclesLogStmt
-        elif LogLevel(`logLevel`) < t.logLevel:
-          break chroniclesLogStmt
+      topicsArray.add newCall(topicStateIMPL, topic)
 
     result.add quote do:
-      if not `matchEnabledTopics` or `requiredTopicsCount` > 0:
+      if not `topicsMatch`(`topicsArray`):
         break chroniclesLogStmt
 else:
   template runtimeFilteringDisabledError =

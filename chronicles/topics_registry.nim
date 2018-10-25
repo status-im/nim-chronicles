@@ -22,6 +22,12 @@ proc initTopicsRegistry: TopicsRegisty =
 
 var registry* = initTopicsRegistry()
 
+proc clearTopicsRegistry* =
+  registry.totalEnabledTopics = 0
+  registry.totalRequiredTopics = 0
+  for val in registry.topicStatesTable.values:
+    val.state = Normal
+
 iterator topicStates*: (string, TopicState) =
   for name, topic in registry.topicStatesTable:
     yield (name, topic.state)
@@ -52,3 +58,20 @@ proc setTopicState*(name: string,
   topicPtr.logLevel = logLevel
 
   return true
+
+proc topicsMatch*(topics: openarray[ptr Topic]): bool =
+  if topics.len == 0:
+    return true
+  var matchEnabledTopics = registry.totalEnabledTopics == 0
+  var requiredTopicsCount = registry.totalRequiredTopics
+  for topic in topics:
+    case topic.state
+    of Normal: discard
+    of Enabled: matchEnabledTopics = true
+    of Disabled: return false
+    of Required: dec requiredTopicsCount
+  return matchEnabledTopics and requiredTopicsCount == 0
+
+proc getTopicState*(topic: string): ptr Topic =
+  return registry.topicStatesTable.getOrDefault(topic)
+
