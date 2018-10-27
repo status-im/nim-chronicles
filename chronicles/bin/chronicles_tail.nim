@@ -1,9 +1,7 @@
-import os, osproc, streams, macros, queues, threadpool, algorithm, terminal
-import json, tables, parseopt, chronicles, chronicles/topics_registry
-import strutils, sequtils, unicode, re, parseopt
-import compiler / [ast, vmdef, vm, nimeval, options, parser, idents, condsyms,
-                   nimconf, extccomp, astalgo, llstream, pathutils]
-import prompt
+import
+  os, osproc, streams, macros, queues, threadpool, algorithm, terminal,
+  json, tables, parseopt, strutils, sequtils, unicode, re, parsesql,
+  prompt, chronicles, chronicles/topics_registry
 
 type
   SyntaxError = object of Exception
@@ -17,16 +15,15 @@ type
     kind: Messagekind
 
   Command = enum
-    clearFilter,
-    clearGrep,
-    clearTopics,
-    extract,
-    filter,
-    format,
-    grep,
-    help,
-    quit,
-    topics
+    cmdClearFilter,
+    cmdClearGrep,
+    cmdClearTopics,
+    cmdFilter,
+    cmdFormat,
+    cmdGrep,
+    cmdHelp,
+    cmdQuit,
+    cmdTopics
 
   RecordPrinter = proc (j: JsonNode)
 
@@ -34,15 +31,18 @@ proc printTextBlock(j: JsonNode)
 proc printTextLine(j: JsonNode)
 proc printJson(j: JsonNode)
 
+const
+  nkStrLiterals = {nkStringLit, nkQuotedIdent}
+
 var
   optParser = initOptParser()
   program = ""
   commandLine = ""
   channel: Channel[Message]
-  fltr: PNode
+  filter: SqlNode
   regex = re("")
   recordFormat = ""
-  jTest = %*{"msg": "foo", "lvl": "dbg", "ts": 3.14, "topics": "bar", "thread": 0}
+  jTest = %*{"msg": "foo", "level": "dbg", "ts": 3.14, "topics": "bar", "thread": 0}
   activeRecordPrinter: RecordPrinter = printTextLine
   activeFilter = ""
   activeGrep = ""
@@ -113,19 +113,11 @@ if program.len == 0:
   printUsage()
   quit 1
 
-proc parse*(s: string): PNode =
-  var conf = newConfigRef()
-  conf.verbosity = 0
-  var cache = newIdentCache()
-  condsyms.initDefines(conf.symbols)
-  conf.projectName = "stdinfile"
-  conf.projectFull = AbsoluteFile("stdinfile")
-  let cwd = AbsoluteFile(getCurrentDir())
-  conf.projectPath = AbsoluteDir(canonicalizePath(conf, cwd))
-  conf.projectIsStdin = true
-  loadConfigs(DefaultConfig, cache, conf)
-  extccomp.initVars(conf)
-  result = parseString(s, cache, conf)
+proc parseFilter*(s: string): SqlNode =
+  let sqlNodes = parseSql("SELECT * FROM DUMMY WHERE " & s & ";")
+  let whereClause = sqlNodes[0][^1]
+  assert whereClause.kind == nkWhere and whereClause.len == 1
+  return whereClause[0]
 
 # Handling keyboard inputs with the edited mofunoise library
 
@@ -133,9 +125,9 @@ const commands = [
   ("!filter", "clears the active filter"),
   ("!grep", "clears the active grep"),
   ("!topics", "clears active topics"),
-  ("extract", "shows only certain properties of the log statement"),
+  # ("extract", "shows only certain properties of the log statement"),
   ("filter",
-      """shows only statements with the specified property. E.g.: lvl == "DEBUG" """),
+      """shows only statements with the specified property. E.g.: level == "DBG" """),
   ("format",
       "sets the format of the log outputs - textblocks, textlines or json"),
   ("grep", "uses regular expressions to filter the log"),
@@ -193,16 +185,27 @@ proc printHelp() =
     else:
       print el[0] & spaces & el[1]
 
+func parseLogLevel(level: string): LogLevel =
+  case level
+  of "TRC": TRACE
+  of "DBG": DEBUG
+  of "INF": INFO
+  of "NOT": NOTICE
+  of "WRN": WARN
+  of "ERR": ERROR
+  of "FAT": FATAL
+  else: NONE
+
 proc printRecord(Record: type, j: JsonNode) =
   var record: Record
-  let severity = parseEnum[LogLevel](j["lvl"].str)
+  let severity = parseLogLevel(j["level"].str)
   let msg = j["msg"].str
   let topic = j["topics"].str
 
   pAddr[].withOutput do ():
     initLogRecord(record, severity, topic, msg)
     delete(j, "msg")
-    delete(j, "lvl")
+    delete(j, "level")
     delete(j, "ts")
     delete(j, "topics")
     var b = true
@@ -237,27 +240,27 @@ proc printTextLine(j: JsonNode) =
 proc printJson(j: JsonNode) =
   printRecord(JsonRecord[StdOutOutput, RfcTime], j)
 
-proc compare(r: JsonNode, n: PNode): int =
+proc compare(r: JsonNode, n: SqlNode): int =
   case r.kind
   of JString:
-    if n.kind == nkStrLit:
+    if n.kind in nkStrLiterals:
       return cmpIgnoreCase(r.str, n.strVal)
   of JInt:
-    if n.kind == nkIntLit:
-      return cmp(r.num, n.intVal)
+    if n.kind in {nkIntegerLit, nkNumericLit}:
+      return cmp(r.num, parseInt(n.strVal))
   of JFloat:
-    if n.kind == nkFloatLit:
-      return cmp(r.fnum, n.floatVal)
+    if n.kind in {nkIntegerLit, nkNumericLit}:
+      return cmp(r.fnum, parseFloat(n.strVal))
   of JBool:
-    if n.intVal == 0 or n.intVal == 1:
-      return cmp(BiggestInt(r.bval), n.intVal)
+    if n.kind == nkIdent:
+      return cmp(ord(r.bval), ord(n.strVal == "true"))
   of JNull:
-    if n.kind == nkNilLit:
-      return 0
+    if n.kind == nkIdent:
+      return ord(n.strVal notin ["null", "nil"])
   of JObject:
     raise newException(ValueError, "Type object is not supported")
   of JArray:
-    if n.kind == nkBracket:
+    if n.kind == nkPrGroup:
       let minlen = min(n.sons.len, r.elems.len)
       for i in 0 ..< minlen:
         var res = compare(r.elems[i], n.sons[i])
@@ -269,26 +272,24 @@ proc compare(r: JsonNode, n: PNode): int =
     "The value in your filter is of a different type than the json value")
 
 #Proc 'matches' returns true if a record 'r' matches a filtering condition 'n'.
-proc matches(n: PNode, r: JsonNode, allowMissingFields: bool): bool =
+proc matches(n: SqlNode, r: JsonNode, allowMissingFields: bool): bool =
   if n == nil:
     return true
   else:
     case n.kind
-    of nkStmtList:
-      return matches(n[0], r, allowMissingFields)
     of nkInfix:
       assert n[0].kind == nkIdent
-      case n[0].ident.s
+      case n[0].strVal
       of "or":
         return matches(n[1], r, allowMissingFields) or
                matches(n[2], r, allowMissingFields)
       of "and":
         return matches(n[1], r, allowMissingFields) and
                matches(n[2], r, allowMissingFields)
-      of "==":
+      of "==", "=":
         if n[1].kind != nkIdent:
           raise newException(SyntaxError, "Syntax error")
-        let jsonPropertyName = n[1].ident.s
+        let jsonPropertyName = n[1].strVal
         if r.hasKey(jsonPropertyName):
           if compare(r[jsonPropertyName], n[2]) == 0:
             return true
@@ -297,7 +298,7 @@ proc matches(n: PNode, r: JsonNode, allowMissingFields: bool): bool =
       of ">":
         if n[1].kind != nkIdent:
           raise newException(SyntaxError, "Syntax error")
-        let jsonPropertyName = n[1].ident.s
+        let jsonPropertyName = n[1].strVal
         if r.hasKey(jsonPropertyName):
           if compare(r[jsonPropertyName], n[2]) > 0:
             return true
@@ -306,17 +307,17 @@ proc matches(n: PNode, r: JsonNode, allowMissingFields: bool): bool =
       of "<":
         if n[1].kind != nkIdent:
           raise newException(SyntaxError, "Syntax error")
-        let jsonPropertyName = n[1].ident.s
+        let jsonPropertyName = n[1].strVal
         if r.hasKey(jsonPropertyName):
           if compare(r[jsonPropertyName], n[2]) < 0:
             return true
           return false
         return allowMissingFields
       of "in":
-        if n[2].kind != nkBracket:
+        if n[2].kind != nkPrGroup:
           raise newException(SyntaxError,
             "Please, enter a valid nim expression")
-        let jsonPropertyName = n[1].ident.s
+        let jsonPropertyName = n[1].strVal
         if r.hasKey(jsonPropertyName):
           for i in n[2].sons:
             if compare(r[jsonPropertyName], i) == 0:
@@ -364,31 +365,29 @@ proc handleCommand(line: string) =
   var command = Command(index)
 
   case command
-  of clearFilter:
-    fltr = nil
+  of cmdClearFilter:
+    filter = nil
     activeFilter = ""
     print "clearing filter"
-  of clearGrep:
+  of cmdClearGrep:
     print "clearing grep"
     regex = re("")
     activeGrep = ""
-  of clearTopics:
+  of cmdClearTopics:
     clearTopicsRegistry()
     activeTopics = ""
-  of extract:
-    print "extracting"
-  of filter:
+  of cmdFilter:
     if pos < 0:
       print "Please, enter a parameter for filter"
       return
     try:
-      let parsed = parse(cmdParam)
-      discard matches(parsed, jTest, false)
-      fltr = parsed
+      let parsedFilter = parseFilter(cmdParam)
+      discard matches(parsedFilter, jTest, false)
+      filter = parsedFilter
       activeFilter = cmdParam
     except:
       print "Error: " & getCurrentExceptionMsg()
-  of format:
+  of cmdFormat:
     print "formatting"
     if cmdParam == "textblocks":
       activeRecordPrinter = printTextBlock
@@ -398,7 +397,7 @@ proc handleCommand(line: string) =
       activeRecordPrinter = printJson
     else:
       print "Please, enter a valid format: TextBlockRecord, TextLineRecord or JsonRecord"
-  of grep:
+  of cmdGrep:
     if pos < 0:
       print "Please, enter a parameter for grep"
       return
@@ -407,11 +406,11 @@ proc handleCommand(line: string) =
       activeGrep = cmdParam
     except:
       print "Error: " & getCurrentExceptionMsg()
-  of help:
+  of cmdHelp:
     printHelp()
-  of quit:
+  of cmdQuit:
     quit(0)
-  of topics:
+  of cmdTopics:
     clearTopicsRegistry()
     #echo repr(registry.topicStatesTable)
     var params = cmdParam.split(Whitespace)
@@ -502,11 +501,11 @@ proc mainLoop() =
           #print (t & $(createTopicState(t)[]))
         if j.kind == JObject and
            j.checkType("ts", JString) and
-           j.checkType("lvl", JString) and
+           j.checkType("level", JString) and
            j.checkType("msg", JString) and
            j.checkType("topics", JString) and
            topicsMatch(topicStates) and
-           matches(fltr, j, false):
+           matches(filter, j, false):
           activeRecordPrinter(j)
         else:
           discard

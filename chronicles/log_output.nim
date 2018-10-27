@@ -517,13 +517,13 @@ template jsonEncode(x: auto): string = $(%x)
 template jsonEncode(s: JsonString): string = string(s)
 
 template initLogRecord*(r: var JsonRecord,
-                        lvl: LogLevel,
+                        level: LogLevel,
                         topics: string,
                         name: string) =
   append(r.output, """{"msg": """ & jsonEncode(name))
 
   if lvl != NONE:
-    append(r.output, """, "lvl": """ & jsonEncode($lvl))
+    append(r.output, """, "level": """ & jsonEncode($level))
 
   if topics.len > 0:
     append(r.output, """, "topics": """ & jsonEncode(topics))

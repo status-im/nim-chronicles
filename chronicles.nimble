@@ -9,7 +9,6 @@ skipDirs      = @["tests"]
 bin           = @["chronicles/bin/chronicles_tail"]
 
 requires "nim >= 0.18.1",
-         "compiler",
          "https://github.com/surf1nb1rd/nim-prompt"
 
 task test, "run CPU tests":
