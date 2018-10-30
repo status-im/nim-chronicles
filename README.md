@@ -336,7 +336,7 @@ and `setTopicState`:
 
 ```nim
 type LogLevel = enum
-  TRACE, DEBUG, INFO, NOTICE, WARN, ERROR, FATAL, NONE
+  NONE, TRACE, DEBUG, INFO, NOTICE, WARN, ERROR, FATAL
 
 proc setLogLevel*(level: LogLevel)
 
@@ -454,7 +454,7 @@ compile-time path associated with each file output by calling the `open`
 proc on an `output` symbol associated with the stream:
 
 ``` nim
-# my_pgoram.nim
+# my_program.nim
 
 var config = loadConfiguration()
 let success = defaultChroniclesStream.output.open(config.logFile, fmAppend)
@@ -466,7 +466,7 @@ info "APPLICATION STARTED"
 Compiled with:
 
 ```
-nim c -d:chronicles_sinks=file my_program.nim
+nim c -d:chronicles_sinks=textlines[file] my_program.nim
 ```
 
 As you can see above, the default stream in Chronicles is called
@@ -643,4 +643,3 @@ Licensed and distributed under either of
 * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
 
 at your option. This file may not be copied, modified, or distributed except according to those terms.
-
