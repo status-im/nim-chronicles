@@ -6,8 +6,10 @@ const
   Run the test(s) specified at path. Will search recursively for test files
   provided path is a directory.
 Options:
-  --targets:"c c++ js objc" [Not implemented] run tests for specified targets
-  --help                    display this help and exit"""
+  --targets:"c c++ js objc" [Not implemented] Run tests for specified targets
+  --include:"test1 test2"   Run only listed tests (space/comma seperated)
+  --exclude:"test1 test2"   Skip listed tests (space/comma seperated)
+  --help                    Display this help and exit"""
 
 type
   TestConfig* = object
@@ -118,4 +120,3 @@ func shouldSkip*(c: TestConfig, testName: string): bool =
     return testName notin c.includedTests
 
   return false
-

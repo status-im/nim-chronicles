@@ -3,6 +3,13 @@
 Command syntax:
 ```
 testrunner [options] path
+Run the test(s) specified at path. Will search recursively for test files
+provided path is a directory.
+Options:
+--targets:"c c++ js objc" [Not implemented] Run tests for specified targets
+--include:"test1 test2"   Run only listed tests (space/comma seperated)
+--exclude:"test1 test2"   Skip listed tests (space/comma seperated)
+--help                    Display this help and exit
 ```
 
 The runner will look recursively for all `*.test` files at given path.
