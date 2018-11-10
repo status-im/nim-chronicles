@@ -222,27 +222,17 @@ macro logIMPL(lineInfo: static InstInfo,
 
   code.add quote do:
     var `record`: `RecordType`
+    prepareOutput(`record`, LogLevel(`severity`))
+    initLogRecord(`record`, LogLevel(`severity`), `topicsNode`, `eventName`)
+    setFirstProperty(`record`, "thread", `threadId`)
 
-  for i in 0 ..< recordArity:
-    # We do something complicated here on purpose.
-    # We want to produce the setProperty calls for each record in turn
-    # because this would allow for the write optimization rules defined
-    # in `log_output` to kick in.
-    let recordRef = if recordArity == 1: record
-                    else: newTree(nnkBracketExpr, record, newLit(i))
+  if useLineNumbers:
     var filename = lineInfo.filename & ":" & $lineInfo.line
-    code.add quote do:
-      prepareOutputForRecord(`recordRef`.output, LogLevel(`severity`))
-      initLogRecord(`recordRef`, LogLevel(`severity`),
-                    `topicsNode`, `eventName`)
-      setFirstProperty(`recordRef`, "thread", `threadId`)
+    code.add newCall("setProperty", record,
+                     newLit("file"), newLit(filename))
 
-    if useLineNumbers:
-        code.add newCall("setProperty", recordRef,
-                         newLit("file"), newLit(filename))
-
-    for k, v in finalBindings:
-      code.add newCall("setProperty", recordRef, newLit(k), v)
+  for k, v in finalBindings:
+    code.add newCall("setProperty", record, newLit(k), v)
 
   code.add newCall("logAllDynamicProperties", Stream, record)
   code.add newCall("flushRecord", record)

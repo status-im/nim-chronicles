@@ -201,21 +201,32 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
 # The LogRecord types are parametric on their Output and this is how we
 # can support arbitrary combinations of log formats and destinations.
 
-template prepareOutputForRecord*(o: var AnyFileOutput, level: LogLevel) =
+template activateOutput*(o: var (StdOutOutput|StdErrOutput), level: LogLevel) =
   discard
 
-template prepareOutputForRecord*(o: var StreamOutputRef, level: LogLevel) =
-  discard
+template activateOutput*(o: var FileOutput, level: LogLevel) =
+  if o.outFile == nil: openOutput(o)
 
-template prepareOutputForRecord*(o: var SysLogOutput, level: LogLevel) =
+template activateOutput*(o: var StreamOutputRef, level: LogLevel) =
+  activateOutput(deref(o), level)
+
+template activateOutput*(o: var SysLogOutput, level: LogLevel) =
   o.currentRecordLevel = level
 
-template prepareOutputForRecord*(o: var BufferedOutput, level: LogLevel) =
+template activateOutput*(o: var BufferedOutput, level: LogLevel) =
   for f in o.finalOutputs.fields:
-    prepareOutputForRecord(f, level)
+    activateOutput(f, level)
+
+template prepareOutput*(r: var auto, level: LogLevel) =
+  mixin activateOutput
+
+  when r is tuple:
+    for f in r.fields:
+      activateOutput(f.output, level)
+  else:
+    activateOutput(r.output, level)
 
 template append*(o: var FileOutput, s: string) =
-  if o.outFile == nil: openOutput(o)
   o.outFile.write s
 
 template flushOutput*(o: var FileOutput) =
@@ -272,24 +283,6 @@ macro append*(o: var AnyOutput,
   result.add newCall("append", o, arg1)
   result.add newCall("append", o, arg2)
   for arg in restArgs: result.add newCall("append", o, arg)
-
-# The formatting functions defined for each LogRecord type are carefully
-# written to expand to multiple calls to `append` that can be merged by
-# a simple term-rewriting rule. In the final code, any consequtive appends
-# using literal values will be merged together into a single `write` call
-# to their destination object:
-
-template optimizeLogWrites*{
-  write(f, x)
-  write(f, y)
-}(x, y: string{lit}, f: File) =
-  write(f, x & y)
-
-template optimizeBufferAppends*{
-  add(s, x)
-  add(s, y)
-}(x, y: string{lit}, s: string) =
-  add(s, x & y)
 
 proc appendRfcTimestamp(o: var auto) =
   var ts = now()
@@ -363,9 +356,6 @@ template appendHeader(r: var TextLineRecord | var TextBlockRecord,
   # Log level comes first - allows for easy regex match with ^
   appendLogLevelMarker(r, lvl, true)
 
-  when compiles(r.level): # textlines color keys by level, so keep a record here
-    r.level = lvl
-
   when r.timestamps != NoTimestamps:
     append(r.output, " ")
     writeTs(r)
@@ -407,13 +397,15 @@ template appendHeader(r: var TextLineRecord | var TextBlockRecord,
 # Text line records:
 #
 
-template initLogRecord*(r: var TextLineRecord,
-                        lvl: LogLevel,
-                        topics: string,
-                        name: string) =
+proc initLogRecord*(r: var TextLineRecord,
+                    lvl: LogLevel,
+                    topics: string,
+                    name: string) =
+  r.level = lvl
   appendHeader(r, lvl, topics, name, true)
 
-template setPropertyImpl(r: var TextLineRecord, key: string, val: auto) =
+proc setProperty*(r: var TextLineRecord, key: string, val: auto) =
+  append(r.output, " ")
   let valText = $val
 
   var
@@ -455,14 +447,9 @@ template setPropertyImpl(r: var TextLineRecord, key: string, val: auto) =
   resetColors(r)
 
 template setFirstProperty*(r: var TextLineRecord, key: string, val: auto) =
-  append(r.output, " ")
-  setPropertyImpl(r, key, val)
+  setProperty(r, key, val)
 
-template setProperty*(r: var TextLineRecord, key: string, val: auto) =
-  append(r.output, " ")
-  setPropertyImpl(r, key, val)
-
-template flushRecord*(r: var TextLineRecord) =
+proc flushRecord*(r: var TextLineRecord) =
   append(r.output, "\n")
   flushOutput(r.output)
 
@@ -470,14 +457,14 @@ template flushRecord*(r: var TextLineRecord) =
 # Textblock records:
 #
 
-template initLogRecord*(r: var TextBlockRecord,
-                        lvl: LogLevel,
-                        topics: string,
-                        name: string) =
-  appendHeader(r, lvl, topics, name, false)
+proc initLogRecord*(r: var TextBlockRecord,
+                    level: LogLevel,
+                    topics: string,
+                    name: string) =
+  appendHeader(r, level, topics, name, false)
   append(r.output, "\n")
 
-template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
+proc setProperty*(r: var TextBlockRecord, key: string, val: auto) =
   let valText = $val
 
   append(r.output, textBlockIndent)
@@ -500,10 +487,10 @@ template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
 
   resetColors(r)
 
-template setProperty*(r: var TextBlockRecord, key: string, val: auto) =
-  setFirstProperty(r, key, val)
+template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
+  setProperty(r, key, val)
 
-template flushRecord*(r: var TextBlockRecord) =
+proc flushRecord*(r: var TextBlockRecord) =
   append(r.output, "\n")
   flushOutput(r.output)
 
@@ -516,10 +503,10 @@ import json
 template jsonEncode(x: auto): string = $(%x)
 template jsonEncode(s: JsonString): string = string(s)
 
-template initLogRecord*(r: var JsonRecord,
-                        level: LogLevel,
-                        topics: string,
-                        name: string) =
+proc initLogRecord*(r: var JsonRecord,
+                    level: LogLevel,
+                    topics: string,
+                    name: string) =
   append(r.output, """{"msg": """ & jsonEncode(name))
 
   if level != NONE:
@@ -533,16 +520,16 @@ template initLogRecord*(r: var JsonRecord,
     writeTs(r)
     append(r.output, "\"")
 
-template setFirstProperty*(r: var JsonRecord, key: string, val: auto) =
+proc setProperty*(r: var JsonRecord, key: string, val: auto) =
   append(r.output, ", ")
   append(r.output, jsonEncode(key))
   append(r.output, ": ")
   append(r.output, jsonEncode(val))
 
-template setProperty*(r: var JsonRecord, key: string, val: auto) =
-  setFirstProperty(r, key, val)
+template setFirstProperty*(r: var JsonRecord, key: string, val: auto) =
+  setProperty(r, key, val)
 
-template flushRecord*(r: var JsonRecord) =
+proc flushRecord*(r: var JsonRecord) =
   append(r.output, "}\n")
   flushOutput(r.output)
 
