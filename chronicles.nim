@@ -59,7 +59,7 @@ macro logScopeIMPL(prevScopes: typed,
           {.error: `errorMsg`.}
         #elif not isStreamSymbolIMPL(`streamId`):
         #  {.error: `errorMsg`.}
-        template `templateName`: typedesc = `streamId`
+        template `templateName`: type = `streamId`
 
       if isPublic:
         chroniclesExportNode.add id"activeChroniclesStream"
@@ -86,7 +86,7 @@ template publicLogScope*(newBindings: untyped) {.dirty.} =
   logScopeIMPL(bindSym("activeChroniclesScope", brForceOpen),
                newBindings, true)
 
-template dynamicLogScope*(stream: typedesc,
+template dynamicLogScope*(stream: type,
                           bindings: varargs[untyped]) {.dirty.} =
   bind bindSym, brForceOpen
   dynamicLogScopeIMPL(stream,
@@ -160,7 +160,7 @@ type InstInfo = tuple[filename: string, line: int, column: int]
 
 macro logIMPL(lineInfo: static InstInfo,
               Stream: typed,
-              RecordType: typedesc,
+              RecordType: type,
               eventName: static[string],
               severity: static[LogLevel],
               scopes: typed,
@@ -212,7 +212,7 @@ macro logIMPL(lineInfo: static InstInfo,
         if t in requiredTopics:
           dec requiredTopicsCount
 
-  if not enabledTopicsMatch or requiredTopicsCount > 0:
+  if severity != NONE and not enabledTopicsMatch or requiredTopicsCount > 0:
     return
 
   # Handling file name and line numbers on/off (lineNumbersEnabled) for particular log statements
@@ -226,7 +226,8 @@ macro logIMPL(lineInfo: static InstInfo,
 
   var code = newStmtList()
   when runtimeFilteringEnabled:
-    code.add runtimeTopicFilteringCode(severity, activeTopics)
+    if severity != NONE:
+      code.add runtimeTopicFilteringCode(severity, activeTopics)
 
   # The rest of the code selects the active LogRecord type (which can
   # be a tuple when the sink has multiple destinations) and then
@@ -269,10 +270,12 @@ macro logIMPL(lineInfo: static InstInfo,
   code.add newCall("flushRecord", record)
 
   result = newBlockStmt(id"chroniclesLogStmt", code)
-  # echo result.repr
+
+  when defined(debugLogImpl):
+    echo result.repr
 
 # Translate all the possible overloads to `logIMPL`:
-template log*(severity: LogLevel,
+template log*(severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
 
@@ -281,7 +284,7 @@ template log*(severity: LogLevel,
           activeChroniclesStream().Record, eventName, severity,
           bindSym("activeChroniclesScope", brForceOpen), props)
 
-template log*(stream: typedesc,
+template log*(stream: type,
               severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
@@ -299,7 +302,7 @@ template logFn(name, severity) {.dirty.} =
             activeChroniclesStream().Record, eventName, severity,
             bindSym("activeChroniclesScope", brForceOpen), props)
 
-  template `name`*(stream: typedesc,
+  template `name`*(stream: type,
                    eventName: static[string],
                    props: varargs[untyped])  {.dirty.} =
 

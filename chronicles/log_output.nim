@@ -44,6 +44,8 @@ type
     recordType: NimNode
     outputsTuple: NimNode
 
+  JsonString* = distinct string
+
 when defined(posix):
   {.pragma: syslog_h, importc, header: "<syslog.h>"}
 
@@ -512,13 +514,16 @@ template flushRecord*(r: var TextBlockRecord) =
 import json
 
 template jsonEncode(x: auto): string = $(%x)
+template jsonEncode(s: JsonString): string = string(s)
 
 template initLogRecord*(r: var JsonRecord,
                         lvl: LogLevel,
                         topics: string,
                         name: string) =
-  append(r.output, """{"msg": """ & jsonEncode(name) &
-                   """, "lvl": """ & jsonEncode($lvl))
+  append(r.output, """{"msg": """ & jsonEncode(name))
+
+  if lvl != NONE:
+    append(r.output, """, "lvl": """ & jsonEncode($lvl))
 
   if topics.len > 0:
     append(r.output, """, "topics": """ & jsonEncode(topics))
