@@ -522,8 +522,8 @@ template initLogRecord*(r: var JsonRecord,
                         name: string) =
   append(r.output, """{"msg": """ & jsonEncode(name))
 
-  if lvl != NONE:
-    append(r.output, """, "level": """ & jsonEncode($level))
+  if level != NONE:
+    append(r.output, """, "level": """ & jsonEncode(level.shortName))
 
   if topics.len > 0:
     append(r.output, """, "topics": """ & jsonEncode(topics))
