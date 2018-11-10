@@ -31,20 +31,21 @@ true
 true
 INF from foo                                   topics="main foo" thread=0
 INF from bar                                   topics="main bar" thread=0
-> set main to WARN, none should print:
+> set main to required WARN, none should print:
 true
 true
 true
-> set foo to INFO, bar to WARN, main back to default, foo should print:
-true
-true
-true
-INF from foo                                   topics="main foo" thread=0
-> set global LogLevel to WARN, set main and foo to INFO, foo should print:
+> set foo to INFO, bar and main to WARN, foo should print:
 true
 true
 true
 INF from foo                                   topics="main foo" thread=0
+> set global LogLevel to WARN, set main and foo to INFO, both should print:
+true
+true
+true
+INF from foo                                   topics="main foo" thread=0
+INF from bar                                   topics="main bar" thread=0
 """
 
 runtime_filtering.log="""INF from foo                                   topics="main foo" thread=0
@@ -56,4 +57,5 @@ INF from foo                                   topics="main foo" thread=0
 INF from bar                                   topics="main bar" thread=0
 INF from foo                                   topics="main foo" thread=0
 INF from foo                                   topics="main foo" thread=0
+INF from bar                                   topics="main bar" thread=0
 """

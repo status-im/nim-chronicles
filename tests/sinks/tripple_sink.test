@@ -28,6 +28,6 @@ INF exiting
 
 """
 
-log.json="""{"msg": "main started", "lvl": "INFO", "topics": "main", "thread": 0, "a": 10, "arg": 50, "b": "inner-b", "c": 10, "d": "some-d", "x": 16, "z": 20}
-{"msg": "exiting", "lvl": "INFO", "thread": 0, "a": 12, "b": "overriden-b", "c": 100, "msg": "bye bye", "x": 16}
+log.json="""{"msg": "main started", "level": "INF", "topics": "main", "thread": 0, "a": 10, "arg": 50, "b": "inner-b", "c": 10, "d": "some-d", "x": 16, "z": 20}
+{"msg": "exiting", "level": "INF", "thread": 0, "a": 12, "b": "overriden-b", "c": 100, "msg": "bye bye", "x": 16}
 """

@@ -101,12 +101,7 @@ template dynamicLogScope*(bindings: varargs[untyped]) {.dirty.} =
 
 when runtimeFilteringEnabled:
   import chronicles/topics_registry
-  export setTopicState, TopicState
-
-  var gActiveLogLevel: LogLevel
-
-  proc setLogLevel*(lvl: LogLevel) =
-    gActiveLogLevel = lvl
+  export setTopicState, setLogLevel, TopicState
 
   proc topicStateIMPL(topicName: static[string]): ptr Topic =
     var topic {.global.}: Topic = Topic(state: Normal, logLevel: NONE)
@@ -126,10 +121,10 @@ when runtimeFilteringEnabled:
 
     var topicsArray = newTree(nnkBracket)
     for topic in topics:
-      topicsArray.add newCall(topicStateIMPL, topic)
+      topicsArray.add newCall(topicStateIMPL, newLit(topic))
 
     result.add quote do:
-      if not `topicsMatch`(`topicsArray`):
+      if not `topicsMatch`(LogLevel(`logLevel`), `topicsArray`):
         break chroniclesLogStmt
 else:
   template runtimeFilteringDisabledError =
