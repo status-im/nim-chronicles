@@ -17,10 +17,21 @@ type
     totalRequiredTopics*: int
     topicStatesTable*: Table[string, ptr Topic]
 
+var gActiveLogLevel: LogLevel
+
+proc setLogLevel*(lvl: LogLevel) =
+  gActiveLogLevel = lvl
+
 proc initTopicsRegistry: TopicsRegisty =
   result.topicStatesTable = initTable[string, ptr Topic]()
 
 var registry* = initTopicsRegistry()
+
+proc clearTopicsRegistry* =
+  registry.totalEnabledTopics = 0
+  registry.totalRequiredTopics = 0
+  for val in registry.topicStatesTable.values:
+    val.state = Normal
 
 iterator topicStates*: (string, TopicState) =
   for name, topic in registry.topicStatesTable:
@@ -52,3 +63,33 @@ proc setTopicState*(name: string,
   topicPtr.logLevel = logLevel
 
   return true
+
+proc topicsMatch*(logStmtLevel: LogLevel,
+                  logStmtTopics: openarray[ptr Topic]): bool =
+  var
+    hasEnabledTopics = registry.totalEnabledTopics > 0
+    enabledTopicsMatch = false
+    normalTopicsMatch = false
+    requiredTopicsCount = registry.totalRequiredTopics
+
+  for topic in logStmtTopics:
+    let topicLogLevel = if topic.logLevel != NONE: topic.logLevel
+                        else: gActiveLogLevel
+    if logStmtLevel >= topicLogLevel:
+      case topic.state
+      of Normal: normalTopicsMatch = true
+      of Enabled: enabledTopicsMatch = true
+      of Disabled: return false
+      of Required: dec requiredTopicsCount
+
+  if requiredTopicsCount > 0:
+    return false
+
+  if hasEnabledTopics and not enabledTopicsMatch:
+    return false
+
+  return normalTopicsMatch
+
+proc getTopicState*(topic: string): ptr Topic =
+  return registry.topicStatesTable.getOrDefault(topic)
+

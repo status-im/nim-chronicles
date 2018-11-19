@@ -128,7 +128,7 @@ proc handleEnumOption(E: typedesc[enum],
 template handleEnumOption(E, varName: untyped): auto =
   handleEnumOption(E, astToStr(varName), varName)
 
-template topicsAsSeq(topics: string): untyped =
+template topicsAsSeq*(topics: string): untyped =
   when topics.len > 0:
     topics.split({','} + Whitespace)
   else:

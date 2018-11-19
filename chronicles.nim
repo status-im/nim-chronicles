@@ -59,7 +59,7 @@ macro logScopeIMPL(prevScopes: typed,
           {.error: `errorMsg`.}
         #elif not isStreamSymbolIMPL(`streamId`):
         #  {.error: `errorMsg`.}
-        template `templateName`: typedesc = `streamId`
+        template `templateName`: type = `streamId`
 
       if isPublic:
         chroniclesExportNode.add id"activeChroniclesStream"
@@ -86,7 +86,7 @@ template publicLogScope*(newBindings: untyped) {.dirty.} =
   logScopeIMPL(bindSym("activeChroniclesScope", brForceOpen),
                newBindings, true)
 
-template dynamicLogScope*(stream: typedesc,
+template dynamicLogScope*(stream: type,
                           bindings: varargs[untyped]) {.dirty.} =
   bind bindSym, brForceOpen
   dynamicLogScopeIMPL(stream,
@@ -101,12 +101,7 @@ template dynamicLogScope*(bindings: varargs[untyped]) {.dirty.} =
 
 when runtimeFilteringEnabled:
   import chronicles/topics_registry
-  export setTopicState, TopicState
-
-  var gActiveLogLevel: LogLevel
-
-  proc setLogLevel*(lvl: LogLevel) =
-    gActiveLogLevel = lvl
+  export setTopicState, setLogLevel, TopicState
 
   proc topicStateIMPL(topicName: static[string]): ptr Topic =
     var topic {.global.}: Topic = Topic(state: Normal, logLevel: NONE)
@@ -121,32 +116,15 @@ when runtimeFilteringEnabled:
     # block surrounding the entire log statement.
     result = newStmtList()
     var
-      matchEnabledTopics = genSym(nskVar, "matchEnabledTopics")
-      requiredTopicsCount = genSym(nskVar, "requiredTopicsCount")
-      topicChecks = newStmtList()
+      topicStateIMPL = bindSym("topicStateIMPL")
+      topicsMatch = bindSym("topicsMatch")
 
-    result.add quote do:
-
-      var `matchEnabledTopics` = registry.totalEnabledTopics == 0
-      var `requiredTopicsCount` = registry.totalRequiredTopics
-
+    var topicsArray = newTree(nnkBracket)
     for topic in topics:
-      result.add quote do:
-        let t = topicStateIMPL(`topic`)
-        case t.state
-        of Normal: discard
-        of Enabled: `matchEnabledTopics` = true
-        of Disabled: break chroniclesLogStmt
-        of Required: dec `requiredTopicsCount`
-
-        if t.logLevel == NONE:
-          if LogLevel(`logLevel`) < gActiveLogLevel:
-            break chroniclesLogStmt
-        elif LogLevel(`logLevel`) < t.logLevel:
-          break chroniclesLogStmt
+      topicsArray.add newCall(topicStateIMPL, newLit(topic))
 
     result.add quote do:
-      if not `matchEnabledTopics` or `requiredTopicsCount` > 0:
+      if not `topicsMatch`(LogLevel(`logLevel`), `topicsArray`):
         break chroniclesLogStmt
 else:
   template runtimeFilteringDisabledError =
@@ -160,7 +138,7 @@ type InstInfo = tuple[filename: string, line: int, column: int]
 
 macro logIMPL(lineInfo: static InstInfo,
               Stream: typed,
-              RecordType: typedesc,
+              RecordType: type,
               eventName: static[string],
               severity: static[LogLevel],
               scopes: typed,
@@ -212,7 +190,7 @@ macro logIMPL(lineInfo: static InstInfo,
         if t in requiredTopics:
           dec requiredTopicsCount
 
-  if not enabledTopicsMatch or requiredTopicsCount > 0:
+  if severity != NONE and not enabledTopicsMatch or requiredTopicsCount > 0:
     return
 
   # Handling file name and line numbers on/off (lineNumbersEnabled) for particular log statements
@@ -226,7 +204,8 @@ macro logIMPL(lineInfo: static InstInfo,
 
   var code = newStmtList()
   when runtimeFilteringEnabled:
-    code.add runtimeTopicFilteringCode(severity, activeTopics)
+    if severity != NONE:
+      code.add runtimeTopicFilteringCode(severity, activeTopics)
 
   # The rest of the code selects the active LogRecord type (which can
   # be a tuple when the sink has multiple destinations) and then
@@ -243,36 +222,28 @@ macro logIMPL(lineInfo: static InstInfo,
 
   code.add quote do:
     var `record`: `RecordType`
+    prepareOutput(`record`, LogLevel(`severity`))
+    initLogRecord(`record`, LogLevel(`severity`), `topicsNode`, `eventName`)
+    setFirstProperty(`record`, "thread", `threadId`)
 
-  for i in 0 ..< recordArity:
-    # We do something complicated here on purpose.
-    # We want to produce the setProperty calls for each record in turn
-    # because this would allow for the write optimization rules defined
-    # in `log_output` to kick in.
-    let recordRef = if recordArity == 1: record
-                    else: newTree(nnkBracketExpr, record, newLit(i))
+  if useLineNumbers:
     var filename = lineInfo.filename & ":" & $lineInfo.line
-    code.add quote do:
-      prepareOutputForRecord(`recordRef`.output, LogLevel(`severity`))
-      initLogRecord(`recordRef`, LogLevel(`severity`),
-                    `topicsNode`, `eventName`)
-      setFirstProperty(`recordRef`, "thread", `threadId`)
+    code.add newCall("setProperty", record,
+                     newLit("file"), newLit(filename))
 
-    if useLineNumbers:
-        code.add newCall("setProperty", recordRef,
-                         newLit("file"), newLit(filename))
-
-    for k, v in finalBindings:
-      code.add newCall("setProperty", recordRef, newLit(k), v)
+  for k, v in finalBindings:
+    code.add newCall("setProperty", record, newLit(k), v)
 
   code.add newCall("logAllDynamicProperties", Stream, record)
   code.add newCall("flushRecord", record)
 
   result = newBlockStmt(id"chroniclesLogStmt", code)
-  # echo result.repr
+
+  when defined(debugLogImpl):
+    echo result.repr
 
 # Translate all the possible overloads to `logIMPL`:
-template log*(severity: LogLevel,
+template log*(severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
 
@@ -281,7 +252,7 @@ template log*(severity: LogLevel,
           activeChroniclesStream().Record, eventName, severity,
           bindSym("activeChroniclesScope", brForceOpen), props)
 
-template log*(stream: typedesc,
+template log*(stream: type,
               severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
@@ -299,7 +270,7 @@ template logFn(name, severity) {.dirty.} =
             activeChroniclesStream().Record, eventName, severity,
             bindSym("activeChroniclesScope", brForceOpen), props)
 
-  template `name`*(stream: typedesc,
+  template `name`*(stream: type,
                    eventName: static[string],
                    props: varargs[untyped])  {.dirty.} =
 
