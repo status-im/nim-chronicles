@@ -261,8 +261,8 @@ template log*(stream: type,
   logIMPL(instantiationInfo(), stream, stream.Record, eventName, severity,
           bindSym("activeChroniclesScope", brForceOpen), props)
 
-template logFn(name, severity) {.dirty.} =
-  template `name`*(eventName: static[string],
+template logFn(fnName, severity) {.dirty.} =
+  template `fnName`*(eventName: static[string],
                    props: varargs[untyped]) {.dirty.} =
 
     bind logIMPL, bindSym, brForceOpen
@@ -270,13 +270,30 @@ template logFn(name, severity) {.dirty.} =
             activeChroniclesStream().Record, eventName, severity,
             bindSym("activeChroniclesScope", brForceOpen), props)
 
-  template `name`*(stream: type,
+  template `fnName Exception`*(eventName: static[string],
+                   props: varargs[untyped]) =
+    let exc = getCurrentException()
+    logScope:
+      exception = exc.name
+      exceptionMessage = exc.msg
+    `fnName`(eventName, props)
+
+  template `fnName`*(stream: type,
                    eventName: static[string],
                    props: varargs[untyped])  {.dirty.} =
 
     bind logIMPL, bindSym, brForceOpen
     logIMPL(instantiationInfo(), stream, stream.Record, eventName, severity,
             bindSym("activeChroniclesScope", brForceOpen), props)
+
+  template `fnName Exception`*(stream: type,
+                   eventName: static[string],
+                   props: varargs[untyped]) =
+    let exc = getCurrentException()
+    logScope:
+      exception = exc.name
+      exceptionMessage = exc.msg
+    `fnName`(stream, eventName, props)
 
 logFn trace , LogLevel.TRACE
 logFn debug , LogLevel.DEBUG
