@@ -78,7 +78,6 @@ proc logResult(testName: string, status: TestStatus, time: float) =
               of FAILED: fgRed
               of SKIPPED: fgYellow
               of INVALID: fgRed
-              else: fgWhite
   styledEcho(styleBright, color, "[", $status, "] ",
              resetStyle, testName,
              fgYellow, " ", time.formatFloat(ffDecimal, 3), " s")
