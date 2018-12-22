@@ -533,17 +533,17 @@ statement). New log formats can be implemented by defining a suitable
 log record type. Let's demonstrate this by implementing a simple XML logger:
 
 ``` nim
-import xmldom, chronicles
+import xmltree, chronicles
 
 type XmlRecord[Output] = object
   output: Output
 
 template initLogRecord*(r: var XmlRecord, lvl: LogLevel,
                         topics: string, name: string) =
-  r.output.append "<event name=\"", escapeXml(name), "\" severity=\"", $lvl, "\">\n"
+  r.output.append "<event name=\"", escape(name), "\" severity=\"", $lvl, "\">\n"
 
 template setProperty*(r: var XmlRecord, key: string, val: auto) =
-  r.output.append textBlockIndent, "<", key, ">", escapeXml($val), "</", key, ">\n"
+  r.output.append textBlockIndent, "<", key, ">", escape($val), "</", key, ">\n"
 
 template setFirstProperty*(r: var XmlRecord, key: string, val: auto) =
   r.setProperty key, val
