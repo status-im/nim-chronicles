@@ -69,7 +69,7 @@ proc topicsMatch*(logStmtLevel: LogLevel,
   var
     hasEnabledTopics = registry.totalEnabledTopics > 0
     enabledTopicsMatch = false
-    normalTopicsMatch = false
+    normalTopicsMatch = logStmtTopics.len == 0
     requiredTopicsCount = registry.totalRequiredTopics
 
   for topic in logStmtTopics:
