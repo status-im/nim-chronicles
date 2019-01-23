@@ -9,8 +9,6 @@ nim-chronicles
 nimble install chronicles
 ```
 
-> At the moment, Chronicles requires a recent devel version of Nim.
-
 
 ## Introduction
 
@@ -625,9 +623,9 @@ file, Chronicles will provide options for using it.
 
 ## Contributing
 
-The development of Chronicles is Sponsored by [Status.im](https://status.im/)
-through the [OpenBounty](https://openbounty.status.im/) initiative. Please
-take a look at our tracker for any issues having the [bounty][Bounties] tag.
+The development of Chronicles is sponsored by [Status.im](https://status.im/)
+through the use of [GitCoin](https://gitcoin.co/). Please take a look at our
+tracker for any issues having the [bounty][Bounties] tag.
 
 When submitting pull requests, please add test cases for any new features
 or fixes and make sure `nimble test` is still able to execute the entire
