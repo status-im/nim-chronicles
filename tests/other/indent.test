@@ -6,7 +6,7 @@ chronicles_indent=1
 
 [Output]
 stdout="""INF main started topics="main"
- thread: 0
+ tid: 0
  a: 10
  arg: 50
  b: inner-b
@@ -16,7 +16,7 @@ stdout="""INF main started topics="main"
  z: 20
 
 INF exiting
- thread: 0
+ tid: 0
  a: 12
  b: overriden-b
  c: 100

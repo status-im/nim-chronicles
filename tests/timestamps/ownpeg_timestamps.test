@@ -7,10 +7,10 @@ chronicles_timestamps=UnixTime
 timestamp_peg=r"{\d+} '.' {\d+} \s"
 
 [Output]
-stdout="""INF 1539371702.190928 main started                               topics="main" thread=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
-INF 1539371702.191123 exiting                                    thread=0 a=12 b=overriden-b c=100 msg="bye bye" x=16
+stdout="""INF 1539371702.190928 main started                               topics="main" tid=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
+INF 1539371702.191123 exiting                                    tid=0 a=12 b=overriden-b c=100 msg="bye bye" x=16
 """
 
-lexical_scopes.log="""INF 1539371702.190928 main started                               topics="main" thread=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
-INF 1539371702.191123 exiting                                    thread=0 a=12 b=overriden-b c=100 msg="bye bye" x=16
+lexical_scopes.log="""INF 1539371702.190928 main started                               topics="main" tid=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
+INF 1539371702.191123 exiting                                    tid=0 a=12 b=overriden-b c=100 msg="bye bye" x=16
 """

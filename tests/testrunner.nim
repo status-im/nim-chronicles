@@ -104,7 +104,7 @@ proc cmpOutputs(test: TestSpec, stdout: string): TestStatus =
 
     # Would be nice to do a real diff here instead of simple compare
     if test.timestampPeg.len > 0:
-      if not cmpIgnorePeg(testOutput, output.expectedOutput, peg(test.timestampPeg)):
+      if not cmpIgnorePegs(testOutput, output.expectedOutput, peg(test.timestampPeg), pegXid):
         logFailure(test, OutputsDiffer, output.name, output.expectedOutput, testOutput)
         result = FAILED
     else:

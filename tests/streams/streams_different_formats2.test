@@ -4,21 +4,21 @@ chronicles_colors=None
 chronicles_timestamps=None
 
 [Output]
-stdout="""INF logging to foo                             thread=0
-INF logging to foo                             thread=0
+stdout="""INF logging to foo                             tid=0
+INF logging to foo                             tid=0
 """
 
 default.log="""INF dynamic scope starts
-  thread: 0
+  tid: 0
   reqId: 10
   userId: 20
 
 INF dynamic scope ends
-  thread: 0
+  tid: 0
   reqId: 10
   userId: 20
 
 WRN about to exit main
-  thread: 0
+  tid: 0
 
 """

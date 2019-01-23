@@ -6,9 +6,9 @@ chronicles_log_level=DEBUG
 chronicles_disabled_topics:"foo bar"
 
 [Output]
-stdout="""WRN inside main                                topics="main" thread=0 a=1 arg=50 b=10
-INF inside main                                topics="main" thread=0 a=1 arg=50 b=10
-DBG inside main                                topics="main" thread=0 a=1 arg=50 b=10
-INF after main                                 topics="general" thread=0
-INF exiting                                    thread=0 msg="bye bye"
+stdout="""WRN inside main                                topics="main" tid=0 a=1 arg=50 b=10
+INF inside main                                topics="main" tid=0 a=1 arg=50 b=10
+DBG inside main                                topics="main" tid=0 a=1 arg=50 b=10
+INF after main                                 topics="general" tid=0
+INF exiting                                    tid=0 msg="bye bye"
 """

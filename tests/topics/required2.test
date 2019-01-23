@@ -6,7 +6,7 @@ chronicles_log_level=DEBUG
 chronicles_required_topics:"foo bar"
 
 [Output]
-stdout="""WRN inside foobar                              topics="foo bar" thread=0 arg=20 b=10
-INF inside foobar                              topics="foo bar" thread=0 arg=20 b=10
-DBG inside foobar                              topics="foo bar" thread=0 arg=20 b=10
+stdout="""WRN inside foobar                              topics="foo bar" tid=0 arg=20 b=10
+INF inside foobar                              topics="foo bar" tid=0 arg=20 b=10
+DBG inside foobar                              topics="foo bar" tid=0 arg=20 b=10
 """

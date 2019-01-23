@@ -6,9 +6,9 @@ chronicles_log_level=WARN
 chronicles_enabled_topics="foo:INFO,bar:WARN,main"
 
 [Output]
-stdout="""WRN inside main                                topics="main" thread=0 a=1 arg=50 b=10
-WRN inside foo                                 topics="foo" thread=0 arg=10 b=10
-INF inside foo                                 topics="foo" thread=0 arg=10 b=10
-WRN inside foobar                              topics="foo bar" thread=0 arg=20 b=10
-INF inside foobar                              topics="foo bar" thread=0 arg=20 b=10
+stdout="""WRN inside main                                topics="main" tid=0 a=1 arg=50 b=10
+WRN inside foo                                 topics="foo" tid=0 arg=10 b=10
+INF inside foo                                 topics="foo" tid=0 arg=10 b=10
+WRN inside foobar                              topics="foo bar" tid=0 arg=20 b=10
+INF inside foobar                              topics="foo bar" tid=0 arg=20 b=10
 """

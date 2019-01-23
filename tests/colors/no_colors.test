@@ -4,16 +4,16 @@ chronicles_colors=None
 chronicles_timestamps=None
 
 [Output]
-stdout="""INF long info                                  thread=0 file=long_lines.nim:10 str="some multiline\nstring\nmore lines"
-WRN long warning                               thread=0 str="some multiline\nstring\nmore lines"
+stdout="""INF long info                                  tid=0 file=long_lines.nim:10 str="some multiline\nstring\nmore lines"
+WRN long warning                               tid=0 str="some multiline\nstring\nmore lines"
 INF long info
-  thread: 0
+  tid: 0
   str: some multiline
        string
        more lines
 
 WRN long warning
-  thread: 0
+  tid: 0
   str: some multiline
        string
        more lines
