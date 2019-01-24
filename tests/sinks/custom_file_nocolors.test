@@ -3,6 +3,6 @@ chronicles_sinks="textlines[nocolors,file(mylog.txt)]"
 chronicles_timestamps=None
 
 [Output]
-mylog.txt="""INF main started                               topics="main" thread=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
-INF exiting                                    thread=0 a=12 b=overriden-b c=100 msg="bye bye" x=16
+mylog.txt="""INF main started                               topics="main" tid=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
+INF exiting                                    tid=0 a=12 b=overriden-b c=100 msg="bye bye" x=16
 """

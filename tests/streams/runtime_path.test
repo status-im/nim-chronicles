@@ -5,5 +5,5 @@ chronicles_timestamps=None
 
 [Output]
 stdout=""""""
-mylog.log="""INF log record                                 thread=0 prop=10
+mylog.log="""INF log record                                 tid=0 prop=10
 """

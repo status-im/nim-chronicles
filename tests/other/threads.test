@@ -3,18 +3,17 @@ chronicles_sinks="textlines[stdout]"
 chronicles_colors=None
 chronicles_timestamps=None
 chronicles_line_numbers=on
-timestamp_peg="'thread='\\d+"
 
 [Output]
-stdout="""WRN inside main                                topics="main" thread=2588 file=topics_and_loglvls_threads.nim:9 a=1 arg=50 b=10
-INF inside main                                topics="main" thread=2588 file=topics_and_loglvls_threads.nim:10 a=1 arg=50 b=10
-DBG inside main                                topics="main" thread=2588 file=topics_and_loglvls_threads.nim:11 a=1 arg=50 b=10
-WRN inside foo                                 topics="foo" thread=2588 file=topics_and_loglvls_threads.nim:18 arg=10 b=10
-INF inside foo                                 topics="foo" thread=2588 file=topics_and_loglvls_threads.nim:19 arg=10 b=10
-DBG inside foo                                 topics="foo" thread=2588 file=topics_and_loglvls_threads.nim:20 arg=10 b=10
-WRN inside foobar                              topics="foo bar" thread=2588 file=topics_and_loglvls_threads.nim:27 arg=20 b=10
-INF inside foobar                              topics="foo bar" thread=2588 file=topics_and_loglvls_threads.nim:28 arg=20 b=10
-DBG inside foobar                              topics="foo bar" thread=2588 file=topics_and_loglvls_threads.nim:29 arg=20 b=10
-INF after main                                 topics="general" thread=2588 file=topics_and_loglvls_threads.nim:35
-INF exiting                                    thread=2588 file=topics_and_loglvls_threads.nim:36 msg="bye bye"
+stdout="""WRN inside main                                topics="main" tid=2588 file=topics_and_loglvls_threads.nim:9 a=1 arg=50 b=10
+INF inside main                                topics="main" tid=2588 file=topics_and_loglvls_threads.nim:10 a=1 arg=50 b=10
+DBG inside main                                topics="main" tid=2588 file=topics_and_loglvls_threads.nim:11 a=1 arg=50 b=10
+WRN inside foo                                 topics="foo" tid=2588 file=topics_and_loglvls_threads.nim:18 arg=10 b=10
+INF inside foo                                 topics="foo" tid=2588 file=topics_and_loglvls_threads.nim:19 arg=10 b=10
+DBG inside foo                                 topics="foo" tid=2588 file=topics_and_loglvls_threads.nim:20 arg=10 b=10
+WRN inside foobar                              topics="foo bar" tid=2588 file=topics_and_loglvls_threads.nim:27 arg=20 b=10
+INF inside foobar                              topics="foo bar" tid=2588 file=topics_and_loglvls_threads.nim:28 arg=20 b=10
+DBG inside foobar                              topics="foo bar" tid=2588 file=topics_and_loglvls_threads.nim:29 arg=20 b=10
+INF after main                                 topics="general" tid=2588 file=topics_and_loglvls_threads.nim:35
+INF exiting                                    tid=2588 file=topics_and_loglvls_threads.nim:36 msg="bye bye"
 """

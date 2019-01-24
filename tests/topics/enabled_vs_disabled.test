@@ -7,7 +7,7 @@ chronicles_enabled_topics:"main foo"
 chronicles_disabled_topics:"foo"
 
 [Output]
-stdout="""WRN inside main                                topics="main" thread=0 a=1 arg=50 b=10
-INF inside main                                topics="main" thread=0 a=1 arg=50 b=10
-DBG inside main                                topics="main" thread=0 a=1 arg=50 b=10
+stdout="""WRN inside main                                topics="main" tid=0 a=1 arg=50 b=10
+INF inside main                                topics="main" tid=0 a=1 arg=50 b=10
+DBG inside main                                topics="main" tid=0 a=1 arg=50 b=10
 """

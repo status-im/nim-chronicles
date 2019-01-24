@@ -27,25 +27,32 @@ let
   pegUnixTimestamp = peg"{\d+} '.' {\d\d\d\d\d\d} \s"
   # peg for timestamp with format yyyy-MM-dd HH:mm:sszzz
   pegRfcTimestamp = peg"{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"
+  # Thread/process id is unpredictable..
+  pegXid* = peg"""'tid' (('=') / ('": ') / (': [1m') / (': ') / ('[0m=[94m') / ('>')) \d+"""
 
-proc cmpIgnorePeg*(a, b: string, peg: Peg): bool =
-  return a.replace(peg, "dummy") == b.replace(peg, "dummy")
+proc cmpIgnorePegs*(a, b: string, pegs: varargs[Peg]): bool =
+  var
+    aa = a
+    bb = b
+  for peg in pegs:
+    aa = aa.replace(peg, "dummy")
+    bb = bb.replace(peg, "dummy")
+
+  return aa == bb
 
 proc cmpIgnoreTimestamp*(a, b: string, timestamp = ""): bool =
   if timestamp.len == 0:
-    return a == b
+    return cmpIgnorePegs(a, b, pegXid)
   else:
     if timestamp == "RfcTime":
-      return cmpIgnorePeg(a, b, pegRfcTimestamp)
+      return cmpIgnorePegs(a, b, pegRfcTimestamp, pegXid)
     elif timestamp == "UnixTime":
-      return cmpIgnorePeg(a, b, pegUnixTimestamp)
+      return cmpIgnorePegs(a, b, pegUnixTimestamp, pegXid)
 
 proc cmpIgnoreDefaultTimestamps*(a, b: string): bool =
-  if a == b:
+  if cmpIgnorePegs(a, b, pegRfcTimestamp, pegXid):
     return true
-  elif cmpIgnorePeg(a, b, pegRfcTimestamp):
-    return true
-  elif cmpIgnorePeg(a, b, pegUnixTimestamp):
+  elif cmpIgnorePegs(a, b, pegUnixTimestamp, pegXid):
     return true
   else: return false
 

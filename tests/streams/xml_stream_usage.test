@@ -4,7 +4,7 @@ chronicles_timestamps=None
 
 [Output]
 stdout="""<event type="New Stream" severity="INFO">
-  <thread>0</thread>
+  <tid>0</tid>
   <episode>Smarty Cat</episode>
   <franchise>Tom &amp; Jerry</franchise>
 </event>

@@ -562,7 +562,7 @@ The produced output from the example will be:
 
 ``` xml
 <event name="New Video" severity="INFO">
-  <thread>0</thread>
+  <tid>0</tid>
   <episode>Smarty Cat</episode>
   <franchise>Tom &amp; Jerry</franchise>
 </event>

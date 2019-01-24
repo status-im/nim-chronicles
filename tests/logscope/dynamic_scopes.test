@@ -4,6 +4,6 @@ chronicles_colors=None
 chronicles_timestamps=None
 
 [Output]
-stdout="""INF test                                       topics="main" thread=0 reqId=10 userId=20
-WRN about to exit                              topics="main" thread=0 timeSpent=2s
+stdout="""INF test                                       topics="main" tid=0 reqId=10 userId=20
+WRN about to exit                              topics="main" tid=0 timeSpent=2s
 """

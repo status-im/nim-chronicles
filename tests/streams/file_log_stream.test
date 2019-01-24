@@ -6,6 +6,6 @@ chronicles_timestamps=None
 [Output]
 stdout=""""""
 logger.log="""INF hello
-  thread: 0
+  tid: 0
 
 """

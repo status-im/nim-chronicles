@@ -4,11 +4,11 @@ chronicles_colors=None
 chronicles_timestamps=None
 
 [Output]
-stdout="""INF logging to foo                             thread=0
-INF logging to foo                             thread=0
+stdout="""INF logging to foo                             tid=0
+INF logging to foo                             tid=0
 """
 
-default.log="""{"msg": "dynamic scope starts", "level": "INF", "thread": 0, "reqId": 10, "userId": 20}
-{"msg": "dynamic scope ends", "level": "INF", "thread": 0, "reqId": 10, "userId": 20}
-{"msg": "about to exit main", "level": "WRN", "thread": 0}
+default.log="""{"msg": "dynamic scope starts", "level": "INF", "tid": 0, "reqId": 10, "userId": 20}
+{"msg": "dynamic scope ends", "level": "INF", "tid": 0, "reqId": 10, "userId": 20}
+{"msg": "about to exit main", "level": "WRN", "tid": 0}
 """

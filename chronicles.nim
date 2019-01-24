@@ -136,6 +136,24 @@ else:
 
 type InstInfo = tuple[filename: string, line: int, column: int]
 
+when compileOption("threads"):
+  # With threads turned on, we give the thread id
+  # TODO: Does this make sense on all platforms? On linux, conveniently, the
+  #       process id is the thread id of the `main` thread..
+  proc getLogThreadId*(): int = getThreadId()
+else:
+  # When there are no threads, we show the process id instead, allowing easy
+  # correlation on multiprocess systems
+  when defined(posix):
+    import posix
+    proc getLogThreadId*(): int = int(posix.getpid())
+  elif defined(windows):
+    proc getCurrentProcessId(): uint32 {.
+      stdcall, dynlib: "kernel32", importc: "GetCurrentProcessId".}
+    proc getLogThreadId*(): int = int(getCurrentProcessId())
+  else:
+    proc getLogThreadId*(): int = 0
+
 macro logIMPL(lineInfo: static InstInfo,
               Stream: typed,
               RecordType: type,
@@ -217,14 +235,14 @@ macro logIMPL(lineInfo: static InstInfo,
     recordArity = if recordTypeNodes.kind != nnkTupleConstr: 1
                   else: recordTypeNodes.len
     record = genSym(nskVar, "record")
-    threadId = when compileOption("threads"): newCall("getThreadId")
-               else: newLit(0)
 
   code.add quote do:
     var `record`: `RecordType`
     prepareOutput(`record`, LogLevel(`severity`))
     initLogRecord(`record`, LogLevel(`severity`), `topicsNode`, `eventName`)
-    setFirstProperty(`record`, "thread", `threadId`)
+    # called tid even when it's a process id - this to avoid differences in
+    # logging between threads and no threads
+    setFirstProperty(`record`, "tid", getLogThreadId())
 
   if useLineNumbers:
     var filename = lineInfo.filename & ":" & $lineInfo.line
