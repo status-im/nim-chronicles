@@ -144,7 +144,7 @@ when compileOption("threads"):
 else:
   # When there are no threads, we show the process id instead, allowing easy
   # correlation on multiprocess systems
-  when defined(linux) or defined(macosx):
+  when defined(posix):
     import posix
     proc getLogThreadId*(): int = int(posix.getpid())
   elif defined(windows):
@@ -240,6 +240,8 @@ macro logIMPL(lineInfo: static InstInfo,
     var `record`: `RecordType`
     prepareOutput(`record`, LogLevel(`severity`))
     initLogRecord(`record`, LogLevel(`severity`), `topicsNode`, `eventName`)
+    # called tid even when it's a process id - this to avoid differences in
+    # logging between threads and no threads
     setFirstProperty(`record`, "tid", getLogThreadId())
 
   if useLineNumbers:
