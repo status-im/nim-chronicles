@@ -134,7 +134,7 @@ template topicsAsSeq*(topics: string): untyped =
   else:
     newSeq[string](0)
 
-proc topicsWithLogLevelAsSeq(topics: string): untyped =
+proc topicsWithLogLevelAsSeq(topics: string): seq[EnabledTopic] =
   var sequence = newSeq[EnabledTopic](0)
   if topics.len > 0:
     for topic in split(topics, {','} + Whitespace):
