@@ -87,7 +87,7 @@ proc open*(o: var FileOutput, path: string, mode = fmAppend): bool =
     o.mode = mode
 
 proc openOutput(o: var FileOutput) =
-  assert o.outPath.len > 0 and o.mode != fmRead
+  doAssert o.outPath.len > 0 and o.mode != fmRead
   createDir o.outPath.splitFile.dir
   o.outFile = open(o.outPath, o.mode)
 
@@ -232,7 +232,7 @@ template append*(o: var FileOutput, s: string) =
 template flushOutput*(o: var FileOutput) =
   # XXX: Uncommenting this triggers a strange compile-time error
   #      when multiple sinks are used.
-  # assert o.outFile != nil
+  # doAssert o.outFile != nil
   o.outFile.flushFile
 
 template append*(o: var StdOutOutput, s: string) = stdout.write s

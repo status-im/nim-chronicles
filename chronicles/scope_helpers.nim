@@ -46,7 +46,7 @@ proc lastScopeBody*(scopes: NimNode): NimNode =
     result = lastScopeBody(scopes[^1])
   of {nnkClosedSymChoice, nnkOpenSymChoice}:
     var bestScopeRev = 0
-    assert scopes.len > 0
+    doAssert scopes.len > 0
     for scope in scopes:
       let scopeBody = scope.getImpl.body
       let rev = scopeBody.scopeRevision
