@@ -103,10 +103,14 @@ when runtimeFilteringEnabled:
   import chronicles/topics_registry
   export setTopicState, setLogLevel, TopicState
 
-  proc topicStateIMPL(topicName: static[string]): ptr Topic =
-    var topic {.global.}: Topic = Topic(state: Normal, logLevel: NONE)
-    var dummy {.global.} = registerTopic(topicName, addr(topic))
-    return addr(topic)
+  proc topicStateIMPL(topicName: static[string]): Topic =
+    var topic: Topic
+    try:
+      topic = getTopicState(topicName)
+    except KeyError:
+      topic = Topic(state: Normal, logLevel: NONE)
+      registerTopic(topicName, topic)
+    return topic
 
   proc runtimeTopicFilteringCode*(logLevel: LogLevel, topics: seq[string]): NimNode =
     # This proc generates the run-time code used for topic filtering.
