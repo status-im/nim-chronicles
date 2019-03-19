@@ -346,6 +346,10 @@ proc setTopicState*(name: string,
                     logLevel = LogLevel.NONE): bool
 ```
 
+The log levels available at runtime - and therefor to `setLogLevel()` - are
+those greater than or equal to the one set at compile time by
+`chronicles_log_level`.
+
 It is also possible for a specific topic to overrule the global `LogLevel`, set
 by `setLogLevel`, by setting the optional `logLevel` parameter in
 `setTopicState` to a valid `LogLevel`.
