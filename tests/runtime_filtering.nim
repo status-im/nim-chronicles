@@ -1,4 +1,4 @@
-import chronicles, chronicles/topics_registry
+import chronicles
 
 logScope:
   topics = "main"

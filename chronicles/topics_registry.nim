@@ -81,7 +81,7 @@ proc topicsMatch*(logStmtLevel: LogLevel,
     registry = getTopicsRegistry()
     hasEnabledTopics = registry.totalEnabledTopics > 0
     enabledTopicsMatch = false
-    normalTopicsMatch = logStmtTopics.len == 0
+    normalTopicsMatch = logStmtTopics.len == 0 and logStmtLevel >= gActiveLogLevel
     requiredTopicsCount = registry.totalRequiredTopics
 
   for topic in logStmtTopics:

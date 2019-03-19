@@ -1,0 +1,16 @@
+program="runtime_filtering_no_scopes"
+chronicles_sinks="textlines[stdout,file]"
+chronicles_runtime_filtering="on"
+chronicles_colors=None
+chronicles_timestamps=None
+
+[Output]
+stdout="""> start by printing both:
+INF from foo                                   tid=0
+INF from bar                                   tid=0
+> set global log level to WARN; info() is now disabled:
+"""
+
+runtime_filtering_no_scopes.log="""INF from foo                                   tid=0
+INF from bar                                   tid=0
+"""
