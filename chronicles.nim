@@ -1,9 +1,9 @@
 import
-  macros, tables, strutils, strformat,
+  locks, macros, tables, strutils, strformat,
   chronicles/[scope_helpers, dynamic_scope, log_output, options]
 
 export
-  dynamic_scope, log_output, options
+  dynamic_scope, log_output, options, locks
 
 # So, how does Chronicles work?
 #
@@ -22,6 +22,9 @@ export
 # `logScopeIMPL` is used to merge a previously defined scope with some
 # new definition in order to produce a new scope:
 #
+
+var chroniclesLock*: Lock
+initLock(chroniclesLock)
 
 template activeChroniclesScope* =
   0 # track the scope revision
@@ -259,6 +262,13 @@ macro logIMPL(lineInfo: static InstInfo,
   code.add newCall("logAllDynamicProperties", Stream, record)
   code.add newCall("flushRecord", record)
 
+  code = quote do:
+    {.gcsafe.}:
+      chroniclesLock.acquire()
+      try:
+        `code`
+      finally:
+        chroniclesLock.release()
   result = newBlockStmt(id"chroniclesLogStmt", code)
 
   when defined(debugLogImpl):

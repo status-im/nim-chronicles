@@ -86,6 +86,13 @@ proc open*(o: var FileOutput, path: string, mode = fmAppend): bool =
     o.outPath = path
     o.mode = mode
 
+proc open*(o: var FileOutput, file: File): bool =
+  if o.outFile != nil:
+    close(o.outFile)
+    o.outPath = ""
+
+  o.outFile = file
+
 proc openOutput(o: var FileOutput) =
   doAssert o.outPath.len > 0 and o.mode != fmRead
   createDir o.outPath.splitFile.dir
