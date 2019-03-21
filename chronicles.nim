@@ -286,19 +286,12 @@ template log*(stream: type,
 template logFn(name, severity) {.dirty.} =
   template `name`*(eventName: static[string],
                    props: varargs[untyped]) {.dirty.} =
-
-    bind logIMPL, bindSym, brForceOpen
-    logIMPL(instantiationInfo(), activeChroniclesStream(),
-            activeChroniclesStream().Record, eventName, severity,
-            bindSym("activeChroniclesScope", brForceOpen), props)
+    log(severity, eventName, props)
 
   template `name`*(stream: type,
                    eventName: static[string],
                    props: varargs[untyped])  {.dirty.} =
-
-    bind logIMPL, bindSym, brForceOpen
-    logIMPL(instantiationInfo(), stream, stream.Record, eventName, severity,
-            bindSym("activeChroniclesScope", brForceOpen), props)
+    log(stream, severity, eventName, props)
 
 logFn trace , LogLevel.TRACE
 logFn debug , LogLevel.DEBUG
