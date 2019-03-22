@@ -19,11 +19,14 @@ type
 
 template lock(someLock: Lock, body: untyped) =
   {.locks: [someLock].}:
-    someLock.acquire()
-    try:
+    when compileOption("threads"):
+      someLock.acquire()
+      try:
+        body
+      finally:
+        someLock.release()
+    else:
       body
-    finally:
-      someLock.release()
 
 var
   gActiveLogLevelLock: Lock

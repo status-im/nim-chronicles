@@ -118,7 +118,7 @@ when runtimeFilteringEnabled:
   proc runtimeTopicFilteringCode*(logLevel: LogLevel, topics: seq[string]): NimNode =
     # This proc generates the run-time code used for topic filtering.
     # Each logging statement has a statically known list of associated topics.
-    # For each of the topics in the list, we consult a TLS TopicState value
+    # For each of the topics in the list, we consult a global TopicState value
     # created in topicStateIMPL. `break chroniclesLogStmt` exits a named
     # block surrounding the entire log statement.
     result = newStmtList()
@@ -262,13 +262,15 @@ macro logIMPL(lineInfo: static InstInfo,
   code.add newCall("logAllDynamicProperties", Stream, record)
   code.add newCall("flushRecord", record)
 
-  code = quote do:
-    {.gcsafe.}:
-      chroniclesLock.acquire()
-      try:
-        `code`
-      finally:
-        chroniclesLock.release()
+  when compileOption("threads"):
+    code = quote do:
+      {.gcsafe.}:
+        chroniclesLock.acquire()
+        try:
+          `code`
+        finally:
+          chroniclesLock.release()
+
   result = newBlockStmt(id"chroniclesLogStmt", code)
 
   when defined(debugLogImpl):
