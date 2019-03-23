@@ -1,0 +1,11 @@
+program=exceptions
+chronicles_sinks="textlines[stdout]"
+chronicles_colors=None
+chronicles_timestamps=None
+
+[Output]
+stdout="""DBG test debug                                 thread=0 foo=bar
+DBG test debugException                        thread=0 exception=CustomException exceptionMessage="custom message" foo=bar
+ERR test errorException                        thread=0 exception=CustomException exceptionMessage="custom message"
+WRN test warnException stream                  thread=0 exception=CustomException exceptionMessage="custom message"
+"""

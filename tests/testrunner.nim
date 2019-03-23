@@ -174,7 +174,7 @@ proc scanTestPath(path: string): seq[string] =
     result.add(path)
   else:
     for file in walkDirRec path:
-      if file.match re".*\.test":
+      if file.match re".*\.test$":
         result.add(file)
 
 proc test(config: TestConfig, testPath: string): TestStatus =
