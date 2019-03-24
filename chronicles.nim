@@ -104,9 +104,11 @@ when runtimeFilteringEnabled:
   export setTopicState, setLogLevel, TopicState
 
   proc topicStateIMPL(topicName: static[string]): ptr Topic =
-    var topic {.global.}: Topic = Topic(state: Normal, logLevel: NONE)
-    var dummy {.global.} = registerTopic(topicName, addr(topic))
-    return addr(topic)
+    # Nim's GC safety analysis gets confused by the global variables here
+    {.gcsafe.}:
+      var topic {.global.}: Topic = Topic(state: Normal, logLevel: NONE)
+      var dummy {.global.} = registerTopic(topicName, addr(topic))
+      return addr(topic)
 
   proc runtimeTopicFilteringCode*(logLevel: LogLevel, topics: seq[string]): NimNode =
     # This proc generates the run-time code used for topic filtering.

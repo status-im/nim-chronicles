@@ -16,6 +16,8 @@ type
     path*: string
     includedTests*: seq[string]
     excludedTests*: seq[string]
+    releaseBuild*: bool
+    noThreads*: bool
 
   TestSpec* = object
     name*: string
@@ -44,6 +46,10 @@ proc processArguments*(): TestConfig =
       inc(length)
       case key.toLowerAscii()
         of "help", "h": quit(Usage, QuitSuccess)
+        of "release":
+          result.releaseBuild = true
+        of "nothreads":
+          result.noThreads = true
         of "targets", "t": discard # not implemented
         of "include":
           result.includedTests.add value.split(Whitespace + {','})

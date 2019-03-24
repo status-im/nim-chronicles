@@ -6,5 +6,5 @@ var a = AttestationData(peer: Peer(name: "Peer 1"),
                         signature: "some signature")
 
 info  "Got attestation 1", a
-debug "Got attestation 2", attestation = a
+warn "Got attestation 2", attestation = a
 

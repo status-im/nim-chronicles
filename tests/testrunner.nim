@@ -183,6 +183,9 @@ proc test(config: TestConfig, testPath: string): TestStatus =
 
   time duration:
     test = parseTestFile(testPath)
+    test.flags &= (if config.releaseBuild: "-d:release " else: "-d:debug ")
+    if not config.noThreads:
+      test.flags &= "--threads:on "
     if test.program.len == 0: # a program name is bare minimum of a test file
       result = INVALID
       break
