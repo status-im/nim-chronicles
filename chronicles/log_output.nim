@@ -17,12 +17,15 @@ type
   SysLogOutput* = object
     currentRecordLevel: LogLevel
 
+  PassThroughOutput*[FinalOutputs: tuple] = object
+    finalOutputs: FinalOutputs
+
   BufferedOutput*[FinalOutputs: tuple] = object
     finalOutputs: FinalOutputs
     buffer: string
 
   AnyFileOutput = FileOutput|StdOutOutput|StdErrOutput
-  AnyOutput = AnyFileOutput|SysLogOutput|BufferedOutput
+  AnyOutput = AnyFileOutput|SysLogOutput|BufferedOutput|PassThroughOutput
 
   TextLineRecord*[Output;
                   timestamps: static[TimestampsScheme],
@@ -167,12 +170,19 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   # This proc translates the SinkSpecs loaded in the `options` module
   # to their corresponding LogRecord types.
   #
-  # When there is just one log destination, the record type
-  # will be a simple instantiation such as JsonRecord[StdOutOutput]
+  # We must use buffered output if any of the following is true:
   #
-  # But if multiple log destinations are present or if the Syslog
-  # output is used, then the resulting type will be
-  # BufferedOutput[(Output1, Output2, ...)]
+  # * Threading is enabled
+  #   (we don't wont races between the `setProperty` calls)
+  #
+  # * The syslog output is used
+  #   (we must send single sting to it)
+  #
+  # * Multiple destinations are present
+  #   (we don't want to compute the output multiple times)
+  #
+  # The faststreams-based outputs (such as json) are already buffered,
+  # so we don't need to handle them in a special way.
   #
 
   # Determine the head symbol of the instantiation
@@ -184,16 +194,21 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   result = newTree(nnkBracketExpr, RecordType)
 
   # Check if a buffered output is needed
-  if sink.destinations.len > 1 or sink.destinations[0].kind == toSyslog:
-    var bufferredOutput = newTree(nnkBracketExpr,
-                                  bnd"BufferedOutput")
+  if sink.destinations.len > 1 or
+     sink.destinations[0].kind == toSyslog or
+     compileOption("threads"):
+
     # Here, we build the list of outputs as a tuple
     var outputsTuple = newTree(nnkTupleConstr)
     for dst in sink.destinations:
       outputsTuple.add selectOutputType(s, dst)
 
-    bufferredOutput.add outputsTuple
-    result.add bufferredOutput
+    var outputType = if sink.format in {textLines, textBlocks}:
+      bnd"BufferedOutput"
+    else:
+      bnd"PassThroughOutput"
+
+    result.add newTree(nnkBracketExpr, outputType, outputsTuple)
   else:
     result.add selectOutputType(s, sink.destinations[0])
 
@@ -224,7 +239,7 @@ template activateOutput*(o: var StreamOutputRef, level: LogLevel) =
 template activateOutput*(o: var SysLogOutput, level: LogLevel) =
   o.currentRecordLevel = level
 
-template activateOutput*(o: var BufferedOutput, level: LogLevel) =
+template activateOutput*(o: var BufferedOutput|PassThroughOutput, level: LogLevel) =
   for f in o.finalOutputs.fields:
     activateOutput(f, level)
 
@@ -281,6 +296,18 @@ template append*(o: var BufferedOutput, s: string) =
 template flushOutput*(o: var BufferedOutput) =
   for f in o.finalOutputs.fields:
     append(f, o.buffer)
+    flushOutput(f)
+
+# The pass-through output just acts as a proxy, redirecting a single `append`
+# call to multiple destinations:
+
+template append*(o: var PassThroughOutput, strExpr: string) =
+  let str = strExpr
+  for f in o.finalOutputs.fields:
+    append(f, str)
+
+template flushOutput*(o: var PassThroughOutput) =
+  for f in o.finalOutputs.fields:
     flushOutput(f)
 
 # We also define a macro form of `append` that takes multiple parameters and

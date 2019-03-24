@@ -1,13 +1,13 @@
 mode = ScriptMode.Verbose
 
 packageName   = "chronicles"
-version       = "0.4.1"
+version       = "0.5.0"
 author        = "Status Research & Development GmbH"
 description   = "A crafty implementation of structured logging for Nim"
 license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
-requires "nim >= 0.18.1"
+requires "nim >= 0.18.1", "json_serialization"
 
 task test, "run CPU tests":
   cd "tests"
