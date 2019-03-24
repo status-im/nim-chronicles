@@ -113,7 +113,7 @@ when runtimeFilteringEnabled:
   proc runtimeTopicFilteringCode*(logLevel: LogLevel, topics: seq[string]): NimNode =
     # This proc generates the run-time code used for topic filtering.
     # Each logging statement has a statically known list of associated topics.
-    # For each of the topics in the list, we consult a TLS TopicState value
+    # For each of the topics in the list, we consult a global TopicState value
     # created in topicStateIMPL. `break chroniclesLogStmt` exits a named
     # block surrounding the entire log statement.
     result = newStmtList()
@@ -340,21 +340,11 @@ template log*(stream: type,
           bindSym("activeChroniclesScope", brForceOpen), props)
 
 template logFn(name, severity) {.dirty.} =
-  template `name`*(eventName: static[string],
-                   props: varargs[untyped]) {.dirty.} =
+  template `name`*(eventName: static[string], props: varargs[untyped]) {.dirty.} =
+    log(severity, eventName, props)
 
-    bind logIMPL, bindSym, brForceOpen
-    logIMPL(instantiationInfo(), activeChroniclesStream(),
-            activeChroniclesStream().Record, eventName, severity,
-            bindSym("activeChroniclesScope", brForceOpen), props)
-
-  template `name`*(stream: type,
-                   eventName: static[string],
-                   props: varargs[untyped])  {.dirty.} =
-
-    bind logIMPL, bindSym, brForceOpen
-    logIMPL(instantiationInfo(), stream, stream.Record, eventName, severity,
-            bindSym("activeChroniclesScope", brForceOpen), props)
+  template `name`*(stream: type, eventName: static[string], props: varargs[untyped]) {.dirty.} =
+    log(stream, severity, eventName, props)
 
 logFn trace , LogLevel.TRACE
 logFn debug , LogLevel.DEBUG

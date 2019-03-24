@@ -66,7 +66,7 @@ proc topicsMatch*(logStmtLevel: LogLevel,
   var
     hasEnabledTopics = gTotalEnabledTopics > 0
     enabledTopicsMatch = false
-    normalTopicsMatch = logStmtTopics.len == 0
+    normalTopicsMatch = logStmtTopics.len == 0 and logStmtLevel >= gActiveLogLevel
     requiredTopicsCount = gTotalRequiredTopics
 
   for topic in logStmtTopics:
