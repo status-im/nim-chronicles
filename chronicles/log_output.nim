@@ -1,6 +1,7 @@
 import
   strutils, times, macros, options, terminal, os,
-  faststreams/output_stream, json_serialization/writer
+  faststreams/output_stream, json_serialization/writer,
+  dynamic_scope_types
 
 export
   LogLevel
@@ -322,10 +323,6 @@ macro append*(o: var AnyOutput,
   result.add newCall("append", o, arg2)
   for arg in restArgs: result.add newCall("append", o, arg)
 
-proc appendRfcTimestamp(o: var auto) =
-  var ts = now()
-  append(o, t)
-
 proc rfcTimestamp: string =
   now().format("yyyy-MM-dd HH:mm:sszzz")
 
@@ -601,11 +598,7 @@ proc sinkSpecsToCode(streamName: NimNode,
   else:
     result.recordType = selectRecordType(result, sinks[0])
 
-import dynamic_scope_types
-
 template isStreamSymbolIMPL*(T: typed): bool = false
-
-import typetraits
 
 macro createStreamSymbol(name: untyped, RecordType: typedesc,
                          outputsTuple: typed): untyped =
