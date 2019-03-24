@@ -1,4 +1,4 @@
-import macros, tables
+import locks, macros, tables
 from options import LogLevel
 
 type
@@ -16,77 +16,93 @@ type
     topicStatesTable*: Table[string, ptr Topic]
 
 var
-  gActiveLogLevel: LogLevel
-  gTotalEnabledTopics: int
-  gTotalRequiredTopics: int
-  gTopicStates = initTable[string, ptr Topic]()
+  registryLock: Lock
+  gActiveLogLevel       {.guard: registryLock.}: LogLevel
+  gTotalEnabledTopics   {.guard: registryLock.}: int
+  gTotalRequiredTopics  {.guard: registryLock.}: int
+  gTopicStates          {.guard: registryLock.} = initTable[string, ptr Topic]()
+  mainThreadId = getThreadId()
+
+initLock(registryLock)
+
+template lockRegistry(body: untyped) =
+  when compileOption("threads"):
+    withLock registryLock: body
+  else:
+    body
 
 proc setLogLevel*(lvl: LogLevel) =
-  gActiveLogLevel = lvl
+  lockRegistry:
+    gActiveLogLevel = lvl
 
 proc clearTopicsRegistry* =
-  gTotalEnabledTopics = 0
-  gTotalRequiredTopics = 0
-  for val in gTopicStates.values:
-    val.state = Normal
-
-iterator topicStates*: (string, TopicState) =
-  for name, topic in gTopicStates:
-    yield (name, topic.state)
+  lockRegistry:
+    gTotalEnabledTopics = 0
+    gTotalRequiredTopics = 0
+    for val in gTopicStates.values:
+      val.state = Normal
 
 proc registerTopic*(name: string, topic: ptr Topic): ptr Topic =
-  gTopicStates[name] = topic
-  return topic
+  # As long as sequences are thread-local, modifying the `gTopicStates`
+  # sequence must be done only from the main thread:
+  doAssert getThreadId() == mainThreadId
+
+  lockRegistry:
+    gTopicStates[name] = topic
+    return topic
 
 proc setTopicState*(name: string,
                     newState: TopicState,
                     logLevel = LogLevel.NONE): bool =
-  if not gTopicStates.hasKey(name):
-    return false
+  lockRegistry:
+    if not gTopicStates.hasKey(name):
+      return false
 
-  var topicPtr = gTopicStates[name]
+    var topicPtr = gTopicStates[name]
 
-  case topicPtr.state
-  of Enabled: dec gTotalEnabledTopics
-  of Required: dec gTotalRequiredTopics
-  else: discard
+    case topicPtr.state
+    of Enabled: dec gTotalEnabledTopics
+    of Required: dec gTotalRequiredTopics
+    else: discard
 
-  case newState
-  of Enabled: inc gTotalEnabledTopics
-  of Required: inc gTotalRequiredTopics
-  else: discard
+    case newState
+    of Enabled: inc gTotalEnabledTopics
+    of Required: inc gTotalRequiredTopics
+    else: discard
 
-  topicPtr.state = newState
-  topicPtr.logLevel = logLevel
+    topicPtr.state = newState
+    topicPtr.logLevel = logLevel
 
-  return true
+    return true
 
 proc topicsMatch*(logStmtLevel: LogLevel,
                   logStmtTopics: openarray[ptr Topic]): bool =
-  var
-    hasEnabledTopics = gTotalEnabledTopics > 0
-    enabledTopicsMatch = false
-    normalTopicsMatch = logStmtTopics.len == 0 and logStmtLevel >= gActiveLogLevel
-    requiredTopicsCount = gTotalRequiredTopics
+  lockRegistry:
+    var
+      hasEnabledTopics = gTotalEnabledTopics > 0
+      enabledTopicsMatch = false
+      normalTopicsMatch = logStmtTopics.len == 0 and logStmtLevel >= gActiveLogLevel
+      requiredTopicsCount = gTotalRequiredTopics
 
-  for topic in logStmtTopics:
-    let topicLogLevel = if topic.logLevel != NONE: topic.logLevel
-                        else: gActiveLogLevel
-    if logStmtLevel >= topicLogLevel:
-      case topic.state
-      of Normal: normalTopicsMatch = true
-      of Enabled: enabledTopicsMatch = true
-      of Disabled: return false
-      of Required: dec requiredTopicsCount
+    for topic in logStmtTopics:
+      let topicLogLevel = if topic.logLevel != NONE: topic.logLevel
+                          else: gActiveLogLevel
+      if logStmtLevel >= topicLogLevel:
+        case topic.state
+        of Normal: normalTopicsMatch = true
+        of Enabled: enabledTopicsMatch = true
+        of Disabled: return false
+        of Required: dec requiredTopicsCount
 
-  if requiredTopicsCount > 0:
-    return false
+    if requiredTopicsCount > 0:
+      return false
 
-  if hasEnabledTopics and not enabledTopicsMatch:
-    return false
+    if hasEnabledTopics and not enabledTopicsMatch:
+      return false
 
-  return normalTopicsMatch
+    return normalTopicsMatch
 
 proc getTopicState*(topic: string): ptr Topic =
-  return gTopicStates.getOrDefault(topic)
+  lockRegistry:
+    return gTopicStates.getOrDefault(topic)
 
