@@ -154,6 +154,63 @@ else:
   else:
     proc getLogThreadId*(): int = 0
 
+template formatItIMPL*(value: any): auto =
+  value
+
+template formatIt*(T: type, body: untyped) {.dirty.} =
+  template formatItIMPL*(it: T): auto = body
+
+template expandItIMPL*[R](record: R, field: static string, value: any) =
+  mixin setProperty, formatItIMPL
+  setProperty(record, field, formatItIMPL(value))
+
+macro expandIt*(T: type, expandedProps: untyped): untyped =
+  let
+    setProperty = bindSym("setProperty", brForceOpen)
+    formatItIMPL = bindSym("formatItIMPL", brForceOpen)
+    expandItIMPL = id("expandItIMPL", true)
+    record = ident "record"
+    it = ident "it"
+    it_name = ident "it_name"
+    value = ident "value"
+    setPropertyCalls = newStmtList()
+
+  for prop in expandedProps:
+    if prop.kind != nnkAsgn:
+      error "An `expandIt` definition should consist only of key-value assignments", prop
+
+    var key = prop[0]
+    let value = prop[1]
+    case key.kind
+    of nnkAccQuoted:
+      proc toStrLit(n: NimNode): NimNode =
+        let nAsStr = $n
+        if nAsStr == "it": it_name
+        else: newLit(nAsStr)
+
+      if key.len < 2:
+        key = key.toStrLit
+      else:
+        var concatCall = infix(key[0].toStrLit, "&", key[1].toStrLit)
+        for i in 2 ..< key.len:
+          concatCall = infix(concatCall, "&", key[i].toStrLit)
+        key = newTree(nnkStaticExpr, concatCall)
+
+    of nnkIdent, nnkSym:
+      key = newLit($key)
+
+    else:
+      error &"Unexpected AST kind for an `epxpandIt` key: {key.kind} ", key
+
+    setPropertyCalls.add quote do:
+      `setProperty` `record`, `key`, `formatItIMPL`(`value`)
+
+  result = quote do:
+    template `expandItIMPL`(`record`: auto, `it_name`: static string, `it`: `T`) =
+      `setPropertyCalls`
+
+  echo result.repr
+
 macro logIMPL(lineInfo: static InstInfo,
               Stream: typed,
               RecordType: type,
@@ -235,6 +292,7 @@ macro logIMPL(lineInfo: static InstInfo,
     recordArity = if recordTypeNodes.kind != nnkTupleConstr: 1
                   else: recordTypeNodes.len
     record = genSym(nskVar, "record")
+    expandItIMPL = bindSym("expandItIMPL", brForceOpen)
 
   code.add quote do:
     var `record`: `RecordType`
@@ -250,7 +308,7 @@ macro logIMPL(lineInfo: static InstInfo,
                      newLit("file"), newLit(filename))
 
   for k, v in finalBindings:
-    code.add newCall("setProperty", record, newLit(k), v)
+    code.add newCall(expandItIMPL, record, newLit(k), v)
 
   code.add newCall("logAllDynamicProperties", Stream, record)
   code.add newCall("flushRecord", record)

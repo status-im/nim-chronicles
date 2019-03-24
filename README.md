@@ -485,6 +485,65 @@ the default automatically:
    chronicles will add an index such as `.2.log`, `.3.log` .. `.N.log`
    to the final file name.
 
+## Teaching Chronicles about your types
+
+Chronicles can output log records in any of the formats supported by the Nim
+[`serialization`](https://github.com/status-im/nim-serialization) package.
+When you specify a named format such as `json`, Chronicles will expect that
+your project also depends on the respective serialization package (e.g.
+[`json_serialization`](https://github.com/status-im/nim-json-serialization)).
+
+In the text formats (`textlines` and `textblocks`), the Nim's standard `$`
+operator will be used to convert the logged properties to strings.
+
+### `formatIt`
+
+You can instruct Chronicles to alter this default behavior for a particular
+type by providing a `chronicles.formatIt` override:
+
+``` nim
+type Dollar = distinct int
+chronicles.formatIt(Dollar): "$" & $(it.int)
+```
+
+The `formatIt` block can evaluate to any expression that will be then
+subjected to the standard serialization logic described above.
+
+### `expandIt`
+
+The `expandIt` override can be used to turn any logged property of a
+particular type into multiple properties:
+
+```nim
+chronicles.expandIt(EncryptedEnvelope):
+  peer = it.fromAddress
+  msg  = it.decryptMsg
+
+...
+
+var e = EncryptedEnvelope(...)
+# The following two statements are equivalent:
+info "Received message", e
+info "Received message", peer = e.fromAddress, msg = e.decryptMsg
+```
+
+You can also derive the names of the expanded properties from the name of
+the original logged property. This is achieved by using the Nim's backticks
+syntax to construct the expanded property names:
+
+```nim
+chronicles.expandIt(User):
+  # You can use both identifiers and string literals:
+  `it Name"` = it.name
+  `it "LastSeen"` = it.lastSeen
+
+...
+
+var alice = User(name: "Alice", ...)
+# The following two statements are equivalent:
+info "Sending message", recipient = alice
+info "Sending message", recipientName = alice.name, recipientLastSeen = alice.lastSeen
+```
 
 ## Custom Log Streams
 

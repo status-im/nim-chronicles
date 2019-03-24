@@ -1,0 +1,33 @@
+program=custom_formatters
+chronicles_sinks="textlines[file(lines.txt,truncate)],textblocks[file(blocks.txt,truncate)],json[file(json.txt,truncate)]"
+chronicles_timestamps=None
+chronicles_colors=None
+
+[Output]
+lines.txt="""INF Got attestation 1                          tid=3923 attestation="some attestation" peer="Peer 1" it="not renamed" asig="some signature" a=renamed complex_a_concatenation=X
+DBG Got attestation 2                          tid=3923 attestation="some attestation" peer="Peer 1" it="not renamed" attestationsig="some signature" attestation=renamed complex_attestation_concatenation=X
+"""
+
+blocks.txt="""INF Got attestation 1
+  tid: 3923
+  attestation: some attestation
+  peer: Peer 1
+  it: not renamed
+  asig: some signature
+  a: renamed
+  complex_a_concatenation: X
+
+DBG Got attestation 2
+  tid: 3923
+  attestation: some attestation
+  peer: Peer 1
+  it: not renamed
+  attestationsig: some signature
+  attestation: renamed
+  complex_attestation_concatenation: X
+
+"""
+
+json.txt="""{"msg":"Got attestation 1","level":"INF","tid":7011,"attestation":"some attestation","peer":"Peer 1","it":"not renamed","asig":"some signature","a":"renamed","complex_a_concatenation":"X"}
+{"msg":"Got attestation 2","level":"DBG","tid":7011,"attestation":"some attestation","peer":"Peer 1","it":"not renamed","attestationsig":"some signature","attestation":"renamed","complex_attestation_concatenation":"X"}
+"""

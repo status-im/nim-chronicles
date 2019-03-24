@@ -1,5 +1,6 @@
 import
-  strutils, times, macros, options, terminal, os
+  strutils, times, macros, options, terminal, os,
+  faststreams/output_stream, json_serialization/writer
 
 export
   LogLevel
@@ -36,6 +37,8 @@ type
 
   JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
     output*: Output
+    outStream: OutputStreamVar
+    jsonWriter: JsonWriter
 
   StreamOutputRef*[Stream; outputId: static[int]] = object
 
@@ -44,7 +47,8 @@ type
     recordType: NimNode
     outputsTuple: NimNode
 
-  JsonString* = distinct string
+export
+  JsonString
 
 when defined(posix):
   {.pragma: syslog_h, importc, header: "<syslog.h>"}
@@ -286,13 +290,22 @@ macro append*(o: var AnyOutput,
 
 proc appendRfcTimestamp(o: var auto) =
   var ts = now()
-  append(o, ts.format("yyyy-MM-dd HH:mm:sszzz"))
+  append(o, t)
+
+proc rfcTimestamp: string =
+  now().format("yyyy-MM-dd HH:mm:sszzz")
+
+proc epochTimestamp: string =
+  formatFloat(epochTime(), ffDecimal, 6)
+
+template timestamp(record): string =
+  when record.timestamps == RfcTime:
+    rfcTimestamp()
+  else:
+    epochTimestamp()
 
 template writeTs(record) =
-  when record.timestamps == RfcTime:
-    appendRfcTimestamp(record.output)
-  else:
-    append(record.output, formatFloat(epochTime(), ffDecimal, 6))
+  append(record.output, timestamp(record))
 
 const
   propColor = if defined(windows): fgCyan else: fgBlue
@@ -498,40 +511,37 @@ proc flushRecord*(r: var TextBlockRecord) =
 # JSON records:
 #
 
-import json
-
-template jsonEncode(x: auto): string = $(%x)
-template jsonEncode(s: JsonString): string = string(s)
-
 proc initLogRecord*(r: var JsonRecord,
                     level: LogLevel,
                     topics: string,
                     name: string) =
-  append(r.output, """{"msg": """ & jsonEncode(name))
+
+  r.outStream = init OutputStream
+  r.jsonWriter = JsonWriter.init(r.outStream, pretty = false)
+
+  r.jsonWriter.beginRecord()
+  r.jsonWriter.writeField "msg", name
 
   if level != NONE:
-    append(r.output, """, "level": """ & jsonEncode(level.shortName))
+    r.jsonWriter.writeField "level", level.shortName
 
   if topics.len > 0:
-    append(r.output, """, "topics": """ & jsonEncode(topics))
+    r.jsonWriter.writeField "topics", topics
 
   when r.timestamps != NoTimestamps:
-    append(r.output, """, "ts": """")
-    writeTs(r)
-    append(r.output, "\"")
+    r.jsonWriter.writeField "ts", r.timestamp()
 
 proc setProperty*(r: var JsonRecord, key: string, val: auto) =
-  append(r.output, ", ")
-  append(r.output, jsonEncode(key))
-  append(r.output, ": ")
-  append(r.output, jsonEncode(val))
+  r.jsonWriter.writeField key, val
 
 template setFirstProperty*(r: var JsonRecord, key: string, val: auto) =
   setProperty(r, key, val)
 
 proc flushRecord*(r: var JsonRecord) =
-  append(r.output, "}\n")
-  flushOutput(r.output)
+  r.jsonWriter.endRecord()
+  r.outStream.append '\n'
+  r.output.append r.outStream.getOutput(string)
+  flushOutput r.output
 
 #
 # When any of the output streams have multiple output formats, we need to

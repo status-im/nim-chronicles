@@ -28,7 +28,7 @@ let
   # peg for timestamp with format yyyy-MM-dd HH:mm:sszzz
   pegRfcTimestamp = peg"{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"
   # Thread/process id is unpredictable..
-  pegXid* = peg"""'tid' (('=') / ('": ') / (': [1m') / (': ') / ('[0m=[94m') / ('>')) \d+"""
+  pegXid* = peg"""'tid' (('=') / ('":') / (': [1m') / (': ') / ('[0m=[94m') / ('>')) \d+"""
 
 proc cmpIgnorePegs*(a, b: string, pegs: varargs[Peg]): bool =
   var

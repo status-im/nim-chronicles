@@ -7,7 +7,7 @@ type
   AssignmentsContext* = enum acScopeBlock, acLogStatement
 
 proc id*(key: string, public = false): NimNode =
-  result = newIdentNode(key)
+  result = ident key
   if public: result = postfix(result, "*")
 
 iterator assignments*(n: NimNode, c: AssignmentsContext): (string, NimNode) =

@@ -4,10 +4,10 @@ chronicles_colors=None
 chronicles_timestamps=None
 
 [Output]
-stdout="""{"msg": "main started", "level": "INF", "topics": "main", "tid": 0, "a": 10, "arg": 50, "b": "inner-b", "c": 10, "d": "some-d", "x": 16, "z": 20}
-{"msg": "exiting", "level": "INF", "tid": 0, "a": 12, "b": "overriden-b", "c": 100, "msg": "bye bye", "x": 16}
+stdout="""{"msg":"main started","level":"INF","topics":"main","tid":0,"a":10,"arg":50,"b":"inner-b","c":10,"d":"some-d","x":16,"z":20}
+{"msg":"exiting","level":"INF","tid":0,"a":12,"b":"overriden-b","c":100,"msg":"bye bye","x":16}
 """
 
-lexical_scopes.log="""{"msg": "main started", "level": "INF", "topics": "main", "tid": 0, "a": 10, "arg": 50, "b": "inner-b", "c": 10, "d": "some-d", "x": 16, "z": 20}
-{"msg": "exiting", "level": "INF", "tid": 0, "a": 12, "b": "overriden-b", "c": 100, "msg": "bye bye", "x": 16}
+lexical_scopes.log="""{"msg":"main started","level":"INF","topics":"main","tid":0,"a":10,"arg":50,"b":"inner-b","c":10,"d":"some-d","x":16,"z":20}
+{"msg":"exiting","level":"INF","tid":0,"a":12,"b":"overriden-b","c":100,"msg":"bye bye","x":16}
 """
