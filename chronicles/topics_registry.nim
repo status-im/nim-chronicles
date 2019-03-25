@@ -21,7 +21,9 @@ var
   gTotalEnabledTopics   {.guard: registryLock.}: int
   gTotalRequiredTopics  {.guard: registryLock.}: int
   gTopicStates          {.guard: registryLock.} = initTable[string, ptr Topic]()
-  mainThreadId = getThreadId()
+
+when compileOption("threads"):
+  var mainThreadId = getThreadId()
 
 initLock(registryLock)
 
@@ -45,7 +47,8 @@ proc clearTopicsRegistry* =
 proc registerTopic*(name: string, topic: ptr Topic): ptr Topic =
   # As long as sequences are thread-local, modifying the `gTopicStates`
   # sequence must be done only from the main thread:
-  doAssert getThreadId() == mainThreadId
+  when compileOption("threads"):
+    doAssert getThreadId() == mainThreadId
 
   lockRegistry:
     gTopicStates[name] = topic
