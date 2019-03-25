@@ -80,9 +80,9 @@ template bnd(s): NimNode =
   newIdentNode(s)
 
 template deref(so: StreamOutputRef): auto =
-  outputs(so.Stream)[so.outputId]
+  (outputs(so.Stream)[])[so.outputId]
 
-proc open*(o: var FileOutput, path: string, mode = fmAppend): bool =
+proc open*(o: ptr FileOutput, path: string, mode = fmAppend): bool =
   if o.outFile != nil:
     close(o.outFile)
     o.outFile = nil
@@ -94,7 +94,7 @@ proc open*(o: var FileOutput, path: string, mode = fmAppend): bool =
     o.outPath = path
     o.mode = mode
 
-proc open*(o: var FileOutput, file: File): bool =
+proc open*(o: ptr FileOutput, file: File): bool =
   if o.outFile != nil:
     close(o.outFile)
     o.outPath = ""
@@ -549,18 +549,18 @@ proc initLogRecord*(r: var JsonRecord,
 
   r.outStream = init OutputStream
   r.jsonWriter = JsonWriter.init(r.outStream, pretty = false)
-
   r.jsonWriter.beginRecord()
-  r.jsonWriter.writeField "msg", name
 
   if level != NONE:
-    r.jsonWriter.writeField "level", level.shortName
-
-  if topics.len > 0:
-    r.jsonWriter.writeField "topics", topics
+    r.jsonWriter.writeField "lvl", level.shortName
 
   when r.timestamps != NoTimestamps:
     r.jsonWriter.writeField "ts", r.timestamp()
+
+  r.jsonWriter.writeField "msg", name
+
+  if topics.len > 0:
+    r.jsonWriter.writeField "topics", topics
 
 proc setProperty*(r: var JsonRecord, key: string, val: auto) =
   r.jsonWriter.writeField key, val
@@ -631,8 +631,13 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
     template tlsSlot*(S: type `name`): auto = `tlsSlot`
 
     var `outputs` = `outputsTuple`
-    template outputs*(S: type `name`): auto = `outputs`
-    template output* (S: type `name`): auto = `outputs`[0]
+
+    # The output objects are currently not GC-safe because they contain
+    # strings (the `outPath` field). Since these templates are not used
+    # in situations where these paths are modified, it's safe to provide
+    # a gcsafe override until we switch to Nim's --newruntime.
+    template outputs*(S: type `name`): auto = ({.gcsafe.}: addr `outputs`)
+    template output* (S: type `name`): auto = ({.gcsafe.}: addr `outputs`[0])
 
 # This is a placeholder that will be overriden in the user code.
 # XXX: replace that with a proper check that the user type requires
