@@ -339,7 +339,9 @@ template log*(stream: type,
   logIMPL(instantiationInfo(), stream, stream.Record, eventName, severity,
           bindSym("activeChroniclesScope", brForceOpen), props)
 
-template logFn(name, severity) {.dirty.} =
+template logFn(name: untyped, severity: typed) {.dirty.} =
+  bind log
+
   template `name`*(eventName: static[string], props: varargs[untyped]) {.dirty.} =
     log(severity, eventName, props)
 
