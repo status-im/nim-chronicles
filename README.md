@@ -526,6 +526,7 @@ chronicles.expandIt(EncryptedEnvelope):
 ...
 
 var e = EncryptedEnvelope(...)
+
 # The following two statements are equivalent:
 info "Received message", e
 info "Received message", peer = e.fromAddress, msg = e.decryptMsg
@@ -538,12 +539,13 @@ syntax to construct the expanded property names:
 ```nim
 chronicles.expandIt(User):
   # You can use both identifiers and string literals:
-  `it Name"` = it.name
+  `it Name` = it.name
   `it "LastSeen"` = it.lastSeen
 
 ...
 
 var alice = User(name: "Alice", ...)
+
 # The following two statements are equivalent:
 info "Sending message", recipient = alice
 info "Sending message", recipientName = alice.name, recipientLastSeen = alice.lastSeen
