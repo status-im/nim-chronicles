@@ -244,8 +244,11 @@ template activateOutput*(o: var BufferedOutput|PassThroughOutput, level: LogLeve
   for f in o.finalOutputs.fields:
     activateOutput(f, level)
 
+proc defaultValue(T: type): T {.inline.} = discard # Remove once nim is updated past #9790
+
 template prepareOutput*(r: var auto, level: LogLevel) =
   mixin activateOutput
+  r = defaultValue(type(r)) # Remove once nim is updated past #9790
 
   when r is tuple:
     for f in r.fields:
