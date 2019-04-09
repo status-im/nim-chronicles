@@ -469,7 +469,7 @@ proc setProperty*(r: var TextLineRecord, key: string, val: auto) =
     needsQuote = valText.find({' ', '='}) > -1
 
   if needsEscape or needsQuote:
-    escaped = newStringOfCap(valText.len * valText.len div 8)
+    escaped = newStringOfCap(valText.len + valText.len div 8)
     if needsEscape:
       # addQuoted adds quotes and escapes a bunch of characters
       # XXX addQuoted escapes more characters than what we look for in above
