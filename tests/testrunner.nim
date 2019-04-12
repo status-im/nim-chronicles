@@ -1,4 +1,4 @@
-import os, osproc, re, strutils, terminal, times, pegs
+import os, osproc, strutils, terminal, times, pegs
 import test_config, test_helpers
 
 # Testrunner to run tests for chronicles library
@@ -166,7 +166,6 @@ proc execute(test: TestSpec): TestStatus =
   else:
     return test.cmpOutputs(output)
 
-# Get rid of re dependency?
 proc scanTestPath(path: string): seq[string] =
   result = @[]
 
@@ -174,7 +173,7 @@ proc scanTestPath(path: string): seq[string] =
     result.add(path)
   else:
     for file in walkDirRec path:
-      if file.match re".*\.test":
+      if file.endsWith(".test"):
         result.add(file)
 
 proc test(config: TestConfig, testPath: string): TestStatus =
