@@ -265,6 +265,9 @@ template flushOutput*(o: var FileOutput) =
   # doAssert o.outFile != nil
   o.outFile.flushFile
 
+template getOutputStream(o: FileOutput): File =
+  o.outFile
+
 template append*(o: var StdOutOutput, s: string) = stdout.write s
 template flushOutput*(o: var StdOutOutput)       = stdout.flushFile
 
