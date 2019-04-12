@@ -302,6 +302,9 @@ template flushOutput*(o: var BufferedOutput) =
     append(f, o.buffer)
     flushOutput(f)
 
+template getOutputStream(o: BufferedOutput|PassThroughOutput): File =
+  getOutputStream(o.finalOutputs[0])
+
 # The pass-through output just acts as a proxy, redirecting a single `append`
 # call to multiple destinations:
 
