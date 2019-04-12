@@ -277,6 +277,9 @@ template getOutputStream(o: StdErrOutput): File = stderr
 template append*(o: var StreamOutputRef, s: string) = append(deref(o), s)
 template flushOutput*(o: var StreamOutputRef)       = flushOutput(deref(o))
 
+template getOutputStream(o: StreamOutputRef): File =
+  getOutputStream(deref(o))
+
 template append*(o: var SysLogOutput, s: string) =
   let syslogLevel = case o.currentRecordLevel
                     of TRACE, DEBUG, NONE: LOG_DEBUG
