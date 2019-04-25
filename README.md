@@ -2,6 +2,7 @@ nim-chronicles
 ==============
 
 [![Build Status](https://travis-ci.org/status-im/nim-chronicles.svg?branch=master)](https://travis-ci.org/status-im/nim-chronicles)
+[![Build status](https://ci.appveyor.com/api/projects/status/tu9cap72jxdhri9m/branch/master?svg=true)](https://ci.appveyor.com/project/nimbus/nim-chronicles/branch/master)
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
