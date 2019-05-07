@@ -8,7 +8,7 @@ export
 
 type
   FileOutput* = object
-    outFile: File
+    outFile*: File
     outPath: string
     mode: FileMode
 
