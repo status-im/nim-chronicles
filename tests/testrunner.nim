@@ -197,7 +197,11 @@ proc test(config: TestConfig, testPath: string): TestStatus =
       break
 
     result = test.execute()
-    removeFile(test.program.addFileExt(ExeExt))
+    try:
+      # this may fail in 64-bit AppVeyor images with "The process cannot access the file because it is being used by another process. [OSError]"
+      removeFile(test.program.addFileExt(ExeExt))
+    except:
+      echo getCurrentExceptionMsg()
 
   logResult(test.name, result, duration)
 

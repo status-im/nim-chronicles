@@ -1,0 +1,103 @@
+version: '{build}'
+
+image: Visual Studio 2015
+
+cache:
+- sqlite-dll-win32-x86-3240000.zip -> .appveyor.yml
+- sqlite-dll-win64-x64-3240000.zip -> .appveyor.yml
+- nimbus-deps.zip -> .appveyor.yml
+- dlls.zip -> .appveyor.yml
+- Nim -> .appveyor.yml
+
+matrix:
+  # We always want 32 and 64-bit compilation
+  fast_finish: false
+
+platform:
+  - x86
+  - x64
+
+install:
+  - setlocal EnableExtensions EnableDelayedExpansion
+
+  - SET "ROCKSDB_URL=https://github.com/status-im/nimbus-deps/releases/download/nimbus-deps/nimbus-deps.zip"
+  - SET "ROCKSDB_ARCHIVE=nimbus-deps.zip"
+  - IF "%PLATFORM%" == "x86" (
+      SET "SQLITE_URL=https://www.sqlite.org/2018/sqlite-dll-win32-x86-3240000.zip" &
+      SET "SQLITE_ARCHIVE=sqlite-dll-win32-x86-3240000.zip"
+    )
+  - IF "%PLATFORM%" == "x64" (
+      SET "SQLITE_URL=https://www.sqlite.org/2018/sqlite-dll-win64-x64-3240000.zip" &
+      SET "SQLITE_ARCHIVE=sqlite-dll-win64-x64-3240000.zip"
+    )
+
+  # use the newest versions documented here: https://www.appveyor.com/docs/windows-images-software/#mingw-msys-cygwin
+  - IF "%PLATFORM%" == "x86" SET PATH=C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin;%PATH%
+  - IF "%PLATFORM%" == "x64" SET PATH=C:\mingw-w64\x86_64-8.1.0-posix-seh-rt_v6-rev0\mingw64\bin;%PATH%
+
+  - MKDIR %CD%\bin
+  - SET PATH=%CD%\bin;%CD%\Nim\bin;%PATH%
+
+  # Unpack sqlite
+  - IF not exist "%SQLITE_ARCHIVE%" appveyor DownloadFile "%SQLITE_URL%" -FileName "%SQLITE_ARCHIVE%"
+  - 7z x -y "%SQLITE_ARCHIVE%" > nul
+  - IF "%PLATFORM%" == "x64" ( copy %CD%\sqlite3.dll %CD%\bin\sqlite3_64.dll ) ELSE ( copy %CD%\sqlite3.dll %CD%\bin\sqlite3_32.dll )
+
+  # Unpack rocksdb
+  - IF not exist "%ROCKSDB_ARCHIVE%" appveyor DownloadFile "%ROCKSDB_URL%" -FileName "%ROCKSDB_ARCHIVE%"
+  - 7z x -y "%ROCKSDB_ARCHIVE%" > nul
+  - IF "%PLATFORM%" == "x64" ( copy %CD%\x64\librocksdb.dll %CD%\bin\librocksdb.dll ) ELSE ( copy %CD%\x86\librocksdb.dll %CD%\bin\librocksdb.dll )
+
+  # unpack other DLLs
+  - IF not exist "dlls.zip" appveyor DownloadFile "https://nim-lang.org/download/dlls.zip" -FileName "dlls.zip"
+  - 7z x -y -o%CD%\bin "dlls.zip" > nul
+
+  # build nim from our own branch - this to avoid the day-to-day churn and
+  # regressions of the fast-paced Nim development while maintaining the
+  # flexibility to apply patches
+  - SET "NEED_REBUILD="
+
+  - IF NOT EXIST "Nim\\.git\\" (
+      git clone https://github.com/status-im/Nim.git
+    ) ELSE (
+      ( cd Nim ) &
+      ( git pull ) &
+      ( cd .. )
+    )
+
+  # Rebuild Nim if HEAD has moved or if we don't yet have a cached version
+  - IF NOT EXIST "Nim\\ver.txt" (
+      SET NEED_REBUILD=1
+    ) ELSE (
+      ( CD Nim ) &
+      ( git rev-parse HEAD > ..\\cur_ver.txt ) &
+      ( fc ver.txt ..\\cur_ver.txt || SET NEED_REBUILD=1 ) &
+      ( cd .. )
+    )
+
+  - IF NOT EXIST "Nim\\bin\\nim.exe" SET NEED_REBUILD=1
+  - IF NOT EXIST "Nim\\bin\\nimble.exe" SET NEED_REBUILD=1
+
+  # after building nim, wipe csources to save on cache space
+  - IF DEFINED NEED_REBUILD (
+      cd Nim &
+      ( IF EXIST "csources" rmdir /s /q csources ) &
+      git clone --depth 1 https://github.com/nim-lang/csources &
+      cd csources &
+      ( IF "%PLATFORM%" == "x64" ( build64.bat ) else ( build.bat ) ) &
+      cd .. &
+      bin\nim c koch &
+      koch boot -d:release &
+      koch nimble &
+      git rev-parse HEAD > ver.txt &
+      rmdir /s /q csources
+    )
+
+build_script:
+  - cd C:\projects\%APPVEYOR_PROJECT_SLUG%
+  - nimble install -y
+
+test_script:
+  - nimble test
+
+deploy: off

@@ -351,7 +351,7 @@ template writeTs(record) =
   append(record.output, timestamp(record))
 
 const
-  propColor = if defined(windows): fgCyan else: fgBlue
+  propColor = fgBlue
   topicsColor = fgYellow
 
 template fgColor(record, color, brightness) =
