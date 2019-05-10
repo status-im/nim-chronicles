@@ -1,5 +1,5 @@
 program=lexical_scopes
-chronicles_sinks="textlines[file(lines.txt,truncate),nocolors],textblocks[file(blocks.txt,truncate),notimestamps,ansicolors]"
+chronicles_sinks="textlines[file(lines.txt,truncate),nocolors],textblocks[file(blocks.txt,truncate),notimestamps]"
 
 [Output]
 lines.txt="""INF 2018-10-12 12:24:21+02:00 main started                               topics="main" tid=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20

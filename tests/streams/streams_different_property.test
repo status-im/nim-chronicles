@@ -1,5 +1,5 @@
 program=multiple_streams
-chronicles_streams="foo[textlines[stdout,nocolors]],default[textlines[file,notimestamps,ansicolors]]"
+chronicles_streams="foo[textlines[stdout,nocolors]],default[textlines[file,notimestamps]]"
 
 [Output]
 stdout="""INF 2018-10-12 21:56:43+02:00 logging to foo                             tid=0
