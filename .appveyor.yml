@@ -88,7 +88,7 @@ install:
       cd .. &
       bin\nim c koch &
       koch boot -d:release &
-      koch nimble &
+      koch --stable nimble &
       git rev-parse HEAD > ver.txt &
       rmdir /s /q csources
     )
@@ -98,9 +98,6 @@ build_script:
   - nimble install -y
 
 test_script:
-  - nimble --version
-  - nim --version
-  - gcc --version
-  - nimble test & echo "errorlevel =" %errorlevel% & exit 1
+  - nimble test
 
 deploy: off
