@@ -88,7 +88,7 @@ install:
       cd .. &
       bin\nim c koch &
       koch boot -d:release &
-      koch nimble &
+      koch --stable nimble &
       git rev-parse HEAD > ver.txt &
       rmdir /s /q csources
     )
