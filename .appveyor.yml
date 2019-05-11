@@ -98,6 +98,9 @@ build_script:
   - nimble install -y
 
 test_script:
+  - nimble --version
+  - nim --version
+  - gcc --version
   - nimble test & echo "errorlevel =" %errorlevel% & exit 1
 
 deploy: off
