@@ -98,6 +98,6 @@ build_script:
   - nimble install -y
 
 test_script:
-  - nimble test
+  - nimble test & echo "errorlevel =" %errorlevel% & exit 1
 
 deploy: off
