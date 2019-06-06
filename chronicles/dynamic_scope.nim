@@ -52,6 +52,9 @@ macro dynamicLogScopeIMPL*(stream: typedesc,
 
     bindingsArray.add newCall("unsafeAddr", bindingVar)
 
+  when defined(js):
+    bindingsArray = prefix(bindingsArray, "@")
+
   let totalBindingVars = bindingsVars.len
 
   result = quote:

@@ -1,3 +1,6 @@
+when defined(js):
+  type UncheckedArray[T] = seq[T]
+
 type
   ScopeBindingBase*[LogRecord] = object of RootObj
     name*: string

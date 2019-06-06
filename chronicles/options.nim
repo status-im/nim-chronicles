@@ -1,5 +1,5 @@
 import
-  macros, strutils, strformat, sequtils, ospaths
+  macros, strutils, strformat, sequtils, os
 
 # The default behavior of Chronicles can be configured through a wide-range
 # of compile-time -d: switches (for more information, see the README).

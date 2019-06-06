@@ -1,7 +1,26 @@
 import
-  strutils, times, macros, options, terminal, os,
-  faststreams/output_stream, json_serialization/writer,
+  strutils, times, macros, options, os,
   dynamic_scope_types
+
+when defined(js):
+  import
+    jscore, jsconsole, jsffi
+
+  export
+    convertToConsoleLoggable
+
+  type OutStr = cstring
+
+else:
+  import
+    terminal,
+    faststreams/output_stream, json_serialization/writer
+
+  type OutStr = string
+
+  const
+    propColor = fgBlue
+    topicsColor = fgYellow
 
 export
   LogLevel
@@ -39,17 +58,26 @@ type
                    colors: static[ColorScheme]] = object
     output*: Output
 
-  JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
-    output*: Output
-    outStream: OutputStreamVar
-    jsonWriter: JsonWriter
-
   StreamOutputRef*[Stream; outputId: static[int]] = object
 
   StreamCodeNodes = object
     streamName: NimNode
     recordType: NimNode
     outputsTuple: NimNode
+
+when defined(js):
+  type
+    JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
+      output*: Output
+      record: js
+
+    JsonString* = distinct string
+else:
+  type
+    JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
+      output*: Output
+      outStream: OutputStreamVar
+      jsonWriter: JsonWriter
 
 export
   JsonString
@@ -82,29 +110,30 @@ template bnd(s): NimNode =
 template deref(so: StreamOutputRef): auto =
   (outputs(so.Stream)[])[so.outputId]
 
-proc open*(o: ptr FileOutput, path: string, mode = fmAppend): bool =
-  if o.outFile != nil:
-    close(o.outFile)
-    o.outFile = nil
-    o.outPath = ""
+when not defined(js):
+  proc open*(o: ptr FileOutput, path: string, mode = fmAppend): bool =
+    if o.outFile != nil:
+      close(o.outFile)
+      o.outFile = nil
+      o.outPath = ""
 
-  createDir path.splitFile.dir
-  result = open(o.outFile, path, mode)
-  if result:
-    o.outPath = path
-    o.mode = mode
+    createDir path.splitFile.dir
+    result = open(o.outFile, path, mode)
+    if result:
+      o.outPath = path
+      o.mode = mode
 
-proc open*(o: ptr FileOutput, file: File): bool =
-  if o.outFile != nil:
-    close(o.outFile)
-    o.outPath = ""
+  proc open*(o: ptr FileOutput, file: File): bool =
+    if o.outFile != nil:
+      close(o.outFile)
+      o.outPath = ""
 
-  o.outFile = file
+    o.outFile = file
 
-proc openOutput(o: var FileOutput) =
-  doAssert o.outPath.len > 0 and o.mode != fmRead
-  createDir o.outPath.splitFile.dir
-  o.outFile = open(o.outPath, o.mode)
+  proc openOutput(o: var FileOutput) =
+    doAssert o.outPath.len > 0 and o.mode != fmRead
+    createDir o.outPath.splitFile.dir
+    o.outFile = open(o.outPath, o.mode)
 
 proc createFileOutput(path: string, mode: FileMode): FileOutput =
   result.mode = mode
@@ -139,26 +168,30 @@ proc createFileOutput(path: string, mode: FileMode): FileOutput =
 #    to the final file name.
 #
 
-proc selectLogName(stream: string, outputId: int): string =
-  result = if stream != defaultChroniclesStreamName: stream
-           else: getAppFilename().splitFile.name
+when not defined(js):
+  proc selectLogName(stream: string, outputId: int): string =
+    result = if stream != defaultChroniclesStreamName: stream
+             else: getAppFilename().splitFile.name
 
-  if outputId > 1: result.add("." & $outputId)
-  result.add ".log"
+    if outputId > 1: result.add("." & $outputId)
+    result.add ".log"
 
 proc selectOutputType(s: var StreamCodeNodes, dst: LogDestination): NimNode =
   var outputId = 0
   if dst.kind == toFile:
-    outputId = s.outputsTuple.len
+    when defined(js):
+      error "File outputs are not supported in the js target"
+    else:
+      outputId = s.outputsTuple.len
 
-    let mode = if dst.truncate: bindSym"fmWrite"
-               else: bindSym"fmAppend"
+      let mode = if dst.truncate: bindSym"fmWrite"
+                 else: bindSym"fmAppend"
 
-    let fileName = if dst.filename.len > 0: newLit(dst.filename)
-                   else: newCall(bindSym"selectLogName",
-                                 newLit($s.streamName), newLit(outputId))
+      let fileName = if dst.filename.len > 0: newLit(dst.filename)
+                     else: newCall(bindSym"selectLogName",
+                                   newLit($s.streamName), newLit(outputId))
 
-    s.outputsTuple.add newCall(bindSym"createFileOutput", fileName, mode)
+      s.outputsTuple.add newCall(bindSym"createFileOutput", fileName, mode)
 
   case dst.kind
   of toStdOut: bnd"StdOutOutput"
@@ -176,11 +209,12 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   # * Threading is enabled
   #   (we don't wont races between the `setProperty` calls)
   #
-  # * The syslog output is used
-  #   (we must send single sting to it)
+  # * The syslog output is used or we are comping to JavaScript
+  #   (we must send a single sting to the output)
   #
   # * Multiple destinations are present
   #   (we don't want to compute the output multiple times)
+  #
   #
   # The faststreams-based outputs (such as json) are already buffered,
   # so we don't need to handle them in a special way.
@@ -195,7 +229,8 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   result = newTree(nnkBracketExpr, RecordType)
 
   # Check if a buffered output is needed
-  if sink.destinations.len > 1 or
+  if defined(js) or
+     sink.destinations.len > 1 or
      sink.destinations[0].kind == toSyslog or
      compileOption("threads"):
 
@@ -256,7 +291,7 @@ template prepareOutput*(r: var auto, level: LogLevel) =
   else:
     activateOutput(r.output, level)
 
-template append*(o: var FileOutput, s: string) =
+template append*(o: var FileOutput, s: OutStr) =
   o.outFile.write s
 
 template flushOutput*(o: var FileOutput) =
@@ -268,22 +303,30 @@ template flushOutput*(o: var FileOutput) =
 template getOutputStream(o: FileOutput): File =
   o.outFile
 
-template append*(o: var StdOutOutput, s: string) = stdout.write s
-template flushOutput*(o: var StdOutOutput)       = stdout.flushFile
+when defined(js):
+  template append*(o: var StdOutOutput, s: OutStr) = console.log s
+  template flushOutput*(o: var StdOutOutput)       = discard
 
-template append*(o: var StdErrOutput, s: string) = stderr.write s
-template flushOutput*(o: var StdErrOutput)       = stderr.flushFile
+  template append*(o: var StdErrOutput, s: OutStr) = console.error s
+  template flushOutput*(o: var StdErrOutput)       = discard
+
+else:
+  template append*(o: var StdOutOutput, s: OutStr) = stdout.write s
+  template flushOutput*(o: var StdOutOutput)       = stdout.flushFile
+
+  template append*(o: var StdErrOutput, s: OutStr) = stderr.write s
+  template flushOutput*(o: var StdErrOutput)       = stderr.flushFile
 
 template getOutputStream(o: StdOutOutput): File = stdout
 template getOutputStream(o: StdErrOutput): File = stderr
 
-template append*(o: var StreamOutputRef, s: string) = append(deref(o), s)
+template append*(o: var StreamOutputRef, s: OutStr) = append(deref(o), s)
 template flushOutput*(o: var StreamOutputRef)       = flushOutput(deref(o))
 
 template getOutputStream(o: StreamOutputRef): File =
   getOutputStream(deref(o))
 
-template append*(o: var SysLogOutput, s: string) =
+template append*(o: var SysLogOutput, s: OutStr) =
   let syslogLevel = case o.currentRecordLevel
                     of TRACE, DEBUG, NONE: LOG_DEBUG
                     of INFO:               LOG_INFO
@@ -300,7 +343,7 @@ template flushOutput*(o: var SysLogOutput) = discard
 # buffered into a sting and when it needs to be flushed, we just instantiate
 # each of the Output types and call `append` and `flush` on the instance:
 
-template append*(o: var BufferedOutput, s: string) =
+template append*(o: var BufferedOutput, s: OutStr) =
   o.buffer.add(s)
 
 template flushOutput*(o: var BufferedOutput) =
@@ -314,7 +357,7 @@ template getOutputStream(o: BufferedOutput|PassThroughOutput): File =
 # The pass-through output just acts as a proxy, redirecting a single `append`
 # call to multiple destinations:
 
-template append*(o: var PassThroughOutput, strExpr: string) =
+template append*(o: var PassThroughOutput, strExpr: OutStr) =
   let str = strExpr
   for f in o.finalOutputs.fields:
     append(f, str)
@@ -349,10 +392,6 @@ template timestamp(record): string =
 
 template writeTs(record) =
   append(record.output, timestamp(record))
-
-const
-  propColor = fgBlue
-  topicsColor = fgYellow
 
 template fgColor(record, color, brightness) =
   when record.colors == AnsiColors:
@@ -554,36 +593,51 @@ proc flushRecord*(r: var TextBlockRecord) =
 # JSON records:
 #
 
+template `[]=`(r: var JsonRecord, key: string, val: auto) =
+  when defined(js):
+    when val is string:
+      r.record[key] = when val is string: cstring(val) else: val
+    else:
+      r.record[key] = val
+  else:
+    writeField(r.jsonWriter, key, val)
+
 proc initLogRecord*(r: var JsonRecord,
                     level: LogLevel,
                     topics: string,
                     name: string) =
-
-  r.outStream = init OutputStream
-  r.jsonWriter = JsonWriter.init(r.outStream, pretty = false)
-  r.jsonWriter.beginRecord()
+  when defined(js):
+    r.record = newJsObject()
+  else:
+    r.outStream = init OutputStream
+    r.jsonWriter = JsonWriter.init(r.outStream, pretty = false)
+    r.jsonWriter.beginRecord()
 
   if level != NONE:
-    r.jsonWriter.writeField "lvl", level.shortName
+    r["lvl"] = level.shortName
 
   when r.timestamps != NoTimestamps:
-    r.jsonWriter.writeField "ts", r.timestamp()
+    r["ts"] = r.timestamp()
 
-  r.jsonWriter.writeField "msg", name
+  r["msg"] = name
 
   if topics.len > 0:
-    r.jsonWriter.writeField "topics", topics
+    r["topics"] = topics
 
 proc setProperty*(r: var JsonRecord, key: string, val: auto) =
-  r.jsonWriter.writeField key, val
+  r[key] = val
 
 template setFirstProperty*(r: var JsonRecord, key: string, val: auto) =
-  setProperty(r, key, val)
+  r[key] = val
 
 proc flushRecord*(r: var JsonRecord) =
-  r.jsonWriter.endRecord()
-  r.outStream.append '\n'
-  r.output.append r.outStream.getOutput(string)
+  when defined(js):
+    r.output.append JSON.stringify(r.record)
+  else:
+    r.jsonWriter.endRecord()
+    r.outStream.append '\n'
+    r.output.append r.outStream.getOutput(string)
+
   flushOutput r.output
 
 #
