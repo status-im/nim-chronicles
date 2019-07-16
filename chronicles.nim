@@ -211,7 +211,8 @@ macro expandIt*(T: type, expandedProps: untyped): untyped =
     template `expandItIMPL`(`record`: auto, `it_name`: static string, `it`: `T`) =
       `setPropertyCalls`
 
-  echo result.repr
+  when defined(debugLogImpl):
+    echo result.repr
 
 macro logIMPL(lineInfo: static InstInfo,
               Stream: typed,
