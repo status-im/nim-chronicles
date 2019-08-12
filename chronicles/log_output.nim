@@ -16,6 +16,9 @@ else:
     terminal,
     faststreams/output_stream, json_serialization/writer
 
+  export
+    output_stream, writer
+
   type OutStr = string
 
   const
