@@ -363,7 +363,6 @@ logFn fatal , LogLevel.FATAL
 # * define all formats in terms of nim-serialization
 #   (this will remove the need for setFirstProperty and the thread id will become optional)
 # * don't have side effects in debug and trace
-# * don't raise any exceptions (handle I/O errors in the sinks by logging to stderr)
 # * extract the testing framework in stew/testability
 # * extract the compile-time conf framework in confutils
 # * instance carried streams that can collect the information in memory

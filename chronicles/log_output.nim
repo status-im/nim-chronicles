@@ -148,6 +148,14 @@ proc createFileOutput(path: string, mode: FileMode): FileOutput =
   result.mode = mode
   result.outPath = path
 
+template ignoreIOErrors(body: untyped) =
+  try: body
+  except IOError: discard
+
+template undeliveredMsg(reason: string, logMsg: OutStr) =
+  const error = "[Chronicles] " & reason & ". Log message not delivered: "
+  ignoreIOErrors stderr.writeLine(error & logMsg)
+
 # XXX:
 # Uncomenting this leads to an error message that the Outputs tuple
 # for the created steam doesn't have a defined destuctor. How come
@@ -324,11 +332,18 @@ when defined(js):
   template flushOutput*(o: var StdErrOutput)       = discard
 
 else:
-  template append*(o: var StdOutOutput, s: OutStr) = stdout.write s
-  template flushOutput*(o: var StdOutOutput)       = stdout.flushFile
+  template append*(o: var StdOutOutput, s: OutStr) =
+    try: stdout.write s
+    except IOError: undeliveredMsg("Failed to write to stdout", s)
 
-  template append*(o: var StdErrOutput, s: OutStr) = stderr.write s
-  template flushOutput*(o: var StdErrOutput)       = stderr.flushFile
+  template flushOutput*(o: var StdOutOutput) =
+    ignoreIOErrors(stdout.flushFile)
+
+  template append*(o: var StdErrOutput, s: OutStr) =
+    ignoreIOErrors(stderr.write s)
+
+  template flushOutput*(o: var StdErrOutput) =
+    ignoreIOErrors(stderr.flushFile)
 
 template getOutputStream(o: StdOutOutput): File = stdout
 template getOutputStream(o: StdErrOutput): File = stderr
@@ -351,7 +366,10 @@ template append*(o: var SysLogOutput, s: OutStr) =
   syslog(syslogLevel or LOG_PID, "%s", s)
 
 template append*(o: var DynamicOutput, s: OutStr) =
-  (o.writer)(o.currentRecordLevel, s)
+  if o.writer.isNil:
+    undeliveredMsg "A writer was not configured for a dynamic log output device", s
+  else:
+    (o.writer)(o.currentRecordLevel, s)
 
 template flushOutput*(o: var (SysLogOutput|DynamicOutput)) = discard
 
