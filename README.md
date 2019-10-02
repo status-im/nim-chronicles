@@ -247,10 +247,17 @@ The built-in formats include `json`, `textlines` and `textblocks`, which
 support options for specifying the use of colors and timestamps (for more
 info see `chronicles_colors` and `chronicles_timestamps`).
 
-The possible log destinations are `stdout`, `stderr`, `file` and `syslog`.
+The possible log destinations are `stdout`, `stderr`, `file`, `syslog`
+and `dynamic`.
 
 Please note that Chronicles also allows you to implement custom logging
 formats through the use of the `customLogStream` facility.
+
+### chronicles_default_output_device
+
+When a sink doesn't explicitly specify a particular log destination,
+Chronicles will log to "stdout" by default. Use this define to specify
+a different default choice.
 
 ### chronicles_streams
 

@@ -40,6 +40,12 @@ type
   SysLogOutput* = object
     currentRecordLevel: LogLevel
 
+  LogOutputStr* = OutStr
+
+  DynamicOutput* = object
+    currentRecordLevel: LogLevel
+    writer*: proc (logLevel: LogLevel, logRecord: OutStr) {.gcsafe.}
+
   PassThroughOutput*[FinalOutputs: tuple] = object
     finalOutputs: FinalOutputs
 
@@ -111,7 +117,7 @@ template bnd(s): NimNode =
   newIdentNode(s)
 
 template deref(so: StreamOutputRef): auto =
-  (outputs(so.Stream)[])[so.outputId]
+  (outputs(so.Stream))[so.outputId]
 
 when not defined(js):
   proc open*(o: ptr FileOutput, path: string, mode = fmAppend): bool =
@@ -181,7 +187,7 @@ when not defined(js):
 
 proc selectOutputType(s: var StreamCodeNodes, dst: LogDestination): NimNode =
   var outputId = 0
-  if dst.kind == toFile:
+  if dst.kind == oFile:
     when defined(js):
       error "File outputs are not supported in the js target"
     else:
@@ -195,13 +201,17 @@ proc selectOutputType(s: var StreamCodeNodes, dst: LogDestination): NimNode =
                                    newLit($s.streamName), newLit(outputId))
 
       s.outputsTuple.add newCall(bindSym"createFileOutput", fileName, mode)
+  elif dst.kind == oDynamic:
+    outputId = s.outputsTuple.len
+    s.outputsTuple.add newTree(nnkObjConstr, bnd"DynamicOutput")
 
   case dst.kind
-  of toStdOut: bnd"StdOutOutput"
-  of toStdErr: bnd"StdErrOutput"
-  of toSysLog: bnd"SysLogOutput"
-  of toFile: newTree(nnkBracketExpr,
-                     bnd"StreamOutputRef", s.streamName, newLit(outputId))
+  of oStdOut: bnd"StdOutOutput"
+  of oStdErr: bnd"StdErrOutput"
+  of oSysLog: bnd"SysLogOutput"
+  of oFile, oDynamic:
+    newTree(nnkBracketExpr,
+            bnd"StreamOutputRef", s.streamName, newLit(outputId))
 
 proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   # This proc translates the SinkSpecs loaded in the `options` module
@@ -234,7 +244,7 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   # Check if a buffered output is needed
   if defined(js) or
      sink.destinations.len > 1 or
-     sink.destinations[0].kind == toSyslog or
+     sink.destinations[0].kind in {oSyslog,oDynamic} or
      compileOption("threads"):
 
     # Here, we build the list of outputs as a tuple
@@ -275,7 +285,7 @@ template activateOutput*(o: var FileOutput, level: LogLevel) =
 template activateOutput*(o: var StreamOutputRef, level: LogLevel) =
   activateOutput(deref(o), level)
 
-template activateOutput*(o: var SysLogOutput, level: LogLevel) =
+template activateOutput*(o: var (SysLogOutput|DynamicOutput), level: LogLevel) =
   o.currentRecordLevel = level
 
 template activateOutput*(o: var BufferedOutput|PassThroughOutput, level: LogLevel) =
@@ -340,7 +350,10 @@ template append*(o: var SysLogOutput, s: OutStr) =
 
   syslog(syslogLevel or LOG_PID, "%s", s)
 
-template flushOutput*(o: var SysLogOutput) = discard
+template append*(o: var DynamicOutput, s: OutStr) =
+  (o.writer)(o.currentRecordLevel, s)
+
+template flushOutput*(o: var (SysLogOutput|DynamicOutput)) = discard
 
 # The buffered Output works in a very simple way. The log message is first
 # buffered into a sting and when it needs to be flushed, we just instantiate
@@ -705,8 +718,8 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
     # strings (the `outPath` field). Since these templates are not used
     # in situations where these paths are modified, it's safe to provide
     # a gcsafe override until we switch to Nim's --newruntime.
-    template outputs*(S: type `name`): auto = ({.gcsafe.}: addr `outputs`)
-    template output* (S: type `name`): auto = ({.gcsafe.}: addr `outputs`[0])
+    template outputs*(S: type `name`): auto = ({.gcsafe.}: addr `outputs`)[]
+    template output* (S: type `name`): auto = ({.gcsafe.}: addr `outputs`[0])[]
 
 # This is a placeholder that will be overriden in the user code.
 # XXX: replace that with a proper check that the user type requires

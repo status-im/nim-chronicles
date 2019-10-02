@@ -9,6 +9,8 @@ import
 
 const
   chronicles_enabled {.strdefine.} = "on"
+  chronicles_default_output_device* {.strdefine.} = "stdout"
+
   chronicles_sinks* {.strdefine.} = ""
   chronicles_streams* {.strdefine.} = ""
 
@@ -49,19 +51,20 @@ type
     textLines,
     textBlocks
 
-  LogDestinationKind* = enum
-    toStdOut,
-    toStdErr,
-    toFile,
-    toSysLog
+  OutputDeviceKind* = enum
+    oStdOut,
+    oStdErr,
+    oFile,
+    oSysLog
+    oDynamic
 
   LogFileMode = enum
     Append,
     Truncate
 
   LogDestination* = object
-    case kind*: LogDestinationKind
-    of toFile:
+    case kind*: OutputDeviceKind
+    of oFile:
       filename*: string
       truncate*: bool
     else:
@@ -173,26 +176,29 @@ proc makeSinkSpec(fmt: LogFormat,
   result.timestamps = timestamps
   result.destinations = @destinations
 
+func logDestinationFromStr(s: string): LogDestination {.compileTime.} =
+  case s.toLowerAscii
+  of "stdout": result.kind = oStdOut
+  of "stderr": result.kind = oStdErr
+  of "syslog": result.kind = oSysLog
+  of "dynamic": result.kind = oDynamic
+  of "file":
+    result.kind = oFile
+    result.filename = ""
+    result.truncate = false
+  else:
+    error &"'{s}' is not a recognized output device type. " &
+           "Allowed values are StdOut, StdErr, SysLog, File and Dynamic."
+
 proc logDestinationFromNode(n: NimNode): LogDestination =
   case n.kind
   of nnkIdent:
-    let destination = $n
-    case destination.toLowerAscii
-    of "stdout": result.kind = toStdOut
-    of "stderr": result.kind = toStdErr
-    of "syslog": result.kind = toSysLog
-    of "file":
-      result.kind = toFile
-      result.filename = ""
-      result.truncate = false
-    else:
-      error &"'{destination}' is not a recognized log destination. " &
-             "Allowed values are StdOut, StdErr, SysLog and File."
+    result = logDestinationFromStr($n)
   of nnkCall:
     if n[0].kind != nnkIdent and ($n[0]).toLowerAscii != "file":
       error &"Invalid log destination expression '{n.repr}'. " &
              "Only 'file' destinations accept parameters."
-    result.kind = toFile
+    result.kind = oFile
     result.filename = n[1].repr.replace(" ", "")
     if DirSep != '/': result.filename = result.filename.replace("/", $DirSep)
     if n.len > 2:
@@ -219,7 +225,7 @@ proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
       result.add makeSinkSpec(logFormatFromIdent(n),
                               defaultColorScheme,
                               defaultTimestamsScheme,
-                              LogDestination(kind: toStdOut))
+                              logDestinationFromStr(chronicles_default_output_device))
     of nnkBracketExpr:
       var spec = makeSinkSpec(logFormatFromIdent(n[0]),
                               defaultColorScheme,
@@ -248,7 +254,7 @@ proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
           else: discard
 
         let dst = logDestinationFromNode(dstSpec)
-        if dst.kind == toSysLog and not hasExplicitColors:
+        if dst.kind == oSysLog and not hasExplicitColors:
           spec.colorScheme = NoColors
 
         spec.destinations.add dst
@@ -282,13 +288,13 @@ proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
     for sink in mitems(stream.sinks):
       for dst in mitems(sink.destinations):
         case dst.kind
-        of toStdOut:
+        of oStdOut:
           inc stdoutSinks
           if stdoutSinks > 1: overlappingOutputsError(stream, "stdout")
-        of toStdErr:
+        of oStdErr:
           inc stderrSinks
           if stderrSinks > 1: overlappingOutputsError(stream, "stderr")
-        of toSysLog:
+        of oSysLog:
           inc syslogSinks
           if stderrSinks > 1: overlappingOutputsError(stream, "syslog")
           if sink.colorScheme != NoColors:
