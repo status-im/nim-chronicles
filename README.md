@@ -497,6 +497,19 @@ the default automatically:
    chronicles will add an index such as `.2.log`, `.3.log` .. `.N.log`
    to the final file name.
 
+## Working with `dynamic` outputs
+
+A `dynamic` output redirects all logged messages to a closure supplied by
+the host application. Similar to working with file ouputs [file outputs](#working-with-file-outputs),
+you can use the `output` and `outputs` properties of a Chronicles stream
+to specify a gcsafe closure:
+
+```nim
+defaultChroniclesStream.output.writer =
+  proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
+    database.writeLogEntry(msg)
+```
+
 ## Teaching Chronicles about your types
 
 Chronicles can output log records in any of the formats supported by the Nim
