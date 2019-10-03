@@ -229,13 +229,11 @@ macro logIMPL(lineInfo: static InstInfo,
   let lexicalBindings = scopes.finalLexicalBindings
   var finalBindings = initOrderedTable[string, NimNode]()
 
-  for k, v in assignments(lexicalBindings, acLogStatement):
-    finalBindings[k] = v
-
   for k, v in assignments(logStmtBindings, acLogStatement):
     finalBindings[k] = v
 
-  finalBindings.sort do (lhs, rhs: auto) -> int: cmp(lhs[0], rhs[0])
+  for k, v in assignments(lexicalBindings, acLogStatement):
+    finalBindings[k] = v
 
   # This is the compile-time topic filtering code, which has a similar
   # logic to the generated run-time filtering code:
