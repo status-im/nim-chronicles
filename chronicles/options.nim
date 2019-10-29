@@ -143,7 +143,7 @@ proc topicsWithLogLevelAsSeq(topics: string): seq[EnabledTopic] =
     for topic in split(topics, {','} + Whitespace):
       var values = topic.split(':')
       if values.len > 1:
-        if values[1].isDigit:
+        if values[1].all(isDigit):
           sequence.add(EnabledTopic(name: values[0],
                                     logLevel: LogLevel(parseInt(values[1]))))
         else:
