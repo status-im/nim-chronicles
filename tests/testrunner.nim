@@ -200,8 +200,8 @@ proc test(config: TestConfig, testPath: string): TestStatus =
     try:
       # this may fail in 64-bit AppVeyor images with "The process cannot access the file because it is being used by another process. [OSError]"
       removeFile(test.program.addFileExt(ExeExt))
-    except:
-      echo getCurrentExceptionMsg()
+    except CatchableError as e:
+      echo e.msg
 
   logResult(test.name, result, duration)
 
