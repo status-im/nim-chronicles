@@ -139,6 +139,12 @@ when not defined(js):
 
     o.outFile = file
 
+  proc open*(o: var FileOutput, path: string, mode = fmAppend): bool {.inline.} =
+    open(o.addr, path, mode)
+
+  proc open*(o: var FileOutput, file: File): bool {.inline.} =
+    open(o.addr, file)
+
   proc openOutput(o: var FileOutput) =
     doAssert o.outPath.len > 0 and o.mode != fmRead
     createDir o.outPath.splitFile.dir
