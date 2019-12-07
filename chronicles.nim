@@ -107,7 +107,7 @@ when runtimeFilteringEnabled:
     # Nim's GC safety analysis gets confused by the global variables here
     {.gcsafe.}:
       var topic {.global.}: Topic = Topic(state: Normal, logLevel: NONE)
-      var dummy {.global.} = registerTopic(topicName, addr(topic))
+      var dummy {.global, used.} = registerTopic(topicName, addr(topic))
       return addr(topic)
 
   proc runtimeTopicFilteringCode*(logLevel: LogLevel, topics: seq[string]): NimNode =
