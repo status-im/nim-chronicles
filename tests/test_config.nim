@@ -91,9 +91,9 @@ proc parseTestFile*(filePath: string): TestSpec =
           of "timestamp_peg":
             result.timestampPeg = e.value
           of "max_size":
-            if e.value.isDigit:
+            try:
               result.maxSize = parseInt(e.value)
-            else:
+            except ValueError:
               echo("Parsing warning: value of " & e.key &
                    " is not a number (value = " & e.value & ").")
           of "compile_error":
