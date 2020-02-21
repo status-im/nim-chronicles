@@ -1,5 +1,5 @@
 program=multiple_streams
-chronicles_streams="foo[textlines],default[json[file]]"
+chronicles_streams="foo[textlines],bar[json[file]]"
 chronicles_colors=None
 chronicles_timestamps=None
 
@@ -8,7 +8,7 @@ stdout="""INF logging to foo                             tid=0
 INF logging to foo                             tid=0
 """
 
-default.log="""{"lvl":"INF","msg":"dynamic scope starts","tid":0,"reqId":10,"userId":20}
+bar.log="""{"lvl":"INF","msg":"dynamic scope starts","tid":0,"reqId":10,"userId":20}
 {"lvl":"INF","msg":"dynamic scope ends","tid":0,"reqId":10,"userId":20}
 {"lvl":"WRN","msg":"about to exit main","tid":0}
 """

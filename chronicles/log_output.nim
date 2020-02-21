@@ -183,7 +183,7 @@ template undeliveredMsg(reason: string, logMsg: OutStr) =
 #
 # 1. The log file is created in the current working directory and its name
 #    matches the name of the stream (plus a '.log' extension). The exception
-#    for this rule is the 'default' stream, for which the log file will be
+#    for this rule is the default stream, for which the log file will be
 #    assigned the name of the application binary.
 #
 # 2. If more than one unnamed file outputs exist for a given stream,
@@ -306,11 +306,9 @@ template activateOutput*(o: var BufferedOutput|PassThroughOutput, level: LogLeve
   for f in o.finalOutputs.fields:
     activateOutput(f, level)
 
-proc defaultValue(T: type): T {.inline.} = discard # Remove once nim is updated past #9790
-
 template prepareOutput*(r: var auto, level: LogLevel) =
   mixin activateOutput
-  r = defaultValue(type(r)) # Remove once nim is updated past #9790
+  r = default(type(r)) # Remove once nim is updated past #9790
 
   when r is tuple:
     for f in r.fields:

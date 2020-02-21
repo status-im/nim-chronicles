@@ -304,7 +304,7 @@ proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
         else: discard
 
 proc parseSinksSpec(spec: string): Configuration {.compileTime.} =
-  return parseStreamsSpec(&"defaultChroniclesStream[{spec}]")
+  return parseStreamsSpec(&"{defaultChroniclesStreamName}[{spec}]")
 
 const
   loggingEnabled*    = handleYesNoOption chronicles_enabled

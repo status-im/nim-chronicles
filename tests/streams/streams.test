@@ -1,5 +1,5 @@
 program=multiple_streams
-chronicles_streams="foo[textlines],default[textlines]"
+chronicles_streams="foo[textlines],bar[textlines]"
 chronicles_colors=None
 
 [Output]

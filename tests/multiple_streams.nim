@@ -7,7 +7,7 @@ proc fooStreamer =
   info "logging to foo"
 
 logScope:
-  stream = "default"
+  stream = "bar"
 
 proc main =
   dynamicLogScope(reqId = 10, userId = 20):
