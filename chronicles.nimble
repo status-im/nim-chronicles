@@ -7,9 +7,10 @@ description   = "A crafty implementation of structured logging for Nim"
 license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
-requires "nim >= 0.18.1", "json_serialization"
+requires "nim >= 0.18.1"
+requires "json_serialization"
+requires "https://github.com/disruptek/testutils < 2.0.0"
 
 task test, "run CPU tests":
-  cd "tests"
-  exec "nim c -r testrunner ."
+  exec "testrunner tests"
 
