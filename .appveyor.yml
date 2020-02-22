@@ -26,7 +26,7 @@ install:
   # flexibility to apply patches
   - curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus-build-system/master/scripts/build_nim.sh
   - env MAKE="mingw32-make -j2" ARCH_OVERRIDE=%PLATFORM% bash build_nim.sh Nim csources dist/nimble NimBinaries
-  - SET PATH=%CD%\Nim\bin;%PATH%
+  - SET PATH=%CD%\Nim\bin;%USERPROFILE%\.nimble\bin;%PATH%
 
 build_script:
   - cd C:\projects\%APPVEYOR_PROJECT_SLUG%
