@@ -326,7 +326,7 @@ template log*(severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
 
-  bind logIMPL, bindSym, brForceOpen, Record
+  bind logIMPL, bindSym, brForceOpen
   logIMPL(instantiationInfo(), activeChroniclesStream(),
           Record(activeChroniclesStream()), eventName, severity,
           bindSym("activeChroniclesScope", brForceOpen), props)
