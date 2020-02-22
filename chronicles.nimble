@@ -9,7 +9,7 @@ skipDirs      = @["tests"]
 
 requires "nim >= 0.18.1"
 requires "json_serialization"
-requires "https://github.com/disruptek/testutils < 2.0.0"
+requires "https://github.com/status-im/testutils < 2.0.0"
 
 task test, "run CPU tests":
   exec "testrunner tests"
