@@ -24,7 +24,7 @@ INF exiting
 
 """
 
-lexical_scopes.log="""INF main started topics="main"
+textblocks_file_stdout.log="""INF main started topics="main"
   tid: 0
   a: 10
   arg: 50
