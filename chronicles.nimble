@@ -12,5 +12,7 @@ requires "json_serialization"
 requires "https://github.com/status-im/testutils < 2.0.0"
 
 task test, "run CPU tests":
-  exec "testrunner tests"
-
+  when defined(windows):
+    exec "cmd.exe /C testrunner.cmd tests"
+  else:
+    exec "testrunner tests"
