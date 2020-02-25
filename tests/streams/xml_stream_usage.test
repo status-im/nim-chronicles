@@ -1,11 +1,10 @@
 program=xml_stream_usage
 chronicles_colors=None
 chronicles_timestamps=None
-
 [Output]
 stdout="""<event type="New Stream" severity="INFO">
-  <tid>0</tid>
-  <episode>Smarty Cat</episode>
+  <tid>25861</tid>
   <franchise>Tom &amp; Jerry</franchise>
+  <episode>Smarty Cat</episode>
 </event>
 """

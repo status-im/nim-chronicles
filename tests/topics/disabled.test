@@ -3,12 +3,11 @@ chronicles_sinks="textlines[stdout]"
 chronicles_colors=None
 chronicles_timestamps=None
 chronicles_log_level=DEBUG
-chronicles_disabled_topics:"foo bar"
-
+chronicles_disabled_topics="foo bar"
 [Output]
-stdout="""WRN inside main                                topics="main" tid=0 a=1 arg=50 b=10
-INF inside main                                topics="main" tid=0 a=1 arg=50 b=10
-DBG inside main                                topics="main" tid=0 a=1 arg=50 b=10
-INF after main                                 topics="general" tid=0
-INF exiting                                    tid=0 msg="bye bye"
+stdout="""WRN inside main                                topics="main" tid=26496 b=10 arg=50 a=1
+INF inside main                                topics="main" tid=26496 b=10 arg=50 a=1
+DBG inside main                                topics="main" tid=26496 b=10 arg=50 a=1
+INF after main                                 topics="general" tid=26496
+INF exiting                                    tid=26496 msg="bye bye"
 """
