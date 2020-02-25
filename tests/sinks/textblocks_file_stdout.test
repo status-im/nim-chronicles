@@ -2,44 +2,78 @@ program="../lexical_scopes"
 chronicles_sinks="textblocks[stdout,file]"
 chronicles_colors=None
 chronicles_timestamps=None
-
 [Output]
-stdout="""INF main started topics="main"
-  tid: 0
-  a: 10
-  arg: 50
-  b: inner-b
-  c: 10
-  d: some-d
-  x: 16
-  z: 20
-
-INF exiting
-  tid: 0
+textblocks_file_stdout.log="""INF main started topics="main"
+  tid: 21468
   a: 12
   b: overriden-b
-  c: 100
-  msg: bye bye
+  d: some-d
+  arg: 50
+  z: 20
   x: 16
+  c: 10
+
+INF exiting
+  tid: 21468
+  msg: bye bye
+  b: overriden-b
+  x: 16
+  c: 100
+  a: 12
+
+INF main started topics="main"
+  tid: 22760
+  a: 12
+  b: overriden-b
+  d: some-d
+  arg: 50
+  z: 20
+  x: 16
+  c: 10
+
+INF exiting
+  tid: 22760
+  msg: bye bye
+  b: overriden-b
+  x: 16
+  c: 100
+  a: 12
+
+INF main started topics="main"
+  tid: 26075
+  a: 12
+  b: overriden-b
+  d: some-d
+  arg: 50
+  z: 20
+  x: 16
+  c: 10
+
+INF exiting
+  tid: 26075
+  msg: bye bye
+  b: overriden-b
+  x: 16
+  c: 100
+  a: 12
 
 """
-
-textblocks_file_stdout.log="""INF main started topics="main"
-  tid: 0
-  a: 10
-  arg: 50
-  b: inner-b
-  c: 10
-  d: some-d
-  x: 16
-  z: 20
-
-INF exiting
-  tid: 0
+stdout="""INF main started topics="main"
+  tid: 26075
   a: 12
   b: overriden-b
-  c: 100
-  msg: bye bye
+  d: some-d
+  arg: 50
+  z: 20
   x: 16
+  c: 10
+
+INF exiting
+  tid: 26075
+  msg: bye bye
+  b: overriden-b
+  x: 16
+  c: 100
+  a: 12
 
 """

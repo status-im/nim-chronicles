@@ -2,8 +2,11 @@ program="../lexical_scopes"
 chronicles_sinks="textlines[file]"
 chronicles_colors=None
 chronicles_timestamps=None
-
 [Output]
-textlines_file.log="""INF main started                               topics="main" tid=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
-INF exiting                                    tid=0 a=12 b=overriden-b c=100 msg="bye bye" x=16
+textlines_file.log="""INF main started                               topics="main" tid=21647 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
+INF exiting                                    tid=21647 msg="bye bye" b=overriden-b x=16 c=100 a=12
+INF main started                               topics="main" tid=22935 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
+INF exiting                                    tid=22935 msg="bye bye" b=overriden-b x=16 c=100 a=12
+INF main started                               topics="main" tid=26261 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
+INF exiting                                    tid=26261 msg="bye bye" b=overriden-b x=16 c=100 a=12
 """

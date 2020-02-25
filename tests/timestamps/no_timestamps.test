@@ -2,12 +2,14 @@ program="../lexical_scopes"
 chronicles_sinks="textlines[stdout,file]"
 chronicles_colors=None
 chronicles_timestamps=None
-
 [Output]
-stdout="""INF main started                               topics="main" tid=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
-INF exiting                                    tid=0 a=12 b=overriden-b c=100 msg="bye bye" x=16
+no_timestamps.log="""INF main started                               topics="main" tid=22094 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
+INF exiting                                    tid=22094 msg="bye bye" b=overriden-b x=16 c=100 a=12
+INF main started                               topics="main" tid=23459 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
+INF exiting                                    tid=23459 msg="bye bye" b=overriden-b x=16 c=100 a=12
+INF main started                               topics="main" tid=26714 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
+INF exiting                                    tid=26714 msg="bye bye" b=overriden-b x=16 c=100 a=12
 """
-
-no_timestamps.log="""INF main started                               topics="main" tid=0 a=10 arg=50 b=inner-b c=10 d=some-d x=16 z=20
-INF exiting                                    tid=0 a=12 b=overriden-b c=100 msg="bye bye" x=16
+stdout="""INF main started                               topics="main" tid=26714 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
+INF exiting                                    tid=26714 msg="bye bye" b=overriden-b x=16 c=100 a=12
 """
