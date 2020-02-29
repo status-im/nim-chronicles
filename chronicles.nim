@@ -340,16 +340,26 @@ template log*(stream: type,
   logIMPL(instantiationInfo(), stream, stream.Record, eventName, severity,
           bindSym("activeChroniclesScope", brForceOpen), props)
 
-template logFn(name: untyped, severity: typed) {.dirty.} =
-  bind log
+template wrapSideEffects(debug: bool, body: untyped) {.inject.} =
+  when debug:
+    {.noSideEffect.}:
+      try: body
+      except: discard
+  else:
+    body
+
+template logFn(name: untyped, severity: typed, debug=false) {.dirty.} =
+  bind log, wrapSideEffects
 
   template `name`*(eventName: static[string], props: varargs[untyped]) {.dirty.} =
-    log(severity, eventName, props)
+    wrapSideEffects(debug):
+      log(severity, eventName, props)
 
   template `name`*(stream: type, eventName: static[string], props: varargs[untyped]) {.dirty.} =
-    log(stream, severity, eventName, props)
+    wrapSideEffects(debug):
+      log(stream, severity, eventName, props)
 
-logFn trace , LogLevel.TRACE
+logFn trace , LogLevel.TRACE, debug=true
 logFn debug , LogLevel.DEBUG
 logFn info  , LogLevel.INFO
 logFn notice, LogLevel.NOTICE
