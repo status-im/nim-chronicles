@@ -510,6 +510,13 @@ defaultChroniclesStream.output.writer =
     database.writeLogEntry(msg)
 ```
 
+## Using Chronicles with `{.noSideEffect.}`
+
+Usage of Chronicles from `noSideEffect` procs (or `func`) is limited to the
+`trace` statement. Normal logging can be considered a side effect, but `trace`
+is meant as a debugging aid. It's analogous to Nim's `debugEcho`, which also
+bypasses the effect system.
+
 ## Teaching Chronicles about your types
 
 Chronicles can output log records in any of the formats supported by the Nim
