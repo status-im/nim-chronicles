@@ -1,0 +1,9 @@
+program=no_side_effect
+chronicles_sinks="textlines[stdout]"
+chronicles_colors=None
+chronicles_timestamps=None
+chronicles_log_level=TRACE
+
+[Output]
+stdout="""TRC effect-free                                tid=0
+"""
