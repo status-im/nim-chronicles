@@ -322,22 +322,24 @@ macro logIMPL(lineInfo: static InstInfo,
     echo result.repr
 
 # Translate all the possible overloads to `logIMPL`:
-template log*(severity: static[LogLevel],
-              eventName: static[string],
-              props: varargs[untyped]) {.dirty.} =
-
-  bind logIMPL, bindSym, brForceOpen
-  logIMPL(instantiationInfo(), activeChroniclesStream(),
-          Record(activeChroniclesStream()), eventName, severity,
-          bindSym("activeChroniclesScope", brForceOpen), props)
-
-template log*(stream: type,
+template log*(lineInfo: static InstInfo,
               severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
 
   bind logIMPL, bindSym, brForceOpen
-  logIMPL(instantiationInfo(), stream, stream.Record, eventName, severity,
+  logIMPL(lineInfo, activeChroniclesStream(),
+          Record(activeChroniclesStream()), eventName, severity,
+          bindSym("activeChroniclesScope", brForceOpen), props)
+
+template log*(lineInfo: static InstInfo,
+              stream: type,
+              severity: static[LogLevel],
+              eventName: static[string],
+              props: varargs[untyped]) {.dirty.} =
+
+  bind logIMPL, bindSym, brForceOpen
+  logIMPL(lineInfo, stream, stream.Record, eventName, severity,
           bindSym("activeChroniclesScope", brForceOpen), props)
 
 template wrapSideEffects(debug: bool, body: untyped) {.inject.} =
@@ -353,11 +355,11 @@ template logFn(name: untyped, severity: typed, debug=false) {.dirty.} =
 
   template `name`*(eventName: static[string], props: varargs[untyped]) {.dirty.} =
     wrapSideEffects(debug):
-      log(severity, eventName, props)
+      log(instantiationInfo(), severity, eventName, props)
 
   template `name`*(stream: type, eventName: static[string], props: varargs[untyped]) {.dirty.} =
     wrapSideEffects(debug):
-      log(stream, severity, eventName, props)
+      log(instantiationInfo(), stream, severity, eventName, props)
 
 logFn trace , LogLevel.TRACE, debug=true
 logFn debug , LogLevel.DEBUG
