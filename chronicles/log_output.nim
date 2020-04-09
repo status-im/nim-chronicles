@@ -85,7 +85,7 @@ else:
   type
     JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
       output*: Output
-      outStream: OutputStreamVar
+      outStream: OutputStream
       jsonWriter: JsonWriter
 
 export
@@ -647,7 +647,7 @@ proc initLogRecord*(r: var JsonRecord,
   when defined(js):
     r.record = newJsObject()
   else:
-    r.outStream = init OutputStream
+    r.outStream = memoryOutput()
     r.jsonWriter = JsonWriter.init(r.outStream, pretty = false)
     r.jsonWriter.beginRecord()
 
