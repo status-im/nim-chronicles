@@ -1,4 +1,4 @@
-program=lexical_scopes
+program="../lexical_scopes"
 chronicles_sinks="textlines[file(lines.txt,truncate)],textblocks[file(blocks.txt,truncate)],json[file(log.json,truncate)]"
 chronicles_colors=None
 chronicles_timestamps=None

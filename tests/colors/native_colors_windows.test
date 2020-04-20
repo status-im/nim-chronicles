@@ -1,5 +1,5 @@
 ; NativeColors test for Windows, actually just compares the non colored output
-program=long_lines
+program="../long_lines"
 chronicles_sinks="textlines[stdout]"
 chronicles_colors=NativeColors
 chronicles_timestamps=None

@@ -1,4 +1,4 @@
-program="runtime_filtering_no_scopes"
+program="../runtime_filtering_no_scopes"
 chronicles_sinks="textlines[stdout,file]"
 chronicles_runtime_filtering="on"
 chronicles_colors=None

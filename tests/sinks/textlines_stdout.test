@@ -1,4 +1,4 @@
-program=lexical_scopes
+program="../lexical_scopes"
 chronicles_sinks="textlines[stdout]"
 chronicles_colors=None
 chronicles_timestamps=None

@@ -1,4 +1,4 @@
-program=size
+program="../size"
 max_size=1000000
 
 chronicles_sinks="textlines[stdout]"

@@ -1,4 +1,4 @@
-program=runtime_path
+program="../runtime_path"
 chronicles_sinks="textlines[file]"
 chronicles_colors=None
 chronicles_timestamps=None

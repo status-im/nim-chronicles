@@ -99,6 +99,8 @@ template dynamicLogScope*(bindings: varargs[untyped]) {.dirty.} =
                       bindSym("activeChroniclesScope", brForceOpen),
                       bindings)
 
+let chroniclesBlockName {.compileTime.} = ident "chroniclesLogStmt"
+
 when runtimeFilteringEnabled:
   import chronicles/topics_registry
   export setTopicState, setLogLevel, TopicState
@@ -127,7 +129,7 @@ when runtimeFilteringEnabled:
 
     result.add quote do:
       if not `topicsMatch`(LogLevel(`logLevel`), `topicsArray`):
-        break chroniclesLogStmt
+        break `chroniclesBlockName`
 else:
   template runtimeFilteringDisabledError =
     {.error: "Run-time topic filtering is currently disabled. " &
@@ -316,7 +318,12 @@ macro logIMPL(lineInfo: static InstInfo,
   code.add newCall("logAllDynamicProperties", Stream, record)
   code.add newCall("flushRecord", record)
 
-  result = newBlockStmt(id"chroniclesLogStmt", code)
+  result = quote do:
+    try:
+      block `chroniclesBlockName`:
+        `code`
+    except CatchableError as err:
+      logLoggingFailure(cstring(`eventName`))
 
   when defined(debugLogImpl):
     echo result.repr

@@ -1,4 +1,4 @@
-program=xml_stream_usage
+program="../xml_stream_usage"
 chronicles_colors=None
 chronicles_timestamps=None
 

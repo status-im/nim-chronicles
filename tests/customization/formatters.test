@@ -1,4 +1,4 @@
-program=custom_formatters
+program="../custom_formatters"
 chronicles_sinks="textlines[file(lines.txt,truncate)],textblocks[file(blocks.txt,truncate)],json[file(json.txt,truncate)]"
 chronicles_timestamps=None
 chronicles_colors=None

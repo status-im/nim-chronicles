@@ -1,4 +1,4 @@
-program="runtime_filtering"
+program="../runtime_filtering"
 chronicles_sinks="textlines[stdout,file]"
 chronicles_runtime_filtering="on"
 chronicles_colors=None

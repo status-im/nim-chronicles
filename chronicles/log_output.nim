@@ -158,9 +158,12 @@ template ignoreIOErrors(body: untyped) =
   try: body
   except IOError: discard
 
+proc logLoggingFailure*(msg: cstring) =
+  ignoreIOErrors: stderr.writeLine(msg)
+
 template undeliveredMsg(reason: string, logMsg: OutStr) =
   const error = "[Chronicles] " & reason & ". Log message not delivered: "
-  ignoreIOErrors stderr.writeLine(error & logMsg)
+  logLoggingFailure(cstring(error & logMsg))
 
 # XXX:
 # Uncomenting this leads to an error message that the Outputs tuple

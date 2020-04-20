@@ -1,6 +1,6 @@
 ; NativeColors on Unix will give AnsiColors
 
-program=long_lines
+program="../long_lines"
 chronicles_sinks="textlines[stdout]"
 chronicles_colors=NativeColors
 chronicles_timestamps=None
