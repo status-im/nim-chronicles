@@ -323,7 +323,7 @@ macro logIMPL(lineInfo: static InstInfo,
       block `chroniclesBlockName`:
         `code`
     except CatchableError as err:
-      logLoggingFailure(cstring(`eventName`))
+      logLoggingFailure(cstring(`eventName`), err)
 
   when defined(debugLogImpl):
     echo result.repr

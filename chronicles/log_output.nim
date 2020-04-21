@@ -44,7 +44,7 @@ type
 
   DynamicOutput* = object
     currentRecordLevel: LogLevel
-    writer*: proc (logLevel: LogLevel, logRecord: OutStr) {.gcsafe.}
+    writer*: proc (logLevel: LogLevel, logRecord: OutStr) {.gcsafe, raises: [Defect].}
 
   PassThroughOutput*[FinalOutputs: tuple] = object
     finalOutputs: FinalOutputs
@@ -158,12 +158,14 @@ template ignoreIOErrors(body: untyped) =
   try: body
   except IOError: discard
 
-proc logLoggingFailure*(msg: cstring) =
-  ignoreIOErrors: stderr.writeLine(msg)
+proc logLoggingFailure*(msg: cstring, ex: ref Exception) =
+  ignoreIOErrors:
+    stderr.writeLine("[Chronicles] Log message not delivered: ", msg)
+    if ex != nil: stderr.writeLine(ex.msg)
 
-template undeliveredMsg(reason: string, logMsg: OutStr) =
+template undeliveredMsg(reason: string, logMsg: OutStr, ex: ref Exception) =
   const error = "[Chronicles] " & reason & ". Log message not delivered: "
-  logLoggingFailure(cstring(error & logMsg))
+  logLoggingFailure(cstring(error & logMsg), ex)
 
 # XXX:
 # Uncomenting this leads to an error message that the Outputs tuple
@@ -341,7 +343,8 @@ when defined(js):
 else:
   template append*(o: var StdOutOutput, s: OutStr) =
     try: stdout.write s
-    except IOError: undeliveredMsg("Failed to write to stdout", s)
+    except IOError as err:
+      undeliveredMsg("Failed to write to stdout", s, err)
 
   template flushOutput*(o: var StdOutOutput) =
     ignoreIOErrors(stdout.flushFile)
@@ -374,7 +377,7 @@ template append*(o: var SysLogOutput, s: OutStr) =
 
 template append*(o: var DynamicOutput, s: OutStr) =
   if o.writer.isNil:
-    undeliveredMsg "A writer was not configured for a dynamic log output device", s
+    undeliveredMsg "A writer was not configured for a dynamic log output device", s, nil
   else:
     (o.writer)(o.currentRecordLevel, s)
 
