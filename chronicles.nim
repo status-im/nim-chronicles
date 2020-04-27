@@ -105,10 +105,10 @@ when runtimeFilteringEnabled:
   import chronicles/topics_registry
   export setTopicState, setLogLevel, TopicState
 
-  proc topicStateIMPL(topicName: static[string]): ptr Topic =
+  proc topicStateIMPL(topicName: static[string]): ptr TopicSettings =
     # Nim's GC safety analysis gets confused by the global variables here
     {.gcsafe.}:
-      var topic {.global.}: Topic = Topic(state: Normal, logLevel: NONE)
+      var topic {.global.} = TopicSettings(state: Normal, logLevel: NONE)
       var dummy {.global, used.} = registerTopic(topicName, addr(topic))
       return addr(topic)
 

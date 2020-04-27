@@ -1,6 +1,9 @@
 import locks, macros, tables
 from options import LogLevel
 
+export
+  LogLevel
+
 type
   TopicState* = enum
     Normal,
@@ -8,19 +11,19 @@ type
     Required,
     Disabled
 
-  Topic* = object
+  TopicSettings* = object
     state*: TopicState
     logLevel*: LogLevel
 
   TopicsRegisty* = object
-    topicStatesTable*: Table[string, ptr Topic]
+    topicStatesTable*: Table[string, ptr TopicSettings]
 
 var
   registryLock: Lock
   gActiveLogLevel       {.guard: registryLock.}: LogLevel
   gTotalEnabledTopics   {.guard: registryLock.}: int
   gTotalRequiredTopics  {.guard: registryLock.}: int
-  gTopicStates          {.guard: registryLock.} = initTable[string, ptr Topic]()
+  gTopicStates          {.guard: registryLock.} = initTable[string, ptr TopicSettings]()
 
 when compileOption("threads"):
   var mainThreadId = getThreadId()
@@ -44,7 +47,7 @@ proc clearTopicsRegistry* =
     for val in gTopicStates.values:
       val.state = Normal
 
-proc registerTopic*(name: string, topic: ptr Topic): ptr Topic =
+proc registerTopic*(name: string, topic: ptr TopicSettings): ptr TopicSettings =
   # As long as sequences are thread-local, modifying the `gTopicStates`
   # sequence must be done only from the main thread:
   when compileOption("threads"):
@@ -79,7 +82,7 @@ proc setTopicState*(name: string,
     return true
 
 proc topicsMatch*(logStmtLevel: LogLevel,
-                  logStmtTopics: openarray[ptr Topic]): bool =
+                  logStmtTopics: openarray[ptr TopicSettings]): bool =
   lockRegistry:
     var
       hasEnabledTopics = gTotalEnabledTopics > 0
@@ -105,7 +108,7 @@ proc topicsMatch*(logStmtLevel: LogLevel,
 
     return normalTopicsMatch
 
-proc getTopicState*(topic: string): ptr Topic =
+proc getTopicState*(topic: string): ptr TopicSettings =
   lockRegistry:
     return gTopicStates.getOrDefault(topic)
 
