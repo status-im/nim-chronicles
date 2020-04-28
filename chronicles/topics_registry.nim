@@ -98,7 +98,7 @@ proc topicsMatch*(logStmtLevel: LogLevel,
         of Normal: normalTopicsMatch = true
         of Enabled: enabledTopicsMatch = true
         of Disabled: return false
-        of Required: dec requiredTopicsCount
+        of Required: normalTopicsMatch = true; dec requiredTopicsCount
 
     if requiredTopicsCount > 0:
       return false
