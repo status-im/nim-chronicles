@@ -14,10 +14,10 @@ when defined(js):
 else:
   import
     terminal,
-    faststreams/output_stream, json_serialization/writer
+    faststreams/outputs, json_serialization/writer
 
   export
-    output_stream, writer
+    outputs, writer
 
   type OutStr = string
 
@@ -679,7 +679,7 @@ proc flushRecord*(r: var JsonRecord) =
     r.output.append JSON.stringify(r.record)
   else:
     r.jsonWriter.endRecord()
-    r.outStream.append '\n'
+    r.outStream.write '\n'
     r.output.append r.outStream.getOutput(string)
 
   flushOutput r.output
