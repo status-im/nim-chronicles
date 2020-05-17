@@ -1,6 +1,7 @@
 import
   strutils, times, macros, options, os,
-  dynamic_scope_types
+  dynamic_scope_types,
+  textlineserializer
 
 when defined(js):
   import
@@ -61,6 +62,13 @@ type
                   colors: static[ColorScheme]] = object
     output*: Output
     level: LogLevel
+
+  TextLineBRecord*[Output;
+                  timestamps: static[TimestampsScheme],
+                  colors: static[ColorScheme]] = object
+    output*: Output
+    internalStream: OutputStream
+    writer: TextLineWriter
 
   TextBlockRecord*[Output;
                    timestamps: static[TimestampsScheme],
@@ -256,6 +264,7 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   let RecordType = case sink.format
                    of json: bnd"JsonRecord"
                    of textLines: bnd"TextLineRecord"
+                   of textLinesB: bnd"TextLineBRecord"
                    of textBlocks: bnd"TextBlockRecord"
 
   result = newTree(nnkBracketExpr, RecordType)
@@ -683,6 +692,27 @@ proc flushRecord*(r: var JsonRecord) =
     r.output.append r.outStream.getOutput(string)
 
   flushOutput r.output
+
+#
+# TextLinesB records:
+#
+
+template initLogRecord*(r: var TextLineBRecord, lvl: LogLevel, topics: string, name: string) =
+  r.internalStream = memoryOutput()
+  r.writer = TextLineWriter.init(r.internalStream)
+  r.writer.beginRecord($lvl, topics, name)
+
+template setProperty*(r: var TextLineBRecord, key: string, val: auto) =
+  r.writer.writeField(key, val)
+
+template setFirstProperty*(r: var TextLineBRecord, key: string, val: auto) =
+  r.writer.writeField(key, val)
+
+template flushRecord*(r: var TextLineBRecord) =
+  r.writer.endRecord()
+  r.output.append r.internalStream.getOutput(string)
+  flushOutput r.output
+
 
 #
 # When any of the output streams have multiple output formats, we need to

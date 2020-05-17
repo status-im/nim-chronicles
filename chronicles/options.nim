@@ -49,6 +49,7 @@ type
   LogFormat* = enum
     json,
     textLines,
+    textLinesB,  # TODO: remove. this is a temporary hack
     textBlocks
 
   OutputDeviceKind* = enum
@@ -161,6 +162,8 @@ proc logFormatFromIdent(n: NimNode): LogFormat =
     return json
   of "textlines":
     return textLines
+  of "textlinesb":
+    return textLinesB
   of "textblocks":
     return textBlocks
   else:
