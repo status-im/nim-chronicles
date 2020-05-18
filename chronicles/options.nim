@@ -1,5 +1,5 @@
 import
-  macros, strutils, strformat, sequtils, os
+  macros, strutils, strformat, sequtils, os, terminal
 
 # The default behavior of Chronicles can be configured through a wide-range
 # of compile-time -d: switches (for more information, see the README).
@@ -338,3 +338,30 @@ const
             #   narrow terminals
             # * properies may be easier to find
             else: parseSinksSpec "textlines"
+
+const
+    propColor* = fgBlue
+    topicsColor* = fgYellow
+
+template levelToStyle*(lvl: LogLevel): untyped =
+  case lvl
+  of TRACE: (fgGreen, true)
+  of DEBUG: (fgGreen, true)
+  of INFO:  (fgGreen, false)
+  of NOTICE:(fgYellow, false)
+  of WARN:  (fgYellow, true)
+  of ERROR: (fgRed, false)
+  of FATAL: (fgRed, true)
+  of NONE:  (fgWhite, false)
+
+template shortName*(lvl: LogLevel): string =
+  # Same-length strings make for nice alignment
+  case lvl
+  of TRACE: "TRC"
+  of DEBUG: "DBG"
+  of INFO:  "INF"
+  of NOTICE:"NOT"
+  of WARN:  "WRN"
+  of ERROR: "ERR"
+  of FATAL: "FAT"
+  of NONE:  "   "

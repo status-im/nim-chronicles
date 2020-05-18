@@ -1,11 +1,20 @@
-import chronicles
-import times
-import serialization
-import faststreams/[outputs, textio]
+import
+  times,
+  strutils,
+  terminal
+
+import
+  serialization,
+  faststreams/[outputs, textio]
+
+import
+  chronicles,
+  options
 
 type
-  TextLineWriter* = object
+  TextLineWriter*[timeFormat: static[TimestampsScheme], colorScheme: static[ColorScheme]] = object
     stream: OutputStream
+    currentLevel: LogLevel
 
   TextLineReader* = object
     lexer: string
@@ -17,22 +26,47 @@ serializationFormat TextLineLog,
                     mimeType = "text/plain"
 
 #
-# Class creation
+# color support functions
 #
-proc init*(T: type TextLineWriter, stream: OutputStream): T =
-  result.stream = stream
+proc fgColor(writer: TextLineWriter, color: ForegroundColor, brightness: bool) =
+  when writer.colorScheme == AnsiColors:
+    writer.stream.writeText ansiForegroundColorCode(color, brightness)
+  when writer.colorScheme == NativeColors:
+    writer.stream.setForegroundColor(color, brightness)
+
+proc resetColors(writer: TextLineWriter) =
+  when writer.colorScheme == AnsiColors:
+    writer.stream.writeText ansiResetCode
+  when writer.colorScheme == NativeColors:
+    writer.stream.resetAttributes()
+
+proc applyStyle(writer: TextLineWriter, style: Style) =
+  when writer.colorScheme == AnsiColors:
+    writer.stream.writeText ansiStyleCode(style)
+  when writer.colorScheme == NativeColors:
+    writer.stream.setStyle({style})
+
+#
+# Class startup
+#
+proc init*(w: var TextLineWriter, stream: OutputStream) =
+  w.stream = stream
 
 #
 # Field Handling
 #
-
 proc writeFieldName*(w: var TextLineWriter, name: string) =
   w.stream.writeText ' '
+  let (color, bright) = levelToStyle(w.currentLevel)
+  w.fgColor(color, bright)
   w.stream.writeText name
+  w.resetColors()
   w.stream.writeText "="
 
 proc writeValue*(w: var TextLineWriter, value: auto) =
-  w.stream.writeText value
+  w.fgColor(propColor, true)
+  w.stream.writeTextQuoted(value, optional=true)
+  w.resetColors()
 
 proc writeArray*[T](w: var TextLineWriter, elements: openarray[T]) =
   w.stream.writeText '['
@@ -63,18 +97,36 @@ proc writeField*(w: var TextLineWriter, name: string, value: auto) =
 #
 # Record Handling
 #
-proc beginRecord*(w: var TextLineWriter, level, topics, title: string) =
-  w.stream.write level
-  w.stream.write now().format(" yyyy-MM-dd HH:mm:sszzz ")
+proc beginRecord*(w: var TextLineWriter, level: LogLevel, topics, title: string) =
+  w.currentLevel = level
+  let (logColor, logBright) = levelToStyle(level)
+  w.fgColor(logColor, logBright)
+  w.stream.writeText shortName(w.currentLevel)
+  w.resetColors()
+  when w.timeFormat == UnixTime:
+    w.stream.writeText ' '
+    w.stream.writeText formatFloat(epochTime(), ffDecimal, 6)
+  when w.timeFormat == RfcTime:
+    w.stream.writeText now().format(" yyyy-MM-dd HH:mm:sszzz")
   let titleLen = title.len
-  for index in 0 ..< 42:
-    if index < titleLen:
-      w.stream.write title[index]
+  if titleLen > 0:
+    w.stream.writeText ' '
+    w.applyStyle(styleBright)
+    if titleLen > 42:
+      w.stream.writetext title
     else:
-      w.stream.write ' '
-
-# proc beginRecord*(w: var TextLineWriter, T: type) =
-#   discard
+      for index in 0 ..< 42:
+        if index < titleLen:
+          w.stream.writeText title[index]
+        else:
+          w.stream.writeText ' '
+    w.resetColors()
+  if topics.len > 0:
+    w.stream.writeText " topics=\""
+    w.fgColor(topicsColor, true)
+    w.stream.writeText topics
+    w.resetColors()
+    w.stream.writeText '"'
 
 proc endRecord*(w: var TextLineWriter) =
   w.stream.write '\n'

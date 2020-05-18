@@ -22,9 +22,6 @@ else:
 
   type OutStr = string
 
-  const
-    propColor = fgBlue
-    topicsColor = fgYellow
 
 export
   LogLevel
@@ -68,7 +65,7 @@ type
                   colors: static[ColorScheme]] = object
     output*: Output
     internalStream: OutputStream
-    writer: TextLineWriter
+    writer: TextLineWriter[timestamps, colors]
 
   TextBlockRecord*[Output;
                    timestamps: static[TimestampsScheme],
@@ -464,29 +461,6 @@ template applyStyle(record, style) =
   elif record.colors == NativeColors:
     setStyle(getOutputStream(record.output), {style})
 
-template levelToStyle(lvl: LogLevel): untyped =
-  case lvl
-  of TRACE: (fgGreen, true)
-  of DEBUG: (fgGreen, true)
-  of INFO:  (fgGreen, false)
-  of NOTICE:(fgYellow, false)
-  of WARN:  (fgYellow, true)
-  of ERROR: (fgRed, false)
-  of FATAL: (fgRed, true)
-  of NONE:  (fgWhite, false)
-
-template shortName(lvl: LogLevel): string =
-  # Same-length strings make for nice alignment
-  case lvl
-  of TRACE: "TRC"
-  of DEBUG: "DBG"
-  of INFO:  "INF"
-  of NOTICE:"NOT"
-  of WARN:  "WRN"
-  of ERROR: "ERR"
-  of FATAL: "FAT"
-  of NONE:  "   "
-
 template appendLogLevelMarker(r: var auto, lvl: LogLevel, align: bool) =
   when r.colors != NoColors:
     let (color, bright) = levelToStyle(lvl)
@@ -699,8 +673,8 @@ proc flushRecord*(r: var JsonRecord) =
 
 template initLogRecord*(r: var TextLineBRecord, lvl: LogLevel, topics: string, name: string) =
   r.internalStream = memoryOutput()
-  r.writer = TextLineWriter.init(r.internalStream)
-  r.writer.beginRecord($lvl, topics, name)
+  r.writer.init(r.internalStream)
+  r.writer.beginRecord(lvl, topics, name)
 
 template setProperty*(r: var TextLineBRecord, key: string, val: auto) =
   r.writer.writeField(key, val)
