@@ -1,5 +1,5 @@
 import
-  macros, strutils, strformat, sequtils, os, terminal
+  macros, strutils, strformat, sequtils, os, terminal, faststreams/textio
 
 # The default behavior of Chronicles can be configured through a wide-range
 # of compile-time -d: switches (for more information, see the README).
@@ -50,7 +50,8 @@ type
     json,
     textLines,
     textLinesB,  # TODO: remove. this is a temporary hack
-    textBlocks
+    textBlocks,
+    textBlocksB  # also remove
 
   OutputDeviceKind* = enum
     oStdOut,
@@ -166,6 +167,8 @@ proc logFormatFromIdent(n: NimNode): LogFormat =
     return textLinesB
   of "textblocks":
     return textBlocks
+  of "textblocksb":
+    return textBlocksB
   else:
     error &"'{format}' is not a recognized output format. " &
           &"Allowed values are {enumValues LogFormat}."
@@ -339,6 +342,10 @@ const
             # * properies may be easier to find
             else: parseSinksSpec "textlines"
 
+#
+# color and style support functions
+#
+
 const
     propColor* = fgBlue
     topicsColor* = fgYellow
@@ -365,3 +372,28 @@ template shortName*(lvl: LogLevel): string =
   of ERROR: "ERR"
   of FATAL: "FAT"
   of NONE:  "   "
+
+template setForegroundColor*(writer: untyped, color: ForegroundColor, brightness: bool) =
+  when writer.colorScheme == AnsiColors:
+    writer.stream.writeText ansiForegroundColorCode(color, brightness)
+  when writer.colorScheme == NativeColors:
+    writer.stream.setForegroundColor(color, brightness)
+
+template resetAllColors*(writer: untyped) =
+  when writer.colorScheme == AnsiColors:
+    writer.stream.writeText ansiResetCode
+  when writer.colorScheme == NativeColors:
+    writer.stream.resetAttributes()
+
+template applyColorStyle*(writer: untyped, style: Style) =
+  when writer.colorScheme == AnsiColors:
+    writer.stream.writeText ansiStyleCode(style)
+  when writer.colorScheme == NativeColors:
+    writer.stream.setStyle({style})
+
+proc `$`*(ex: ref Exception): string =
+  result = ""
+  result &= "exception " & $ex.name & "\n"
+  result &= "msg \"" & $ex.msg & "\"\n"
+  when not defined(js) and not defined(nimscript) and hostOS != "standalone":
+    result &= "location " & getStackTrace(ex).strip

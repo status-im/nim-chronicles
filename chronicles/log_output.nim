@@ -1,7 +1,8 @@
 import
   strutils, times, macros, options, os,
   dynamic_scope_types,
-  textlineserializer
+  textlineserializer,
+  textblockserializer
 
 when defined(js):
   import
@@ -71,6 +72,13 @@ type
                    timestamps: static[TimestampsScheme],
                    colors: static[ColorScheme]] = object
     output*: Output
+
+  TextBlockBRecord*[Output;
+                  timestamps: static[TimestampsScheme],
+                  colors: static[ColorScheme]] = object
+    output*: Output
+    internalStream: OutputStream
+    writer: TextBlockWriter[timestamps, colors]
 
   StreamOutputRef*[Stream; outputId: static[int]] = object
 
@@ -263,6 +271,7 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
                    of textLines: bnd"TextLineRecord"
                    of textLinesB: bnd"TextLineBRecord"
                    of textBlocks: bnd"TextBlockRecord"
+                   of textBlocksB: bnd"TextBlockBRecord"
 
   result = newTree(nnkBracketExpr, RecordType)
 
@@ -668,7 +677,7 @@ proc flushRecord*(r: var JsonRecord) =
   flushOutput r.output
 
 #
-# TextLinesB records:
+# TextLineB records:
 #
 
 template initLogRecord*(r: var TextLineBRecord, lvl: LogLevel, topics: string, name: string) =
@@ -683,6 +692,27 @@ template setFirstProperty*(r: var TextLineBRecord, key: string, val: auto) =
   r.writer.writeField(key, val)
 
 template flushRecord*(r: var TextLineBRecord) =
+  r.writer.endRecord()
+  r.output.append r.internalStream.getOutput(string)
+  flushOutput r.output
+
+
+#
+# TextBlockB records:
+#
+
+template initLogRecord*(r: var TextBlockBRecord, lvl: LogLevel, topics: string, name: string) =
+  r.internalStream = memoryOutput()
+  r.writer.init(r.internalStream)
+  r.writer.beginRecord(lvl, topics, name)
+
+template setProperty*(r: var TextBlockBRecord, key: string, val: auto) =
+  r.writer.writeField(key, val)
+
+template setFirstProperty*(r: var TextBlockBRecord, key: string, val: auto) =
+  r.writer.writeField(key, val)
+
+template flushRecord*(r: var TextBlockBRecord) =
   r.writer.endRecord()
   r.output.append r.internalStream.getOutput(string)
   flushOutput r.output
