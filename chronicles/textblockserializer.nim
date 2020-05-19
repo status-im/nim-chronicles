@@ -38,16 +38,17 @@ proc init*(w: var TextBlockWriter, stream: OutputStream) =
 # Field Handling
 #
 
+proc writeValue*(w: var TextBlockWriter, value: auto, prefix = 0) # forward ref
+
 proc writeFieldName*(w: var TextBlockWriter, name: string) =
+  setForegroundColor(w, propColor, false)
   w.stream.writeText name
   w.stream.writeText ": "
-
-proc writeValue*(w: var TextBlockWriter, value: auto) =
-  w.stream.writeText value
+  resetAllColors(w)
 
 proc writeArray*[T](w: var TextBlockWriter, elements: openarray[T]) =
   w.stream.writeText '['
-  let clen = elements.len
+  let clen = elements.len - 1
   for index, value in elements.pairs:
     w.stream.writeText value
     if index < clen:
@@ -55,27 +56,50 @@ proc writeArray*[T](w: var TextBlockWriter, elements: openarray[T]) =
   w.stream.writeText ']'
 
 proc writeIterable*(w: var TextBlockWriter, collection: auto) =
-  w.stream.writeText '{'
-  let clen = collection.len
+  w.stream.writeText '['
+  let clen = collection.len - 1
   for index, value in collection.pairs:
     w.stream.writeText value
     if index < clen:
       w.stream.writeText ", "
-  w.stream.writeText '}'
+  w.stream.writeText ']'
 
-proc writeField*(w: var TextBlockWriter, name: string, value: auto) =
-  w.stream.writeText textBlockIndent
-  w.setForegroundColor(propColor, false)
+proc writeField*(w: var TextBlockWriter, name: string, value: auto, prefix = 0) =
+  w.stream.writeText textBlockIndent & repeat(' ', prefix)
   writeFieldName(w, name)
-  w.applyColorStyle(styleBright)
-  var first = true
-  for part in ($value).splitLines:
-    if not first:
-      w.stream.writeText textBlockIndent & repeat(' ', name.len + 2)
-    writeValue(w, part)
+  writeValue(w, value, prefix=name.len + 2)
+
+type
+  SomeTime = Time | DateTime | times.Duration | TimeInterval | Timezone | ZonedTime
+
+proc writeValue*(w: var TextBlockWriter, value: auto, prefix = 0) =
+  setForegroundColor(w, propColor, false)
+  applyColorStyle(w, styleBright)
+  when value is array or value is seq:
+    writeIterable(w, value)
     w.stream.writeText "\n"
-    first = false
-  w.resetAllColors()
+  elif value is SomeTime | SomeNumber | bool: # all types that sit on a single line
+    w.stream.writeText value
+    w.stream.writeText "\n"
+  elif value is object:
+    w.stream.write $type(value)
+    w.stream.write "{\n"
+    resetAllColors(w)
+    enumInstanceSerializedFields(value, fieldName, fieldValue):
+      writeField(w, fieldName, fieldValue, prefix=prefix + textBlockIndent.len)
+    w.stream.writeText textBlockIndent & repeat(' ', prefix)
+    setForegroundColor(w, propColor, false)
+    applyColorStyle(w, styleBright)
+    w.stream.write "}\n"
+  else:
+    var first = true
+    for part in ($value).splitLines:
+      if not first:
+        w.stream.writeText textBlockIndent & repeat(' ', prefix)
+      w.stream.writeText part
+      w.stream.writeText "\n"
+      first = false
+  resetAllColors(w)
 
 # template endRecordField*(w: var TextBlockWriter) =
 #   discard
@@ -87,9 +111,9 @@ proc writeField*(w: var TextBlockWriter, name: string, value: auto) =
 proc beginRecord*(w: var TextBlockWriter, level: LogLevel, topics, title: string) =
   w.currentLevel = level
   let (logColor, logBright) = levelToStyle(level)
-  w.setForegroundColor(logColor, logBright)
+  setForegroundColor(w, logColor, logBright)
   w.stream.writeText shortName(w.currentLevel)
-  w.resetAllColors()
+  resetAllColors(w)
   when w.timeFormat == UnixTime:
     w.stream.writeText ' '
     w.stream.writeText formatFloat(epochTime(), ffDecimal, 6)
@@ -98,14 +122,14 @@ proc beginRecord*(w: var TextBlockWriter, level: LogLevel, topics, title: string
   let titleLen = title.len
   if titleLen > 0:
     w.stream.writeText ' '
-    w.applyColorStyle(styleBright)
+    applyColorStyle(w, styleBright)
     w.stream.writetext title
-    w.resetAllColors()
+    resetAllColors(w)
   if topics.len > 0:
     w.stream.writeText " topics=\""
-    w.setForegroundColor(topicsColor, true)
+    setForegroundColor(w, topicsColor, true)
     w.stream.writeText topics
-    w.resetAllColors()
+    resetAllColors(w)
     w.stream.writeText '"'
   w.stream.writeText '\n'
 

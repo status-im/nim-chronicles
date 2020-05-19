@@ -35,10 +35,7 @@ const
   escChars: set[char] = strutils.NewLines + {'"', '\\'}
   quoteChars: set[char] = {' ', '='}
 
-type
-  typesNotNeedingQuotes = float | float64 | float32 | uint8 | uint16 | uint32 | uint64 | int | int8 | int16 | int32 | int64
-
-proc quoteIfNeeded(w: var TextLineWriter, val: typesNotNeedingQuotes) =
+proc quoteIfNeeded(w: var TextLineWriter, val: SomeOrdinal) =
   w.stream.writeText val
 
 proc quoteIfNeeded(w: var TextLineWriter, val: auto) =
@@ -76,19 +73,19 @@ proc init*(w: var TextLineWriter, stream: OutputStream) =
 proc writeFieldName*(w: var TextLineWriter, name: string) =
   w.stream.writeText ' '
   let (color, bright) = levelToStyle(w.currentLevel)
-  w.setForegroundColor(color, bright)
+  setForegroundColor(w, color, bright)
   w.stream.writeText name
-  w.resetAllColors()
+  resetAllColors(w)
   w.stream.writeText "="
 
 proc writeValue*(w: var TextLineWriter, value: auto) =
-  w.setForegroundColor(propColor, true)
+  setForegroundColor(w, propColor, true)
   w.quoteIfNeeded(value)
-  w.resetAllColors()
+  resetAllColors(w)
 
 proc writeArray*[T](w: var TextLineWriter, elements: openarray[T]) =
   w.stream.writeText '['
-  let clen = elements.len
+  let clen = elements.len - 1
   for index, value in elements.pairs:
     w.stream.writeText value
     if index < clen:
@@ -96,13 +93,13 @@ proc writeArray*[T](w: var TextLineWriter, elements: openarray[T]) =
   w.stream.writeText ']'
 
 proc writeIterable*(w: var TextLineWriter, collection: auto) =
-  w.stream.writeText '{'
-  let clen = collection.len
+  w.stream.writeText '['
+  let clen = collection.len - 1
   for index, value in collection.pairs:
     w.stream.writeText value
     if index < clen:
       w.stream.writeText ", "
-  w.stream.writeText '}'
+  w.stream.writeText ']'
 
 proc writeField*(w: var TextLineWriter, name: string, value: auto) =
   writeFieldName(w, name)
@@ -117,9 +114,9 @@ proc writeField*(w: var TextLineWriter, name: string, value: auto) =
 proc beginRecord*(w: var TextLineWriter, level: LogLevel, topics, title: string) =
   w.currentLevel = level
   let (logColor, logBright) = levelToStyle(level)
-  w.setForegroundColor(logColor, logBright)
+  setForegroundColor(w, logColor, logBright)
   w.stream.writeText shortName(w.currentLevel)
-  w.resetAllColors()
+  resetAllColors(w)
   when w.timeFormat == UnixTime:
     w.stream.writeText ' '
     w.stream.writeText formatFloat(epochTime(), ffDecimal, 6)
@@ -128,7 +125,7 @@ proc beginRecord*(w: var TextLineWriter, level: LogLevel, topics, title: string)
   let titleLen = title.len
   if titleLen > 0:
     w.stream.writeText ' '
-    w.applyColorStyle(styleBright)
+    applyColorStyle(w, styleBright)
     if titleLen > 42:
       w.stream.writetext title
     else:
@@ -137,12 +134,12 @@ proc beginRecord*(w: var TextLineWriter, level: LogLevel, topics, title: string)
           w.stream.writeText title[index]
         else:
           w.stream.writeText ' '
-    w.resetAllColors()
+    resetAllColors(w)
   if topics.len > 0:
     w.stream.writeText " topics=\""
-    w.setForegroundColor(topicsColor, true)
+    setForegroundColor(w, topicsColor, true)
     w.stream.writeText topics
-    w.resetAllColors()
+    resetAllColors(w)
     w.stream.writeText '"'
 
 proc endRecord*(w: var TextLineWriter) =
