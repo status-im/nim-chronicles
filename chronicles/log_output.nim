@@ -1,6 +1,7 @@
 import
   strutils, times, macros, options, os,
   dynamic_scope_types,
+  serialization,
   textlineserializer,
   textblockserializer
 
@@ -55,30 +56,14 @@ type
   AnyFileOutput = FileOutput|StdOutOutput|StdErrOutput
   AnyOutput = AnyFileOutput|SysLogOutput|BufferedOutput|PassThroughOutput
 
-  TextLineRecord*[Output;
-                  timestamps: static[TimestampsScheme],
-                  colors: static[ColorScheme]] = object
-    output*: Output
-    level: LogLevel
-
-  TextLineBRecord*[Output;
-                  timestamps: static[TimestampsScheme],
-                  colors: static[ColorScheme]] = object
+  LogRecord*[Output;
+           logformat: static[LogFormat],
+           timestamps: static[TimestampsScheme],
+           colors: static[ColorScheme]] = object
     output*: Output
     internalStream: OutputStream
-    writer: TextLineWriter[timestamps, colors]
-
-  TextBlockRecord*[Output;
-                   timestamps: static[TimestampsScheme],
-                   colors: static[ColorScheme]] = object
-    output*: Output
-
-  TextBlockBRecord*[Output;
-                  timestamps: static[TimestampsScheme],
-                  colors: static[ColorScheme]] = object
-    output*: Output
-    internalStream: OutputStream
-    writer: TextBlockWriter[timestamps, colors]
+    tlwriter: TextLineWriter[timestamps, colors]
+    tbwriter: TextBlockWriter[timestamps, colors]
 
   StreamOutputRef*[Stream; outputId: static[int]] = object
 
@@ -268,10 +253,8 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   # Determine the head symbol of the instantiation
   let RecordType = case sink.format
                    of json: bnd"JsonRecord"
-                   of textLines: bnd"TextLineRecord"
-                   of textLinesB: bnd"TextLineBRecord"
-                   of textBlocks: bnd"TextBlockRecord"
-                   of textBlocksB: bnd"TextBlockBRecord"
+                   of textLines: bnd"LogRecord"
+                   of textBlocks: bnd"LogRecord"
 
   result = newTree(nnkBracketExpr, RecordType)
 
@@ -294,6 +277,9 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
     result.add newTree(nnkBracketExpr, outputType, outputsTuple)
   else:
     result.add selectOutputType(s, sink.destinations[0])
+
+  if sink.format != json:
+    result.add newIdentNode($sink.format)
 
   result.add newIdentNode($sink.timestamps)
 
@@ -479,152 +465,6 @@ template appendLogLevelMarker(r: var auto, lvl: LogLevel, align: bool) =
                    else: $lvl)
   resetColors(r)
 
-template appendHeader(r: var TextLineRecord | var TextBlockRecord,
-                      lvl: LogLevel,
-                      topics: string,
-                      name: string,
-                      pad: bool) =
-  # Log level comes first - allows for easy regex match with ^
-  appendLogLevelMarker(r, lvl, true)
-
-  when r.timestamps != NoTimestamps:
-    append(r.output, " ")
-    writeTs(r)
-
-  if name.len > 0:
-    # no good way to tell how much padding is going to be needed so we
-    # choose an arbitrary number and use that - should be fine even for
-    # 80-char terminals
-    # XXX: This should be const, but the compiler fails with an ICE
-    let padding = repeat(' ', if pad: 42 - min(42, name.len) else: 0)
-
-    append(r.output, " ")
-    applyStyle(r, styleBright)
-    append(r.output, name)
-    append(r.output, padding)
-    resetColors(r)
-
-  if topics.len > 0:
-    append(r.output, " topics=\"")
-    fgColor(r, topicsColor, true)
-    append(r.output, topics)
-    resetColors(r)
-    append(r.output, "\"")
-
-#
-# A LogRecord is a single "logical line" in the output.
-#
-# 1. It's instantiated by the log statement.
-#
-# 2. It's initialized with a call to `initLogRecord`.
-#
-# 3. Zero or more calls to `setFirstProperty` and `setPropery` are
-#    executed with the current lixical and dynamic bindings.
-#
-# 4. Finally, `flushRecord` should wrap-up the record and flush the output.
-#
-
-#
-# Text line records:
-#
-
-proc initLogRecord*(r: var TextLineRecord,
-                    lvl: LogLevel,
-                    topics: string,
-                    name: string) =
-  r.level = lvl
-  appendHeader(r, lvl, topics, name, true)
-
-proc setProperty*(r: var TextLineRecord, key: string, val: auto) =
-  append(r.output, " ")
-  let valText = $val
-
-  var
-    escaped: string
-    valueToWrite: ptr string
-
-  # Escaping is done to avoid issues with quoting and newlines
-  # Quoting is done to distinguish strings with spaces in them from a new
-  # key-value pair
-  # This is similar to how it's done in logfmt:
-  # https://github.com/csquared/node-logfmt/blob/master/lib/stringify.js#L13
-  let
-    needsEscape = valText.find(NewLines + {'"', '\\'}) > -1
-    needsQuote = valText.find({' ', '='}) > -1
-
-  if needsEscape or needsQuote:
-    escaped = newStringOfCap(valText.len + valText.len div 8)
-    if needsEscape:
-      # addQuoted adds quotes and escapes a bunch of characters
-      # XXX addQuoted escapes more characters than what we look for in above
-      #     needsEscape check - it's a bit weird that way
-      addQuoted(escaped, valText)
-    elif needsQuote:
-      add(escaped, '"')
-      add(escaped, valText)
-      add(escaped, '"')
-    valueToWrite = addr escaped
-  else:
-    valueToWrite = unsafeAddr valText
-
-  when r.colors != NoColors:
-    let (color, bright) = levelToStyle(r.level)
-    fgColor(r, color, bright)
-  append(r.output, key)
-  resetColors(r)
-  append(r.output, "=")
-  fgColor(r, propColor, true)
-  append(r.output, valueToWrite[])
-  resetColors(r)
-
-template setFirstProperty*(r: var TextLineRecord, key: string, val: auto) =
-  setProperty(r, key, val)
-
-proc flushRecord*(r: var TextLineRecord) =
-  append(r.output, "\n")
-  flushOutput(r.output)
-
-#
-# Textblock records:
-#
-
-proc initLogRecord*(r: var TextBlockRecord,
-                    level: LogLevel,
-                    topics: string,
-                    name: string) =
-  appendHeader(r, level, topics, name, false)
-  append(r.output, "\n")
-
-proc setProperty*(r: var TextBlockRecord, key: string, val: auto) =
-  let valText = $val
-
-  append(r.output, textBlockIndent)
-  fgColor(r, propColor, false)
-  append(r.output, key)
-  append(r.output, ": ")
-  applyStyle(r, styleBright)
-
-  if valText.find(NewLines) == -1:
-    append(r.output, valText)
-    append(r.output, "\n")
-  else:
-    let indent = textBlockIndent & repeat(' ', key.len + 2)
-    var first = true
-    for line in splitLines(valText):
-      if not first: append(r.output, indent)
-      append(r.output, line)
-      append(r.output, "\n")
-      first = false
-
-  resetColors(r)
-
-template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
-  setProperty(r, key, val)
-
-proc flushRecord*(r: var TextBlockRecord) =
-  append(r.output, "\n")
-  flushOutput(r.output)
-
 #
 # JSON records:
 #
@@ -677,46 +517,37 @@ proc flushRecord*(r: var JsonRecord) =
   flushOutput r.output
 
 #
-# TextLineB records:
+# LogRecord functions
 #
 
-template initLogRecord*(r: var TextLineBRecord, lvl: LogLevel, topics: string, name: string) =
+template initLogRecord*(r: var LogRecord, lvl: LogLevel, topics: string, name: string) =
   r.internalStream = memoryOutput()
-  r.writer.init(r.internalStream)
-  r.writer.beginRecord(lvl, topics, name)
+  when r.logFormat == textLines:
+    r.tlwriter.init(r.internalStream)
+    r.tlwriter.beginRecord(lvl, topics, name)
+  elif r.logFormat == textBlocks:
+    r.tbwriter.init(r.internalStream)
+    r.tbwriter.beginRecord(lvl, topics, name)
 
-template setProperty*(r: var TextLineBRecord, key: string, val: auto) =
-  r.writer.writeField(key, val)
+template setProperty*(r: var LogRecord, key: string, val: auto) =
+  when r.logFormat == textLines:
+    r.tlwriter.writeField(key, val)
+  elif r.logFormat == textBlocks:
+    r.tbwriter.writeField(key, val)
 
-template setFirstProperty*(r: var TextLineBRecord, key: string, val: auto) =
-  r.writer.writeField(key, val)
+template setFirstProperty*(r: var LogRecord, key: string, val: auto) =
+  when r.logFormat == textLines:
+    r.tlwriter.writeField(key, val)
+  elif r.logFormat == textBlocks:
+    r.tbwriter.writeField(key, val)
 
-template flushRecord*(r: var TextLineBRecord) =
-  r.writer.endRecord()
+template flushRecord*(r: var LogRecord) =
+  when r.logFormat == textLines:
+    r.tlwriter.endRecord()
+  elif r.logFormat == textBlocks:
+    r.tbwriter.endRecord()
   r.output.append r.internalStream.getOutput(string)
   flushOutput r.output
-
-
-#
-# TextBlockB records:
-#
-
-template initLogRecord*(r: var TextBlockBRecord, lvl: LogLevel, topics: string, name: string) =
-  r.internalStream = memoryOutput()
-  r.writer.init(r.internalStream)
-  r.writer.beginRecord(lvl, topics, name)
-
-template setProperty*(r: var TextBlockBRecord, key: string, val: auto) =
-  r.writer.writeField(key, val)
-
-template setFirstProperty*(r: var TextBlockBRecord, key: string, val: auto) =
-  r.writer.writeField(key, val)
-
-template flushRecord*(r: var TextBlockBRecord) =
-  r.writer.endRecord()
-  r.output.append r.internalStream.getOutput(string)
-  flushOutput r.output
-
 
 #
 # When any of the output streams have multiple output formats, we need to

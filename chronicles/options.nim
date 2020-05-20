@@ -49,9 +49,7 @@ type
   LogFormat* = enum
     json,
     textLines,
-    textLinesB,  # TODO: remove. this is a temporary hack
-    textBlocks,
-    textBlocksB  # also remove
+    textBlocks
 
   OutputDeviceKind* = enum
     oStdOut,
@@ -163,12 +161,8 @@ proc logFormatFromIdent(n: NimNode): LogFormat =
     return json
   of "textlines":
     return textLines
-  of "textlinesb":
-    return textLinesB
   of "textblocks":
     return textBlocks
-  of "textblocksb":
-    return textBlocksB
   else:
     error &"'{format}' is not a recognized output format. " &
           &"Allowed values are {enumValues LogFormat}."

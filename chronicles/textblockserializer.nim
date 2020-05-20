@@ -21,7 +21,7 @@ type
   TextBlockReader* = object
     lexer: string
 
-serializationFormat TextBlockLog,
+serializationFormat TextBlock,
                     Reader = TextBlockReader,
                     Writer = TextBlockWriter,
                     PreferedOutput = string,

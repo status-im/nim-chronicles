@@ -21,7 +21,7 @@ type
   TextLineReader* = object
     lexer: string
 
-serializationFormat TextLineLog,
+serializationFormat TextLine,
                     Reader = TextLineReader,
                     Writer = TextLineWriter,
                     PreferedOutput = string,
