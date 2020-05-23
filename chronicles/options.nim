@@ -97,6 +97,32 @@ type
     name*: string
     logLevel*: LogLevel
 
+  WriterType*[timestamps: static[TimestampsScheme], colors: static[ColorScheme]] = ref object of RootObj
+
+# parent WriterTypes procs are never used:
+
+proc writeFieldName*(w: var WriterType, name: string) =
+  discard
+
+proc writeValue*(w: var WriterType, value: auto) =
+  discard
+
+proc writeArray*[T](w: var WriterType, elements: openarray[T]) =
+  discard
+
+proc writeIterable*(w: var WriterType, collection: auto) =
+  discard
+
+proc writeField*(w: var WriterType, name: string, value: auto) =
+  discard
+
+proc beginRecord*(w: var WriterType, level: LogLevel, topics, title: string) =
+  discard
+
+proc endRecord*(w: var WriterType) =
+  discard
+
+
 const defaultChroniclesStreamName* = "defaultChroniclesStream"
 
 proc handleYesNoOption(optName: string,

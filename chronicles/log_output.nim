@@ -56,14 +56,15 @@ type
   AnyFileOutput = FileOutput|StdOutOutput|StdErrOutput
   AnyOutput = AnyFileOutput|SysLogOutput|BufferedOutput|PassThroughOutput
 
-  LogRecord*[Output;
-           logformat: static[LogFormat],
-           timestamps: static[TimestampsScheme],
-           colors: static[ColorScheme]] = object
+  LogRecord*[Output; 
+             logformat: static[LogFormat],
+             timestamps: static[TimestampsScheme],
+             colors: static[ColorScheme]] = object
     output*: Output
-    internalStream: OutputStream
-    tlwriter: TextLineWriter[timestamps, colors]
-    tbwriter: TextBlockWriter[timestamps, colors]
+    writer*: WriterType[timestamps, colors]
+    internalStream*: OutputStream
+    # tlwriter: TextLineWriter[timestamps, colors]
+    # tbwriter: TextBlockWriter[timestamps, colors]
 
   StreamOutputRef*[Stream; outputId: static[int]] = object
 
@@ -520,32 +521,32 @@ proc flushRecord*(r: var JsonRecord) =
 # LogRecord functions
 #
 
+# proc init*(w: var WriterType, stream: OutputStream) =
+#   discard
+
+proc init*(T: type options.WriterType, stream: OutputStream): T =  # should not actually be invoked
+  discard
+
 template initLogRecord*(r: var LogRecord, lvl: LogLevel, topics: string, name: string) =
   r.internalStream = memoryOutput()
-  when r.logFormat == textLines:
-    r.tlwriter.init(r.internalStream)
-    r.tlwriter.beginRecord(lvl, topics, name)
-  elif r.logFormat == textBlocks:
-    r.tbwriter.init(r.internalStream)
-    r.tbwriter.beginRecord(lvl, topics, name)
+  when r.logformat == textLines:
+    # r.writer = TextLineWriter[r.timestamps, r.colors]()
+    # textlineserializer.init(r.writer, r.internalStream)
+    r.writer = init(TextLineWriter[r.timestamps, r.colors], r.internalStream)
+    r.writer.beginRecord(lvl, topics, name)
+  elif r.logformat == textBlocks:
+    # textblockserializer.init(r.writer, r.internalStream)
+    r.writer = init(TextBlockWriter[r.timestamps, r.colors], r.internalStream)
+    r.writer.beginRecord(lvl, topics, name)
 
 template setProperty*(r: var LogRecord, key: string, val: auto) =
-  when r.logFormat == textLines:
-    r.tlwriter.writeField(key, val)
-  elif r.logFormat == textBlocks:
-    r.tbwriter.writeField(key, val)
+  r.writer.writeField(key, val)
 
 template setFirstProperty*(r: var LogRecord, key: string, val: auto) =
-  when r.logFormat == textLines:
-    r.tlwriter.writeField(key, val)
-  elif r.logFormat == textBlocks:
-    r.tbwriter.writeField(key, val)
+  r.writer.writeField(key, val)
 
 template flushRecord*(r: var LogRecord) =
-  when r.logFormat == textLines:
-    r.tlwriter.endRecord()
-  elif r.logFormat == textBlocks:
-    r.tbwriter.endRecord()
+  r.writer.endRecord()
   r.output.append r.internalStream.getOutput(string)
   flushOutput r.output
 

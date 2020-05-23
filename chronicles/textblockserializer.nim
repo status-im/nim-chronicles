@@ -14,7 +14,7 @@ import
   options
 
 type
-  TextBlockWriter*[timeFormat: static[TimestampsScheme], colorScheme: static[ColorScheme]] = object
+  TextBlockWriter*[timestamps: static[TimestampsScheme], colors: static[ColorScheme]] = ref object of WriterType[timestamps, colors]
     stream: OutputStream
     currentLevel: LogLevel
 
@@ -31,8 +31,12 @@ serializationFormat TextBlock,
 # Class startup
 #
 
-proc init*(w: var TextBlockWriter, stream: OutputStream) =
-  w.stream = stream
+# proc init*(w: var TextBlockWriter, stream: OutputStream) =
+#   w.stream = stream
+
+proc init*(T: type TextBlockWriter, stream: OutputStream): T =
+  result.stream = stream
+
 
 #
 # Field Handling
