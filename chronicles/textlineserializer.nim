@@ -14,7 +14,7 @@ import
   options
 
 type
-  TextLineWriter*[timestamps: static[TimestampsScheme], colors: static[ColorScheme]] = ref object of WriterType[timestamps, colors]
+  TextLineWriter*[timeFormat: static[TimestampsScheme], colorScheme: static[ColorScheme]] = object
     stream: OutputStream
     currentLevel: LogLevel
 
@@ -63,11 +63,8 @@ proc quoteIfNeeded(w: var TextLineWriter, val: ref Exception) =
 # Class startup
 #
 
-# proc init*(w: var TextLineWriter, stream: OutputStream) =
-#   w.stream = stream
-
-proc init*(T: type TextLineWriter, stream: OutputStream): T =  # generates SIGSEGV: Illegal storage access. (Attempt to read from nil?)
-  result.stream = stream
+proc init*(w: var TextLineWriter, stream: OutputStream) =
+  w.stream = stream
 
 #
 # Field Handling
@@ -147,3 +144,6 @@ proc beginRecord*(w: var TextLineWriter, level: LogLevel, topics, title: string)
 
 proc endRecord*(w: var TextLineWriter) =
   w.stream.write '\n'
+
+proc getStream*(w: var TextLineWriter): OutputStream =
+  result = w.stream

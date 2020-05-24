@@ -108,7 +108,7 @@ when runtimeFilteringEnabled:
   proc topicStateIMPL(topicName: static[string]): ptr TopicSettings =
     # Nim's GC safety analysis gets confused by the global variables here
     {.gcsafe.}:
-      var topic {.global.} = TopicSettings(state: Normal, logLevel: NONE)
+      var topic {.global.} = TopicSettings(state: Normal, logLevel: llNONE)
       var dummy {.global, used.} = registerTopic(topicName, addr(topic))
       return addr(topic)
 
@@ -262,7 +262,7 @@ macro logIMPL(lineInfo: static InstInfo,
       else:
         for topic in enabledTopics:
           if topic.name == t:
-            if topic.logLevel != NONE:
+            if topic.logLevel != llNONE:
               if severity >= topic.logLevel:
                 enabledTopicsMatch = true
             elif severity >= enabledLogLevel:
@@ -270,7 +270,7 @@ macro logIMPL(lineInfo: static InstInfo,
         if t in requiredTopics:
           dec requiredTopicsCount
 
-  if severity != NONE and not enabledTopicsMatch or requiredTopicsCount > 0:
+  if severity != llNONE and not enabledTopicsMatch or requiredTopicsCount > 0:
     return
 
   # Handling file name and line numbers on/off (lineNumbersEnabled) for particular log statements
@@ -284,7 +284,7 @@ macro logIMPL(lineInfo: static InstInfo,
 
   var code = newStmtList()
   when runtimeFilteringEnabled:
-    if severity != NONE:
+    if severity != llNONE:
       code.add runtimeTopicFilteringCode(severity, activeTopics)
 
   # The rest of the code selects the active LogRecord type (which can

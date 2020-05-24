@@ -37,7 +37,7 @@ when chronicles_enabled_topics.len > 0 and chronicles_required_topics.len > 0:
 
 type
   LogLevel* = enum
-    NONE,
+    llNONE,  # simple NONE conflicts with https://github.com/status-im/nim-chronos/blob/master/chronos/transports/stream.nim#L39
     TRACE,
     DEBUG,
     INFO,
@@ -97,31 +97,7 @@ type
     name*: string
     logLevel*: LogLevel
 
-  WriterType*[timestamps: static[TimestampsScheme], colors: static[ColorScheme]] = ref object of RootObj
-
-# parent WriterTypes procs are never used:
-
-proc writeFieldName*(w: var WriterType, name: string) =
-  discard
-
-proc writeValue*(w: var WriterType, value: auto) =
-  discard
-
-proc writeArray*[T](w: var WriterType, elements: openarray[T]) =
-  discard
-
-proc writeIterable*(w: var WriterType, collection: auto) =
-  discard
-
-proc writeField*(w: var WriterType, name: string, value: auto) =
-  discard
-
-proc beginRecord*(w: var WriterType, level: LogLevel, topics, title: string) =
-  discard
-
-proc endRecord*(w: var WriterType) =
-  discard
-
+  # WriterType*[LogFormat] = ref object of RootObj
 
 const defaultChroniclesStreamName* = "defaultChroniclesStream"
 
@@ -177,7 +153,7 @@ proc topicsWithLogLevelAsSeq(topics: string): seq[EnabledTopic] =
                                     logLevel: handleEnumOption(LogLevel,
                                                                values[1])))
       else:
-        sequence.add(EnabledTopic(name: values[0], logLevel: NONE))
+        sequence.add(EnabledTopic(name: values[0], logLevel: llNONE))
   return sequence
 
 proc logFormatFromIdent(n: NimNode): LogFormat =
@@ -372,26 +348,26 @@ const
 
 template levelToStyle*(lvl: LogLevel): untyped =
   case lvl
-  of TRACE: (fgGreen, true)
-  of DEBUG: (fgGreen, true)
-  of INFO:  (fgGreen, false)
-  of NOTICE:(fgYellow, false)
-  of WARN:  (fgYellow, true)
-  of ERROR: (fgRed, false)
-  of FATAL: (fgRed, true)
-  of NONE:  (fgWhite, false)
+  of TRACE:   (fgGreen, true)
+  of DEBUG:   (fgGreen, true)
+  of INFO:    (fgGreen, false)
+  of NOTICE:  (fgYellow, false)
+  of WARN:    (fgYellow, true)
+  of ERROR:   (fgRed, false)
+  of FATAL:   (fgRed, true)
+  of llNONE:  (fgWhite, false)
 
 template shortName*(lvl: LogLevel): string =
   # Same-length strings make for nice alignment
   case lvl
-  of TRACE: "TRC"
-  of DEBUG: "DBG"
-  of INFO:  "INF"
-  of NOTICE:"NOT"
-  of WARN:  "WRN"
-  of ERROR: "ERR"
-  of FATAL: "FAT"
-  of NONE:  "   "
+  of TRACE:   "TRC"
+  of DEBUG:   "DBG"
+  of INFO:    "INF"
+  of NOTICE:  "NOT"
+  of WARN:    "WRN"
+  of ERROR:   "ERR"
+  of FATAL:   "FAT"
+  of llNONE:  "   "
 
 template setForegroundColor*(writer: untyped, color: ForegroundColor, brightness: bool) =
   when writer.colorScheme == AnsiColors:

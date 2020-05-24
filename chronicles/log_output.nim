@@ -5,6 +5,8 @@ import
   textlineserializer,
   textblockserializer
 
+# TODO: Undo all the damage I did to the "js" scenario
+
 when defined(js):
   import
     jscore, jsconsole, jsffi
@@ -15,9 +17,12 @@ when defined(js):
   type OutStr = cstring
 
 else:
+
   import
-    terminal,
-    faststreams/outputs, json_serialization/writer
+    faststreams/outputs,
+    json_serialization/writer
+  import
+    jsonserializer
 
   export
     outputs, writer
@@ -56,15 +61,19 @@ type
   AnyFileOutput = FileOutput|StdOutOutput|StdErrOutput
   AnyOutput = AnyFileOutput|SysLogOutput|BufferedOutput|PassThroughOutput
 
-  LogRecord*[Output; 
+  LogRecord*[Output;
              logformat: static[LogFormat],
              timestamps: static[TimestampsScheme],
              colors: static[ColorScheme]] = object
     output*: Output
-    writer*: WriterType[timestamps, colors]
-    internalStream*: OutputStream
-    # tlwriter: TextLineWriter[timestamps, colors]
-    # tbwriter: TextBlockWriter[timestamps, colors]
+    # outStream*: OutputStream
+    case kind: LogFormat
+    of textLines:
+      lwriter: TextLineWriter[timestamps, colors]
+    of textBlocks:
+      bwriter: TextBlockWriter[timestamps, colors]
+    of json:
+      jwriter: CJsonWriter[timestamps, colors]
 
   StreamOutputRef*[Stream; outputId: static[int]] = object
 
@@ -73,22 +82,22 @@ type
     recordType: NimNode
     outputsTuple: NimNode
 
-when defined(js):
-  type
-    JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
-      output*: Output
-      record: js
+# when defined(js):
+#   type
+#     JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
+#       output*: Output
+#       record: js
 
-    JsonString* = distinct string
-else:
-  type
-    JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
-      output*: Output
-      outStream: OutputStream
-      jsonWriter: JsonWriter
+#     JsonString* = distinct string
+# else:
+#   type
+#     JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
+#       output*: Output
+#       outStream: OutputStream
+#       jsonWriter: JsonWriter
 
-export
-  JsonString
+# export
+#   JsonString
 
 when defined(posix):
   {.pragma: syslog_h, importc, header: "<syslog.h>"}
@@ -252,10 +261,12 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   #
 
   # Determine the head symbol of the instantiation
-  let RecordType = case sink.format
-                   of json: bnd"JsonRecord"
-                   of textLines: bnd"LogRecord"
-                   of textBlocks: bnd"LogRecord"
+  # let RecordType = case sink.format
+  #                  of json: bnd"LogRecord"
+  #                  of textLines: bnd"LogRecord"
+  #                  of textBlocks: bnd"LogRecord"
+
+  let RecordType = bnd"LogRecord"
 
   result = newTree(nnkBracketExpr, RecordType)
 
@@ -279,18 +290,15 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   else:
     result.add selectOutputType(s, sink.destinations[0])
 
-  if sink.format != json:
-    result.add newIdentNode($sink.format)
-
+  result.add newIdentNode($sink.format)
   result.add newIdentNode($sink.timestamps)
 
   # Set the color scheme for the record types that require it
-  if sink.format != json:
-    var colorScheme = sink.colorScheme
-    when not defined(windows):
-      # `NativeColors' means `AnsiColors` on non-Windows platforms:
-      if colorScheme == NativeColors: colorScheme = AnsiColors
-    result.add newIdentNode($colorScheme)
+  var colorScheme = sink.colorScheme
+  when not defined(windows):
+    # `NativeColors' means `AnsiColors` on non-Windows platforms:
+    if colorScheme == NativeColors: colorScheme = AnsiColors
+  result.add newIdentNode($colorScheme)
 
 # The `append` and `flushOutput` functions implement the actual writing
 # to the log destinations (which we call Outputs).
@@ -368,12 +376,12 @@ template getOutputStream(o: StreamOutputRef): File =
 
 template append*(o: var SysLogOutput, s: OutStr) =
   let syslogLevel = case o.currentRecordLevel
-                    of TRACE, DEBUG, NONE: LOG_DEBUG
-                    of INFO:               LOG_INFO
-                    of NOTICE:             LOG_NOTICE
-                    of WARN:               LOG_WARNING
-                    of ERROR:              LOG_ERR
-                    of FATAL:              LOG_CRIT
+                    of TRACE, DEBUG, llNONE: LOG_DEBUG
+                    of INFO:                 LOG_INFO
+                    of NOTICE:               LOG_NOTICE
+                    of WARN:                 LOG_WARNING
+                    of ERROR:                LOG_ERR
+                    of FATAL:                LOG_CRIT
 
   syslog(syslogLevel or LOG_PID, "%s", s)
 
@@ -467,87 +475,47 @@ template appendLogLevelMarker(r: var auto, lvl: LogLevel, align: bool) =
   resetColors(r)
 
 #
-# JSON records:
-#
-
-template `[]=`(r: var JsonRecord, key: string, val: auto) =
-  when defined(js):
-    when val is string:
-      r.record[key] = when val is string: cstring(val) else: val
-    else:
-      r.record[key] = val
-  else:
-    writeField(r.jsonWriter, key, val)
-
-proc initLogRecord*(r: var JsonRecord,
-                    level: LogLevel,
-                    topics: string,
-                    name: string) =
-  when defined(js):
-    r.record = newJsObject()
-  else:
-    r.outStream = memoryOutput()
-    r.jsonWriter = JsonWriter.init(r.outStream, pretty = false)
-    r.jsonWriter.beginRecord()
-
-  if level != NONE:
-    r["lvl"] = level.shortName
-
-  when r.timestamps != NoTimestamps:
-    r["ts"] = r.timestamp()
-
-  r["msg"] = name
-
-  if topics.len > 0:
-    r["topics"] = topics
-
-proc setProperty*(r: var JsonRecord, key: string, val: auto) =
-  r[key] = val
-
-template setFirstProperty*(r: var JsonRecord, key: string, val: auto) =
-  r[key] = val
-
-proc flushRecord*(r: var JsonRecord) =
-  when defined(js):
-    r.output.append JSON.stringify(r.record)
-  else:
-    r.jsonWriter.endRecord()
-    r.outStream.write '\n'
-    r.output.append r.outStream.getOutput(string)
-
-  flushOutput r.output
-
-#
 # LogRecord functions
 #
 
-# proc init*(w: var WriterType, stream: OutputStream) =
-#   discard
-
-proc init*(T: type options.WriterType, stream: OutputStream): T =  # should not actually be invoked
-  discard
-
 template initLogRecord*(r: var LogRecord, lvl: LogLevel, topics: string, name: string) =
-  r.internalStream = memoryOutput()
-  when r.logformat == textLines:
-    # r.writer = TextLineWriter[r.timestamps, r.colors]()
-    # textlineserializer.init(r.writer, r.internalStream)
-    r.writer = init(TextLineWriter[r.timestamps, r.colors], r.internalStream)
-    r.writer.beginRecord(lvl, topics, name)
-  elif r.logformat == textBlocks:
-    # textblockserializer.init(r.writer, r.internalStream)
-    r.writer = init(TextBlockWriter[r.timestamps, r.colors], r.internalStream)
-    r.writer.beginRecord(lvl, topics, name)
+  var outStream = memoryOutput().implicitDeref
+  when r.logFormat == textLines:
+    r.lwriter.init(outStream)
+    r.lwriter.beginRecord(lvl, topics, name)
+  elif r.logFormat == textBlocks:
+    r.bwriter.init(outStream)
+    r.bwriter.beginRecord(lvl, topics, name)
+  elif r.logFormat == json:
+    r.jwriter.init(outStream)
+    r.jwriter.beginRecord(lvl, topics, name)
 
 template setProperty*(r: var LogRecord, key: string, val: auto) =
-  r.writer.writeField(key, val)
+  when r.logFormat == textLines:
+    r.lwriter.writeField(key, val)
+  elif r.logFormat == textBlocks:
+    r.bwriter.writeField(key, val)
+  elif r.logFormat == json:
+    r.jwriter.writeField(key, val)
 
 template setFirstProperty*(r: var LogRecord, key: string, val: auto) =
-  r.writer.writeField(key, val)
+  when r.logFormat == textLines:
+    r.lwriter.writeField(key, val)
+  elif r.logFormat == textBlocks:
+    r.bwriter.writeField(key, val)
+  elif r.logFormat == json:
+    r.jwriter.writeField(key, val)
 
 template flushRecord*(r: var LogRecord) =
-  r.writer.endRecord()
-  r.output.append r.internalStream.getOutput(string)
+  when r.logFormat == textLines:
+    r.lwriter.endRecord()
+    r.output.append r.lwriter.getStream().getOutput(string)
+  elif r.logFormat == textBlocks:
+    r.bwriter.endRecord()
+    r.output.append r.bwriter.getStream().getOutput(string)
+  elif r.logFormat == json:
+    r.jwriter.endRecord()
+    r.output.append r.jwriter.getStream().getOutput(string)
   flushOutput r.output
 
 #
