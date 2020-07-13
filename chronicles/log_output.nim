@@ -1,6 +1,11 @@
 import
   strutils, times, macros, options, os,
-  dynamic_scope_types
+  dynamic_scope_types,
+  serialization,
+  textlineserializer,
+  textblockserializer
+
+# TODO: Undo all the damage I did to the "js" scenario
 
 when defined(js):
   import
@@ -12,18 +17,18 @@ when defined(js):
   type OutStr = cstring
 
 else:
+
   import
-    terminal,
-    faststreams/outputs, json_serialization/writer
+    faststreams/outputs,
+    json_serialization/writer
+  import
+    jsonserializer
 
   export
     outputs, writer
 
   type OutStr = string
 
-  const
-    propColor = fgBlue
-    topicsColor = fgYellow
 
 export
   LogLevel
@@ -56,16 +61,19 @@ type
   AnyFileOutput = FileOutput|StdOutOutput|StdErrOutput
   AnyOutput = AnyFileOutput|SysLogOutput|BufferedOutput|PassThroughOutput
 
-  TextLineRecord*[Output;
-                  timestamps: static[TimestampsScheme],
-                  colors: static[ColorScheme]] = object
+  LogRecord*[Output;
+             logformat: static[LogFormat],
+             timestamps: static[TimestampsScheme],
+             colors: static[ColorScheme]] = object
     output*: Output
-    level: LogLevel
-
-  TextBlockRecord*[Output;
-                   timestamps: static[TimestampsScheme],
-                   colors: static[ColorScheme]] = object
-    output*: Output
+    # outStream*: OutputStream
+    case kind: LogFormat
+    of textLines:
+      lwriter: TextLineWriter[timestamps, colors]
+    of textBlocks:
+      bwriter: TextBlockWriter[timestamps, colors]
+    of json:
+      jwriter: CJsonWriter[timestamps, colors]
 
   StreamOutputRef*[Stream; outputId: static[int]] = object
 
@@ -74,22 +82,22 @@ type
     recordType: NimNode
     outputsTuple: NimNode
 
-when defined(js):
-  type
-    JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
-      output*: Output
-      record: js
+# when defined(js):
+#   type
+#     JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
+#       output*: Output
+#       record: js
 
-    JsonString* = distinct string
-else:
-  type
-    JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
-      output*: Output
-      outStream: OutputStream
-      jsonWriter: JsonWriter
+#     JsonString* = distinct string
+# else:
+#   type
+#     JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
+#       output*: Output
+#       outStream: OutputStream
+#       jsonWriter: JsonWriter
 
-export
-  JsonString
+# export
+#   JsonString
 
 when defined(posix):
   {.pragma: syslog_h, importc, header: "<syslog.h>"}
@@ -253,10 +261,12 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   #
 
   # Determine the head symbol of the instantiation
-  let RecordType = case sink.format
-                   of json: bnd"JsonRecord"
-                   of textLines: bnd"TextLineRecord"
-                   of textBlocks: bnd"TextBlockRecord"
+  # let RecordType = case sink.format
+  #                  of json: bnd"LogRecord"
+  #                  of textLines: bnd"LogRecord"
+  #                  of textBlocks: bnd"LogRecord"
+
+  let RecordType = bnd"LogRecord"
 
   result = newTree(nnkBracketExpr, RecordType)
 
@@ -280,15 +290,15 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   else:
     result.add selectOutputType(s, sink.destinations[0])
 
+  result.add newIdentNode($sink.format)
   result.add newIdentNode($sink.timestamps)
 
   # Set the color scheme for the record types that require it
-  if sink.format != json:
-    var colorScheme = sink.colorScheme
-    when not defined(windows):
-      # `NativeColors' means `AnsiColors` on non-Windows platforms:
-      if colorScheme == NativeColors: colorScheme = AnsiColors
-    result.add newIdentNode($colorScheme)
+  var colorScheme = sink.colorScheme
+  when not defined(windows):
+    # `NativeColors' means `AnsiColors` on non-Windows platforms:
+    if colorScheme == NativeColors: colorScheme = AnsiColors
+  result.add newIdentNode($colorScheme)
 
 # The `append` and `flushOutput` functions implement the actual writing
 # to the log destinations (which we call Outputs).
@@ -366,12 +376,12 @@ template getOutputStream(o: StreamOutputRef): File =
 
 template append*(o: var SysLogOutput, s: OutStr) =
   let syslogLevel = case o.currentRecordLevel
-                    of TRACE, DEBUG, NONE: LOG_DEBUG
-                    of INFO:               LOG_INFO
-                    of NOTICE:             LOG_NOTICE
-                    of WARN:               LOG_WARNING
-                    of ERROR:              LOG_ERR
-                    of FATAL:              LOG_CRIT
+                    of TRACE, DEBUG, llNONE: LOG_DEBUG
+                    of INFO:                 LOG_INFO
+                    of NOTICE:               LOG_NOTICE
+                    of WARN:                 LOG_WARNING
+                    of ERROR:                LOG_ERR
+                    of FATAL:                LOG_CRIT
 
   syslog(syslogLevel or LOG_PID, "%s", s)
 
@@ -455,29 +465,6 @@ template applyStyle(record, style) =
   elif record.colors == NativeColors:
     setStyle(getOutputStream(record.output), {style})
 
-template levelToStyle(lvl: LogLevel): untyped =
-  case lvl
-  of TRACE: (fgGreen, true)
-  of DEBUG: (fgGreen, true)
-  of INFO:  (fgGreen, false)
-  of NOTICE:(fgYellow, false)
-  of WARN:  (fgYellow, true)
-  of ERROR: (fgRed, false)
-  of FATAL: (fgRed, true)
-  of NONE:  (fgWhite, false)
-
-template shortName(lvl: LogLevel): string =
-  # Same-length strings make for nice alignment
-  case lvl
-  of TRACE: "TRC"
-  of DEBUG: "DBG"
-  of INFO:  "INF"
-  of NOTICE:"NOT"
-  of WARN:  "WRN"
-  of ERROR: "ERR"
-  of FATAL: "FAT"
-  of NONE:  "   "
-
 template appendLogLevelMarker(r: var auto, lvl: LogLevel, align: bool) =
   when r.colors != NoColors:
     let (color, bright) = levelToStyle(lvl)
@@ -487,201 +474,48 @@ template appendLogLevelMarker(r: var auto, lvl: LogLevel, align: bool) =
                    else: $lvl)
   resetColors(r)
 
-template appendHeader(r: var TextLineRecord | var TextBlockRecord,
-                      lvl: LogLevel,
-                      topics: string,
-                      name: string,
-                      pad: bool) =
-  # Log level comes first - allows for easy regex match with ^
-  appendLogLevelMarker(r, lvl, true)
-
-  when r.timestamps != NoTimestamps:
-    append(r.output, " ")
-    writeTs(r)
-
-  if name.len > 0:
-    # no good way to tell how much padding is going to be needed so we
-    # choose an arbitrary number and use that - should be fine even for
-    # 80-char terminals
-    # XXX: This should be const, but the compiler fails with an ICE
-    let padding = repeat(' ', if pad: 42 - min(42, name.len) else: 0)
-
-    append(r.output, " ")
-    applyStyle(r, styleBright)
-    append(r.output, name)
-    append(r.output, padding)
-    resetColors(r)
-
-  if topics.len > 0:
-    append(r.output, " topics=\"")
-    fgColor(r, topicsColor, true)
-    append(r.output, topics)
-    resetColors(r)
-    append(r.output, "\"")
-
 #
-# A LogRecord is a single "logical line" in the output.
-#
-# 1. It's instantiated by the log statement.
-#
-# 2. It's initialized with a call to `initLogRecord`.
-#
-# 3. Zero or more calls to `setFirstProperty` and `setPropery` are
-#    executed with the current lixical and dynamic bindings.
-#
-# 4. Finally, `flushRecord` should wrap-up the record and flush the output.
+# LogRecord functions
 #
 
-#
-# Text line records:
-#
+template initLogRecord*(r: var LogRecord, lvl: LogLevel, topics: string, name: string) =
+  var outStream = memoryOutput().implicitDeref
+  when r.logFormat == textLines:
+    r.lwriter.init(outStream)
+    r.lwriter.beginRecord(lvl, topics, name)
+  elif r.logFormat == textBlocks:
+    r.bwriter.init(outStream)
+    r.bwriter.beginRecord(lvl, topics, name)
+  elif r.logFormat == json:
+    r.jwriter.init(outStream)
+    r.jwriter.beginRecord(lvl, topics, name)
 
-proc initLogRecord*(r: var TextLineRecord,
-                    lvl: LogLevel,
-                    topics: string,
-                    name: string) =
-  r.level = lvl
-  appendHeader(r, lvl, topics, name, true)
+template setProperty*(r: var LogRecord, key: string, val: auto) =
+  when r.logFormat == textLines:
+    r.lwriter.writeField(key, val)
+  elif r.logFormat == textBlocks:
+    r.bwriter.writeField(key, val)
+  elif r.logFormat == json:
+    r.jwriter.writeField(key, val)
 
-proc setProperty*(r: var TextLineRecord, key: string, val: auto) =
-  append(r.output, " ")
-  let valText = $val
+template setFirstProperty*(r: var LogRecord, key: string, val: auto) =
+  when r.logFormat == textLines:
+    r.lwriter.writeField(key, val)
+  elif r.logFormat == textBlocks:
+    r.bwriter.writeField(key, val)
+  elif r.logFormat == json:
+    r.jwriter.writeField(key, val)
 
-  var
-    escaped: string
-    valueToWrite: ptr string
-
-  # Escaping is done to avoid issues with quoting and newlines
-  # Quoting is done to distinguish strings with spaces in them from a new
-  # key-value pair
-  # This is similar to how it's done in logfmt:
-  # https://github.com/csquared/node-logfmt/blob/master/lib/stringify.js#L13
-  let
-    needsEscape = valText.find(NewLines + {'"', '\\'}) > -1
-    needsQuote = valText.find({' ', '='}) > -1
-
-  if needsEscape or needsQuote:
-    escaped = newStringOfCap(valText.len + valText.len div 8)
-    if needsEscape:
-      # addQuoted adds quotes and escapes a bunch of characters
-      # XXX addQuoted escapes more characters than what we look for in above
-      #     needsEscape check - it's a bit weird that way
-      addQuoted(escaped, valText)
-    elif needsQuote:
-      add(escaped, '"')
-      add(escaped, valText)
-      add(escaped, '"')
-    valueToWrite = addr escaped
-  else:
-    valueToWrite = unsafeAddr valText
-
-  when r.colors != NoColors:
-    let (color, bright) = levelToStyle(r.level)
-    fgColor(r, color, bright)
-  append(r.output, key)
-  resetColors(r)
-  append(r.output, "=")
-  fgColor(r, propColor, true)
-  append(r.output, valueToWrite[])
-  resetColors(r)
-
-template setFirstProperty*(r: var TextLineRecord, key: string, val: auto) =
-  setProperty(r, key, val)
-
-proc flushRecord*(r: var TextLineRecord) =
-  append(r.output, "\n")
-  flushOutput(r.output)
-
-#
-# Textblock records:
-#
-
-proc initLogRecord*(r: var TextBlockRecord,
-                    level: LogLevel,
-                    topics: string,
-                    name: string) =
-  appendHeader(r, level, topics, name, false)
-  append(r.output, "\n")
-
-proc setProperty*(r: var TextBlockRecord, key: string, val: auto) =
-  let valText = $val
-
-  append(r.output, textBlockIndent)
-  fgColor(r, propColor, false)
-  append(r.output, key)
-  append(r.output, ": ")
-  applyStyle(r, styleBright)
-
-  if valText.find(NewLines) == -1:
-    append(r.output, valText)
-    append(r.output, "\n")
-  else:
-    let indent = textBlockIndent & repeat(' ', key.len + 2)
-    var first = true
-    for line in splitLines(valText):
-      if not first: append(r.output, indent)
-      append(r.output, line)
-      append(r.output, "\n")
-      first = false
-
-  resetColors(r)
-
-template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
-  setProperty(r, key, val)
-
-proc flushRecord*(r: var TextBlockRecord) =
-  append(r.output, "\n")
-  flushOutput(r.output)
-
-#
-# JSON records:
-#
-
-template `[]=`(r: var JsonRecord, key: string, val: auto) =
-  when defined(js):
-    when val is string:
-      r.record[key] = when val is string: cstring(val) else: val
-    else:
-      r.record[key] = val
-  else:
-    writeField(r.jsonWriter, key, val)
-
-proc initLogRecord*(r: var JsonRecord,
-                    level: LogLevel,
-                    topics: string,
-                    name: string) =
-  when defined(js):
-    r.record = newJsObject()
-  else:
-    r.outStream = memoryOutput()
-    r.jsonWriter = JsonWriter.init(r.outStream, pretty = false)
-    r.jsonWriter.beginRecord()
-
-  if level != NONE:
-    r["lvl"] = level.shortName
-
-  when r.timestamps != NoTimestamps:
-    r["ts"] = r.timestamp()
-
-  r["msg"] = name
-
-  if topics.len > 0:
-    r["topics"] = topics
-
-proc setProperty*(r: var JsonRecord, key: string, val: auto) =
-  r[key] = val
-
-template setFirstProperty*(r: var JsonRecord, key: string, val: auto) =
-  r[key] = val
-
-proc flushRecord*(r: var JsonRecord) =
-  when defined(js):
-    r.output.append JSON.stringify(r.record)
-  else:
-    r.jsonWriter.endRecord()
-    r.outStream.write '\n'
-    r.output.append r.outStream.getOutput(string)
-
+template flushRecord*(r: var LogRecord) =
+  when r.logFormat == textLines:
+    r.lwriter.endRecord()
+    r.output.append r.lwriter.getStream().getOutput(string)
+  elif r.logFormat == textBlocks:
+    r.bwriter.endRecord()
+    r.output.append r.bwriter.getStream().getOutput(string)
+  elif r.logFormat == json:
+    r.jwriter.endRecord()
+    r.output.append r.jwriter.getStream().getOutput(string)
   flushOutput r.output
 
 #
