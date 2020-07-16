@@ -1,13 +1,21 @@
+import
+  typetraits
+
 when defined(js):
   type UncheckedArray[T] = seq[T]
 
-type
-  ScopeBindingBase*[LogRecord] = object of RootObj
-    name*: string
-    appender*: LogAppender[LogRecord]
+func arityFixed(T: typedesc): int {.compileTime.} =
+  # TODO: File this as a Nim bug
+  type TT = T
+  arity(TT)
 
+type
   LogAppender*[LogRecord] = proc(x: var LogRecord,
                                  valueAddr: ptr ScopeBindingBase[LogRecord])
+
+  ScopeBindingBase*[LogRecord] = object of RootObj
+    name*: string
+    appenders*: array[arityFixed(LogRecord), LogAppender[LogRecord]]
 
   ScopeBinding*[LogRecord, T] = object of ScopeBindingBase[LogRecord]
     value*: T

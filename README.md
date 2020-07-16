@@ -249,10 +249,11 @@ support options for specifying the use of colors and timestamps (for more
 info see `chronicles_colors` and `chronicles_timestamps`).
 
 The possible log destinations are `stdout`, `stderr`, `file`, `syslog`
-and `dynamic`.
+and `callback`.
 
 Please note that Chronicles also allows you to implement custom logging
-formats through the use of the `customLogStream` facility.
+formats as a simple user-supplied Nim modules. See the "custom formats"
+section for more detials.
 
 ### chronicles_default_output_device
 
@@ -285,7 +286,7 @@ transactions.info "transaction created", buyer = alice, seller = bob
 
 The streams created through `chronicles_streams` will be exported by the
 `chronicles` module itself, but you can also introduce additional streams
-in your own modules by using the helpers `logStream` and `customLogStream`.
+in your own modules by using the `logStream` helper.
 
 ### chronicles_enabled_topics
 
@@ -326,9 +327,11 @@ the program.
 Topics in `chronicles_disabled_topics` have precedence over the ones in
 `chronicles_enabled_topics` or `chronicles_required_topics`.
 
-### chronicles_disable_thread_id  
+### chronicles_thread_ids
 
-Disable log thread(tid)  
+By default, in projects compiled with the `--treads:on` option, Chronicles will
+log the current thread id in the `tid` property of each log statement. This option
+can be used to explicitly enable or disable the injection of the `tid` property.
 
 ### chronicles_log_level
 
@@ -383,6 +386,13 @@ Possible values are:
   RFC 3339: Date and Time on the Internet: Timestamps
 
   https://tools.ietf.org/html/rfc3339
+
+  The timestamps produced by Chronicles will be in the UTC timezone.
+
+- `LocalRfcTime`
+
+  Same as above, but the timestamps will show the local time plus
+  local offsets as specified in the RFC.
 
 - `UnixTime`
 
@@ -502,9 +512,9 @@ the default automatically:
    chronicles will add an index such as `.2.log`, `.3.log` .. `.N.log`
    to the final file name.
 
-## Working with `dynamic` outputs
+## Working with `callback` outputs
 
-A `dynamic` output redirects all logged messages to a closure supplied by
+A `callback` output redirects all logged messages to a closure supplied by
 the host application. Similar to working with file ouputs [file outputs](#working-with-file-outputs),
 you can use the `output` and `outputs` properties of a Chronicles stream
 to specify a gcsafe closure:

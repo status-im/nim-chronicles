@@ -18,14 +18,17 @@ const
   chronicles_required_topics {.strdefine.} = ""
   chronicles_disabled_topics {.strdefine.} = ""
   chronicles_runtime_filtering {.strdefine.} = "off"
-  chronicles_log_level {.strdefine.} = when defined(release): "INFO"
-                                       else: "DEBUG"
-
+  chronicles_log_level {.strdefine.} = when defined(debug): "DEBUG"
+                                       else: "INFO"
+  chronicles_stack_traces {.strdefine.} = when defined(debug): "yes"
+                                          else: "no"
   chronicles_timestamps {.strdefine.} = "RfcTime"
   chronicles_colors* {.strdefine.} = "NativeColors"
+  chronicles_line_endings {.strdefine.} = "platform"
 
   chronicles_indent {.intdefine.} = 2
   chronicles_line_numbers {.strdefine.} = "off"
+  chronicles_thread_ids {.strdefine.} = if compileOption("threads"): "yes" else: "no"
 
   truthySwitches = ["yes", "1", "on", "true"]
   falsySwitches = ["no", "0", "off", "false", "none"]
@@ -37,26 +40,24 @@ when chronicles_enabled_topics.len > 0 and chronicles_required_topics.len > 0:
 
 type
   LogLevel* = enum
-    NONE,
+    DEFAULT,
     TRACE,
     DEBUG,
     INFO,
     NOTICE,
     WARN,
     ERROR,
-    FATAL
+    FATAL,
+    NONE
 
-  LogFormat* = enum
-    json,
-    textLines,
-    textBlocks
+  LogFormatPlugin* = distinct string
 
   OutputDeviceKind* = enum
     oStdOut,
     oStdErr,
     oFile,
     oSysLog
-    oDynamic
+    oCallback
 
   LogFileMode = enum
     Append,
@@ -70,20 +71,26 @@ type
     else:
       discard
 
-  TimestampsScheme* = enum
+  TimestampScheme* = enum
     NoTimestamps,
     UnixTime,
-    RfcTime
+    RfcTime,
+    LocalRfcTime
 
   ColorScheme* = enum
     NoColors,
     AnsiColors,
     NativeColors
 
+  LineEndingsScheme* = enum
+    windowsLineEndings = "windows"
+    posixLineEndings = "posix"
+    platformLineEndings = "platform"
+
   SinkSpec* = object
-    format*: LogFormat
+    format*: LogFormatPlugin
     colorScheme*: ColorScheme
-    timestamps*: TimestampsScheme
+    timestamps*: TimestampScheme
     destinations*: seq[LogDestination]
 
   StreamSpec* = object
@@ -151,25 +158,12 @@ proc topicsWithLogLevelAsSeq(topics: string): seq[EnabledTopic] =
                                     logLevel: handleEnumOption(LogLevel,
                                                                values[1])))
       else:
-        sequence.add(EnabledTopic(name: values[0], logLevel: NONE))
+        sequence.add(EnabledTopic(name: values[0], logLevel: DEFAULT))
   return sequence
 
-proc logFormatFromIdent(n: NimNode): LogFormat =
-  let format = $n
-  case format.toLowerAscii
-  of "json":
-    return json
-  of "textlines":
-    return textLines
-  of "textblocks":
-    return textBlocks
-  else:
-    error &"'{format}' is not a recognized output format. " &
-          &"Allowed values are {enumValues LogFormat}."
-
-proc makeSinkSpec(fmt: LogFormat,
+proc makeSinkSpec(fmt: LogFormatPlugin,
                   colors: ColorScheme,
-                  timestamps: TimestampsScheme,
+                  timestamps: TimestampScheme,
                   destinations: varargs[LogDestination]): SinkSpec =
   result.format = fmt
   result.colorScheme = colors
@@ -181,7 +175,7 @@ func logDestinationFromStr(s: string): LogDestination {.compileTime.} =
   of "stdout": result.kind = oStdOut
   of "stderr": result.kind = oStdErr
   of "syslog": result.kind = oSysLog
-  of "dynamic": result.kind = oDynamic
+  of "callback": result.kind = oCallback
   of "file":
     result.kind = oFile
     result.filename = ""
@@ -209,7 +203,7 @@ proc logDestinationFromNode(n: NimNode): LogDestination =
 
 const
   defaultColorScheme = handleEnumOption(ColorScheme, chronicles_colors)
-  defaultTimestamsScheme = handleEnumOption(TimestampsScheme, chronicles_timestamps)
+  defaultTimestamsScheme = handleEnumOption(TimestampScheme, chronicles_timestamps)
 
 proc syntaxCheckStreamExpr*(n: NimNode) =
   if n.kind != nnkBracketExpr or n[0].kind != nnkIdent:
@@ -222,12 +216,12 @@ proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
     let n = streamNode[i]
     case n.kind
     of nnkIdent:
-      result.add makeSinkSpec(logFormatFromIdent(n),
+      result.add makeSinkSpec(LogFormatPlugin($n),
                               defaultColorScheme,
                               defaultTimestamsScheme,
                               logDestinationFromStr(chronicles_default_output_device))
     of nnkBracketExpr:
-      var spec = makeSinkSpec(logFormatFromIdent(n[0]),
+      var spec = makeSinkSpec(LogFormatPlugin($(n[0])),
                               defaultColorScheme,
                               defaultTimestamsScheme)
       for i in 1 ..< n.len:
@@ -251,6 +245,7 @@ proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
           of "notimestamps": setTimestamps(NoTimestamps)
           of "unixtime": setTimestamps(UnixTime)
           of "rfctime": setTimestamps(RfcTime)
+          of "localrfctime": setTimestamps(LocalRfcTime)
           else: discard
 
         let dst = logDestinationFromNode(dstSpec)
@@ -312,12 +307,20 @@ const
 
   enabledLogLevel* = handleEnumOption(LogLevel, chronicles_log_level)
 
-  textBlockIndent* = repeat(' ', chronicles_indent)
+  indentStr* = repeat(' ', chronicles_indent)
+
+  newLine* = case handleEnumOption(LineEndingsScheme, chronicles_line_endings)
+             of windowsLineEndings: "\r\n"
+             of posixLineEndings: "\n"
+             of platformLineEndings: "\p"
+
+  stackTracesEnabled* = handleYesNoOption chronicles_stack_traces
 
   enabledTopics*  = topicsWithLogLevelAsSeq chronicles_enabled_topics
   disabledTopics* = topicsAsSeq chronicles_disabled_topics
   requiredTopics* = topicsAsSeq chronicles_required_topics
   lineNumbersEnabled* = handleYesNoOption chronicles_line_numbers
+  threadIdsEnabled* = handleYesNoOption chronicles_thread_ids
 
   config* = when chronicles_streams.len > 0: parseStreamsSpec(chronicles_streams)
             elif chronicles_sinks.len > 0:   parseSinksSpec(chronicles_sinks)
@@ -336,9 +339,8 @@ const
             # * properies may be easier to find
             else: parseSinksSpec "textlines"
 
-proc isLogFormatUsed*(format: LogFormat): bool =
+proc isLogFormatUsed*(format: string): bool {.compileTime.} =
   for stream in config.streams:
     for sink in stream.sinks:
-      if sink.format == format: return true
+      if sink.format.string == format: return true
   return false
-

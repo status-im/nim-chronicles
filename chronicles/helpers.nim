@@ -2,8 +2,8 @@ import
   tables, strutils, strformat,
   topics_registry
 
-func parseTopicDirectives*(directives: openarray[string]): Table[string, TopicSettings] =
-  result = initTable[string, TopicSettings]()
+func parseTopicDirectives*(directives: openarray[string]): Table[string, SinkTopicSettings] =
+  result = initTable[string, SinkTopicSettings]()
 
   for directive in directives:
     let subDirectives = directive.split(";")
@@ -18,13 +18,13 @@ func parseTopicDirectives*(directives: openarray[string]): Table[string, TopicSe
         for name2 in topicsNames:
           let name = name2.strip
           if not result.hasKey(name):
-            result.add(name, TopicSettings())
+            result.add(name, default(SinkTopicSettings))
           template topic: auto = result[name]
           body
 
       case toLowerAscii(parts[0].strip)
       of "required":
-        forEachTopic: topic().state = Required
+        forEachTopic: topic.state = Required
       of "disabled":
         forEachTopic: topic.state = Disabled
       of "trc", "trace":
