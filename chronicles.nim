@@ -176,7 +176,6 @@ macro expandIt*(T: type, expandedProps: untyped): untyped =
     record = ident "record"
     it = ident "it"
     it_name = ident "it_name"
-    value = ident "value"
     setPropertyCalls = newStmtList()
 
   for prop in expandedProps:
@@ -260,7 +259,7 @@ macro logIMPL(lineInfo: static InstInfo,
       else:
         for topic in enabledTopics:
           if topic.name == t:
-            if topic.logLevel != NONE:
+            if topic.logLevel != LogLevel.NONE:
               if severity >= topic.logLevel:
                 enabledTopicsMatch = true
             elif severity >= enabledLogLevel:
@@ -268,7 +267,10 @@ macro logIMPL(lineInfo: static InstInfo,
         if t in requiredTopics:
           dec requiredTopicsCount
 
-  if severity != NONE and not enabledTopicsMatch or requiredTopicsCount > 0:
+  if requiredTopicsCount > 0:
+    return
+
+  if enabledTopics.len > 0 and not enabledTopicsMatch:
     return
 
   # Handling file name and line numbers on/off (lineNumbersEnabled) for particular log statements
@@ -280,9 +282,12 @@ macro logIMPL(lineInfo: static InstInfo,
     useLineNumbers = chroniclesLineNumbers == "true"
     finalBindings.del("chroniclesLineNumbers")
 
-  var code = newStmtList()
+  var
+    code = newStmtList()
+    bindingLets = newTree(nnkLetSection)
+
   when runtimeFilteringEnabled:
-    if severity != NONE:
+    if severity != LogLevel.NONE:
       code.add runtimeTopicFilteringCode(severity, activeTopics)
 
   # The rest of the code selects the active LogRecord type (which can
@@ -290,31 +295,47 @@ macro logIMPL(lineInfo: static InstInfo,
   # translates the log statement to a set of calls to `initLogRecord`,
   # `setProperty` and `flushRecord`.
   let
+    record = genSym(nskVar, "record")
     recordTypeSym = skipTypedesc(RecordType.getTypeImpl())
     recordTypeNodes = recordTypeSym.getTypeImpl()
     recordArity = if recordTypeNodes.kind != nnkTupleConstr: 1
                   else: recordTypeNodes.len
-    record = genSym(nskVar, "record")
     expandItIMPL = bindSym("expandItIMPL", brForceOpen)
+
+  template addLetVar(name: string, value: NimNode) =
+    bindingLets.add newTree(
+      nnkIdentDefs,
+        ident name,
+        newNimNode(nnkEmpty),
+        value)
+
+  addLetVar "tid", newCall(bindSym "getLogThreadId")
+
+  if useLineNumbers:
+    addLetVar "file", newLit(lineInfo.filename & ":" & $lineInfo.line)
+
+  for k, v in finalBindings:
+    addLetVar k, v
 
   code.add quote do:
     var `record`: `RecordType`
-    prepareOutput(`record`, LogLevel(`severity`))
-    initLogRecord(`record`, LogLevel(`severity`), `topicsNode`, `eventName`)
-    # called tid even when it's a process id - this to avoid differences in
-    # logging between threads and no threads
-    setFirstProperty(`record`, "tid", getLogThreadId())
+    `bindingLets`
 
-  if useLineNumbers:
-    var filename = lineInfo.filename & ":" & $lineInfo.line
-    code.add newCall("setProperty", record,
-                     newLit("file"), newLit(filename))
+  for i in 0 ..< recordArity:
+    let recordRef = if recordArity == 1: record
+                    else: newTree(nnkBracketExpr, record, newLit(i))
 
-  for k, v in finalBindings:
-    code.add newCall(expandItIMPL, record, newLit(k), v)
+    code.add quote do:
+      prepareOutput(`recordRef`, LogLevel(`severity`))
+      initLogRecord(`recordRef`, LogLevel(`severity`), `topicsNode`, `eventName`)
+      setFirstProperty(`recordRef`, "tid", tid)
 
-  code.add newCall("logAllDynamicProperties", Stream, record)
-  code.add newCall("flushRecord", record)
+    for i in 1 ..< bindingLets.len:
+      let letVar = bindingLets[i][0]
+      code.add newCall(expandItIMPL, recordRef, newLit($letVar), letVar)
+
+    code.add newCall("logAllDynamicProperties", Stream, record, newLit(i))
+    code.add newCall("flushRecord", recordRef)
 
   result = quote do:
     try:
@@ -396,3 +417,4 @@ logFn fatal , LogLevel.FATAL
 #
 # * implement some of the leading standardized structured logging formats
 #
+

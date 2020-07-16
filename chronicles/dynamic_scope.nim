@@ -1,14 +1,17 @@
 import
-  macros, log_output, scope_helpers, options, dynamic_scope_types
+  typetraits, stew/shims/macros,
+  log_output, scope_helpers, dynamic_scope_types
 
-proc appenderIMPL[LogRecord, PropertyType](log: var LogRecord,
-                                           keyValuePair: ptr ScopeBindingBase[LogRecord]) =
+proc appenderIMPL[LogRecord, PropertyType;
+                  sinkIdx: static int](log: var LogRecord,
+                                       keyValuePair: ptr ScopeBindingBase[LogRecord]) =
   type ActualType = ptr ScopeBinding[LogRecord, PropertyType]
   # XXX: The use of `cast` here shouldn't be necessary. This is a normal explicit upcast.
-  let v = cast[ActualType](keyValuePair)
-  log.setProperty v.name, v.value
+  # let v = cast[ActualType](keyValuePair)
+  let v = ActualType keyValuePair
+  log[sinkIdx].setProperty v.name, v.value
 
-proc logAllDynamicProperties*[LogRecord](stream: typedesc, r: var LogRecord) =
+proc logAllDynamicProperties*[LogRecord](stream: typedesc, r: var LogRecord, sinkIdx: int) =
   # This proc is intended for internal use only
   mixin tlsSlot
 
@@ -16,14 +19,20 @@ proc logAllDynamicProperties*[LogRecord](stream: typedesc, r: var LogRecord) =
   while frame != nil:
     for i in 0 ..< frame.bindingsCount:
       let binding = frame.bindings[i]
-      binding.appender(r, binding)
+      (binding.appenders[sinkIdx])(r, binding)
     frame = frame.prev
 
 proc makeScopeBinding[T](LogRecord: typedesc,
                          name: string,
                          value: T): ScopeBinding[LogRecord, T] =
+  # TODO: This shouldn't be necessary
+  type R = LogRecord
   result.name = name
-  result.appender = appenderIMPL[LogRecord, T]
+  genStmtList:
+    for i in 0 ..< arity(LogRecord):
+      let iLit = newLit i
+      yield quote do:
+        result.appenders[`i`] = appenderIMPL[`R`, `T`, `iLit`]
   result.value = value
 
 macro dynamicLogScopeIMPL*(stream: typedesc,
