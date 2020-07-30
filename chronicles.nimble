@@ -9,10 +9,8 @@ skipDirs      = @["tests"]
 
 requires "nim >= 1.2.0"
 requires "json_serialization"
-requires "testutils < 2.0.0"
+requires "testutils"
 
 task test, "run CPU tests":
-  when defined(windows):
-    exec "cmd.exe /C testrunner.cmd tests"
-  else:
-    exec "testrunner tests"
+  exec "ntu test tests"
+
