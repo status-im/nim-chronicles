@@ -12,5 +12,5 @@ requires "json_serialization"
 requires "testutils"
 
 task test, "run CPU tests":
-  exec "ntu test tests"
+  exec "ntu".toExe() & " test tests"
 
