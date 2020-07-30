@@ -2,7 +2,7 @@ program="../lexical_scopes"
 chronicles_sinks="textlines[stdout]"
 chronicles_colors=None
 chronicles_timestamps=None
-max_size=150000
+max_size=175000
 
 release
 --opt:size
