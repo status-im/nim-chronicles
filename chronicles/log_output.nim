@@ -462,10 +462,10 @@ template levelToStyle(lvl: LogLevel): untyped =
   # Light cyan is darker than green
 
   case lvl
-  of TRACE: (fgBlack, true)   # Bright Black is gray
-  of DEBUG: (fgCyan, false)
-  of INFO:  (fgGreen, false)
-  of NOTICE:(fgMagenta, true)
+  of TRACE: (fgWhite, false)
+  of DEBUG: (fgBlack, true) # Bright Black is gray
+  of INFO:  (fgCyan, true)
+  of NOTICE:(fgMagenta, false)
   of WARN:  (fgYellow, false)
   of ERROR: (fgRed, true)
   of FATAL: (fgRed, false)
