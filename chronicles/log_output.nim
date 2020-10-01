@@ -459,7 +459,7 @@ template levelToStyle(lvl: LogLevel): untyped =
   # Bright Black is gray
   # Light green doesn't display well on white consoles
   # Light yellow doesn't display well on white consoles
-  # Light gyan is darker than green
+  # Light cyan is darker than green
 
   case lvl
   of TRACE: (fgBlack, true)   # Bright Black is gray
