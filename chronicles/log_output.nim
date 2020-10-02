@@ -456,14 +456,19 @@ template applyStyle(record, style) =
     setStyle(getOutputStream(record.output), {style})
 
 template levelToStyle(lvl: LogLevel): untyped =
+  # Bright Black is gray
+  # Light green doesn't display well on white consoles
+  # Light yellow doesn't display well on white consoles
+  # Light cyan is darker than green
+
   case lvl
-  of TRACE: (fgGreen, true)
-  of DEBUG: (fgGreen, true)
-  of INFO:  (fgGreen, false)
-  of NOTICE:(fgYellow, false)
-  of WARN:  (fgYellow, true)
-  of ERROR: (fgRed, false)
-  of FATAL: (fgRed, true)
+  of TRACE: (fgWhite, false)
+  of DEBUG: (fgBlack, true) # Bright Black is gray
+  of INFO:  (fgCyan, true)
+  of NOTICE:(fgMagenta, false)
+  of WARN:  (fgYellow, false)
+  of ERROR: (fgRed, true)
+  of FATAL: (fgRed, false)
   of NONE:  (fgWhite, false)
 
 template shortName(lvl: LogLevel): string =
