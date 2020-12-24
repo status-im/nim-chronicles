@@ -5,6 +5,7 @@ nim-chronicles
 [![Build status](https://ci.appveyor.com/api/projects/status/tu9cap72jxdhri9m/branch/master?svg=true)](https://ci.appveyor.com/project/nimbus/nim-chronicles/branch/master)
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Github action](https://github.com/status-im/nim-chronicles/workflows/nim-chronicles%20CI/badge.svg)
 
 ```
 nimble install chronicles
