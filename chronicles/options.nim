@@ -18,11 +18,13 @@ const
   chronicles_required_topics {.strdefine.} = ""
   chronicles_disabled_topics {.strdefine.} = ""
   chronicles_runtime_filtering {.strdefine.} = "off"
-  chronicles_log_level {.strdefine.} = when defined(release): "INFO"
-                                       else: "DEBUG"
-
+  chronicles_log_level {.strdefine.} = when defined(debug): "DEBUG"
+                                       else: "INFO"
+  chronicles_stack_traces {.strdefine.} = when defined(debug): "yes"
+                                          else: "no"
   chronicles_timestamps {.strdefine.} = "RfcTime"
   chronicles_colors* {.strdefine.} = "NativeColors"
+  chronicles_line_endings {.strdefine.} = "platform"
 
   chronicles_indent {.intdefine.} = 2
   chronicles_line_numbers {.strdefine.} = "off"
@@ -46,10 +48,7 @@ type
     ERROR,
     FATAL
 
-  LogFormat* = enum
-    json,
-    textLines,
-    textBlocks
+  LogFormatPlugin* = distinct string
 
   OutputDeviceKind* = enum
     oStdOut,
@@ -70,7 +69,7 @@ type
     else:
       discard
 
-  TimestampsScheme* = enum
+  TimestampScheme* = enum
     NoTimestamps,
     UnixTime,
     RfcTime
@@ -80,10 +79,15 @@ type
     AnsiColors,
     NativeColors
 
+  LineEndingsScheme* = enum
+    windowsLineEndings = "windows"
+    posixLineEndings = "posix"
+    platformLineEndings = "platform"
+
   SinkSpec* = object
-    format*: LogFormat
+    format*: LogFormatPlugin
     colorScheme*: ColorScheme
-    timestamps*: TimestampsScheme
+    timestamps*: TimestampScheme
     destinations*: seq[LogDestination]
 
   StreamSpec* = object
@@ -154,22 +158,18 @@ proc topicsWithLogLevelAsSeq(topics: string): seq[EnabledTopic] =
         sequence.add(EnabledTopic(name: values[0], logLevel: NONE))
   return sequence
 
-proc logFormatFromIdent(n: NimNode): LogFormat =
+proc logFormatFromIdent(n: NimNode): LogFormatPlugin =
   let format = $n
-  case format.toLowerAscii
-  of "json":
-    return json
-  of "textlines":
-    return textLines
-  of "textblocks":
-    return textBlocks
-  else:
-    error &"'{format}' is not a recognized output format. " &
-          &"Allowed values are {enumValues LogFormat}."
+  LogFormatPlugin:
+    case format.toLowerAscii
+    of "json": "chronicles/json_records"
+    of "textlines": "chronicles/textlines"
+    of "textblocks": "chronicles/textblocks"
+    else: format
 
-proc makeSinkSpec(fmt: LogFormat,
+proc makeSinkSpec(fmt: LogFormatPlugin,
                   colors: ColorScheme,
-                  timestamps: TimestampsScheme,
+                  timestamps: TimestampScheme,
                   destinations: varargs[LogDestination]): SinkSpec =
   result.format = fmt
   result.colorScheme = colors
@@ -209,7 +209,7 @@ proc logDestinationFromNode(n: NimNode): LogDestination =
 
 const
   defaultColorScheme = handleEnumOption(ColorScheme, chronicles_colors)
-  defaultTimestamsScheme = handleEnumOption(TimestampsScheme, chronicles_timestamps)
+  defaultTimestamsScheme = handleEnumOption(TimestampScheme, chronicles_timestamps)
 
 proc syntaxCheckStreamExpr*(n: NimNode) =
   if n.kind != nnkBracketExpr or n[0].kind != nnkIdent:
@@ -312,7 +312,14 @@ const
 
   enabledLogLevel* = handleEnumOption(LogLevel, chronicles_log_level)
 
-  textBlockIndent* = repeat(' ', chronicles_indent)
+  indentStr* = repeat(' ', chronicles_indent)
+
+  newLine* = case handleEnumOption(LineEndingsScheme, chronicles_line_endings)
+             of windowsLineEndings: "\r\n"
+             of posixLineEndings: "\n"
+             of platformLineEndings: "\p"
+
+  stackTracesEnabled* = handleYesNoOption chronicles_stack_traces
 
   enabledTopics*  = topicsWithLogLevelAsSeq chronicles_enabled_topics
   disabledTopics* = topicsAsSeq chronicles_disabled_topics
@@ -335,3 +342,4 @@ const
             #   narrow terminals
             # * properies may be easier to find
             else: parseSinksSpec "textlines"
+

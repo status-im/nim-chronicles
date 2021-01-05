@@ -1,5 +1,5 @@
 import
-  macros, log_output, scope_helpers, options, dynamic_scope_types
+  macros, log_output, scope_helpers, dynamic_scope_types
 
 proc appenderIMPL[LogRecord, PropertyType](log: var LogRecord,
                                            keyValuePair: ptr ScopeBindingBase[LogRecord]) =
