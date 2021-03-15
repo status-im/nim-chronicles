@@ -366,13 +366,23 @@ template logFn(name: untyped, severity: typed, debug=false) {.dirty.} =
     wrapSideEffects(debug):
       log(instantiationInfo(), stream, severity, eventName, props)
 
-logFn trace , LogLevel.TRACE, debug=true
-logFn debug , LogLevel.DEBUG
-logFn info  , LogLevel.INFO
-logFn notice, LogLevel.NOTICE
-logFn warn  , LogLevel.WARN
-logFn error , LogLevel.ERROR
-logFn fatal , LogLevel.FATAL
+# workaround for https://github.com/status-im/nim-chronicles/issues/92
+when defined(windows) and (NimMajor, NimMinor, NimPatch) < (1, 4, 4):
+  logFn trace , LogLevel.TRACE, debug=true
+  logFn debug , LogLevel.DEBUG, debug=true
+  logFn info  , LogLevel.INFO, debug=true
+  logFn notice, LogLevel.NOTICE, debug=true
+  logFn warn  , LogLevel.WARN, debug=true
+  logFn error , LogLevel.ERROR, debug=true
+  logFn fatal , LogLevel.FATAL, debug=true
+else:
+  logFn trace , LogLevel.TRACE, debug=true
+  logFn debug , LogLevel.DEBUG
+  logFn info  , LogLevel.INFO
+  logFn notice, LogLevel.NOTICE
+  logFn warn  , LogLevel.WARN
+  logFn error , LogLevel.ERROR
+  logFn fatal , LogLevel.FATAL
 
 # TODO:
 #
