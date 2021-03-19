@@ -86,7 +86,7 @@ else:
     JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
       output*: Output
       outStream: OutputStream
-      jsonWriter: JsonWriter
+      jsonWriter: Json.Writer
 
 export
   JsonString
@@ -659,7 +659,7 @@ proc initLogRecord*(r: var JsonRecord,
     r.record = newJsObject()
   else:
     r.outStream = memoryOutput()
-    r.jsonWriter = JsonWriter.init(r.outStream, pretty = false)
+    r.jsonWriter = Json.Writer.init(r.outStream, pretty = false)
     r.jsonWriter.beginRecord()
 
   if level != NONE:
