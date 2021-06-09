@@ -326,7 +326,7 @@ the program.
 Topics in `chronicles_disabled_topics` have precedence over the ones in
 `chronicles_enabled_topics` or `chronicles_required_topics`.
 
-### chronicles_disabled_thread  
+### chronicles_disable_thread_id  
 
 Disable log thread(tid)  
 
