@@ -326,6 +326,10 @@ the program.
 Topics in `chronicles_disabled_topics` have precedence over the ones in
 `chronicles_enabled_topics` or `chronicles_required_topics`.
 
+### chronicles_disabled_thread  
+
+Disable log thread(tid)  
+
 ### chronicles_log_level
 
 This option can be used to erase at compile-time all log statements, not
