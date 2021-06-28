@@ -303,7 +303,8 @@ macro logIMPL(lineInfo: static InstInfo,
     initLogRecord(`record`, LogLevel(`severity`), `topicsNode`, `eventName`)
     # called tid even when it's a process id - this to avoid differences in
     # logging between threads and no threads
-    setFirstProperty(`record`, "tid", getLogThreadId())
+    when not defined(chronicles_disable_thread_id):
+      setFirstProperty(`record`, "tid", getLogThreadId())
 
   if useLineNumbers:
     var filename = lineInfo.filename & ":" & $lineInfo.line
