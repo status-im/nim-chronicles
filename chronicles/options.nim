@@ -216,12 +216,6 @@ proc syntaxCheckStreamExpr*(n: NimNode) =
       error &"Invalid stream definition. " &
              "Please use a bracket expressions such as 'stream_name[sinks_list]'."
 
-proc isLogFormatUsed*(conf: Configuration, format: LogFormat): bool =
-  for stream in conf.streams:
-    for sink in stream.sinks:
-      if sink.format == format: return true
-  return false
-
 proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
   newSeq(result, 0)
   for i in 1 ..< streamNode.len:
@@ -341,3 +335,10 @@ const
             #   narrow terminals
             # * properies may be easier to find
             else: parseSinksSpec "textlines"
+
+proc isLogFormatUsed*(format: LogFormat): bool =
+  for stream in config.streams:
+    for sink in stream.sinks:
+      if sink.format == format: return true
+  return false
+
