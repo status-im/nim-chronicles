@@ -335,3 +335,10 @@ const
             #   narrow terminals
             # * properies may be easier to find
             else: parseSinksSpec "textlines"
+
+proc isLogFormatUsed*(format: LogFormat): bool =
+  for stream in config.streams:
+    for sink in stream.sinks:
+      if sink.format == format: return true
+  return false
+
