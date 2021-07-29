@@ -34,7 +34,7 @@ template lockRegistry(body: untyped) =
   when compileOption("threads"):
     withLock registryLock: body
   else:
-    body
+    {.locks: [registryLock].}: body
 
 proc setLogLevel*(lvl: LogLevel) =
   lockRegistry:
