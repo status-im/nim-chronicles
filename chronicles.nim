@@ -176,7 +176,6 @@ macro expandIt*(T: type, expandedProps: untyped): untyped =
     record = ident "record"
     it = ident "it"
     it_name = ident "it_name"
-    value = ident "value"
     setPropertyCalls = newStmtList()
 
   for prop in expandedProps:
@@ -290,10 +289,6 @@ macro logIMPL(lineInfo: static InstInfo,
   # translates the log statement to a set of calls to `initLogRecord`,
   # `setProperty` and `flushRecord`.
   let
-    recordTypeSym = skipTypedesc(RecordType.getTypeImpl())
-    recordTypeNodes = recordTypeSym.getTypeImpl()
-    recordArity = if recordTypeNodes.kind != nnkTupleConstr: 1
-                  else: recordTypeNodes.len
     record = genSym(nskVar, "record")
     expandItIMPL = bindSym("expandItIMPL", brForceOpen)
 
