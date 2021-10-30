@@ -14,10 +14,10 @@ jobs:
             cpu: i386
           - os: macos
             cpu: amd64
-          #- os: windows
-            #cpu: amd64
-          #- os: windows
-            #cpu: i386
+          - os: windows
+            cpu: amd64
+          - os: windows
+            cpu: i386
         include:
           - target:
               os: linux
