@@ -40,6 +40,9 @@ and it looks like this:
 
 ![textblocks format example](media/textlines.svg)
 
+This format is compatible with tooling written for
+[heroku/logfmt](https://brandur.org/logfmt).
+
 Alternatively, you can use a multi-line format called `textblocks`:
 
 ![textblocks format example](media/textblocks.svg)
@@ -326,9 +329,9 @@ the program.
 Topics in `chronicles_disabled_topics` have precedence over the ones in
 `chronicles_enabled_topics` or `chronicles_required_topics`.
 
-### chronicles_disable_thread_id  
+### chronicles_disable_thread_id
 
-Disable log thread(tid)  
+Disable log thread(tid)
 
 ### chronicles_log_level
 
