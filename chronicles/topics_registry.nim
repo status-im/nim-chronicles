@@ -1,8 +1,15 @@
 import locks, macros, tables
-from options import LogLevel
+from options import config, LogLevel
 
 export
   LogLevel
+
+const totalSinks* = block:
+  var total = 0
+  for stream in config.streams:
+    for sink in stream.sinks:
+      inc total
+  total
 
 type
   TopicState* = enum
@@ -11,19 +18,26 @@ type
     Required,
     Disabled
 
-  TopicSettings* = object
+  SinkTopicSettings* = object
     state*: TopicState
     logLevel*: LogLevel
 
-  TopicsRegisty* = object
-    topicStatesTable*: Table[string, ptr TopicSettings]
+  TopicSettings* = array[totalSinks, SinkTopicSettings]
+
+  SinkFilteringState = object
+    activeLogLevel: LogLevel
+    totalEnabledTopics: int
+    totalRequiredTopics: int
+
+  RuntimeConfig* = object
+    sinkStates: array[totalSinks, SinkFilteringState]
+
+  SinksBitmask = uint8
 
 var
   registryLock: Lock
-  gActiveLogLevel       {.guard: registryLock.}: LogLevel
-  gTotalEnabledTopics   {.guard: registryLock.}: int
-  gTotalRequiredTopics  {.guard: registryLock.}: int
-  gTopicStates          {.guard: registryLock.} = initTable[string, ptr TopicSettings]()
+  runtimeConfig {.guard: registryLock.}: RuntimeConfig
+  gTopicStates {.guard: registryLock.}: Table[string, ptr TopicSettings]
 
 when compileOption("threads"):
   var mainThreadId = getThreadId()
@@ -38,14 +52,19 @@ template lockRegistry(body: untyped) =
 
 proc setLogLevel*(lvl: LogLevel) =
   lockRegistry:
-    gActiveLogLevel = lvl
+    for sink in mitems(runtimeConfig.sinkStates):
+      sink.activeLogLevel = lvl
 
+# Used only in chronicles-tail
 proc clearTopicsRegistry* =
   lockRegistry:
-    gTotalEnabledTopics = 0
-    gTotalRequiredTopics = 0
-    for val in gTopicStates.values:
-      val.state = Normal
+    for sink in mitems(runtimeConfig.sinkStates):
+      sink.totalEnabledTopics = 0
+      sink.totalRequiredTopics = 0
+
+    for name, topicSinksSettings in mpairs(gTopicStates):
+      for topic in mitems(topicSinksSettings[]):
+        topic.state = Normal
 
 proc registerTopic*(name: string, topic: ptr TopicSettings): ptr TopicSettings =
   # As long as sequences are thread-local, modifying the `gTopicStates`
@@ -55,25 +74,33 @@ proc registerTopic*(name: string, topic: ptr TopicSettings): ptr TopicSettings =
 
   lockRegistry:
     gTopicStates[name] = topic
-    return topic
+
+  return topic
 
 proc setTopicState*(name: string,
+                    sinkIdx: int,
                     newState: TopicState,
-                    logLevel = LogLevel.NONE): bool =
+                    logLevel = LogLevel.DEFAULT): bool =
+  if sinkIdx >= totalSinks:
+    return false
+
   lockRegistry:
     if not gTopicStates.hasKey(name):
       return false
 
-    var topicPtr = gTopicStates[name]
+    template sinkState: auto =
+      runtimeConfig.sinkStates[sinkIdx]
+
+    var topicPtr = gTopicStates[name][sinkIdx]
 
     case topicPtr.state
-    of Enabled: dec gTotalEnabledTopics
-    of Required: dec gTotalRequiredTopics
+    of Enabled: dec sinkState.totalEnabledTopics
+    of Required: dec sinkState.totalRequiredTopics
     else: discard
 
     case newState
-    of Enabled: inc gTotalEnabledTopics
-    of Required: inc gTotalRequiredTopics
+    of Enabled: inc sinkState.totalEnabledTopics
+    of Required: inc sinkState.totalRequiredTopics
     else: discard
 
     topicPtr.state = newState
@@ -81,32 +108,49 @@ proc setTopicState*(name: string,
 
     return true
 
+proc setTopicState*(name: string,
+                    newState: TopicState,
+                    logLevel = LogLevel.DEFAULT): bool =
+  result = true
+  for sinkIdx in 0 ..< totalSinks:
+    result = result and setTopicState(name, sinkIdx, newState, logLevel)
+
+proc setBit(x: var SinksBitmask, bitIdx: int, bitValue: bool) =
+  x = x or (SinksBitmask(bitValue) shl bitIdx)
+
 proc topicsMatch*(logStmtLevel: LogLevel,
-                  logStmtTopics: openarray[ptr TopicSettings]): bool =
+                  logStmtTopics: openarray[ptr TopicSettings]): SinksBitmask {.gcsafe.} =
   lockRegistry:
-    var
-      hasEnabledTopics = gTotalEnabledTopics > 0
-      enabledTopicsMatch = false
-      normalTopicsMatch = logStmtTopics.len == 0 and logStmtLevel >= gActiveLogLevel
-      requiredTopicsCount = gTotalRequiredTopics
+    for sinkIdx {.inject.} in 0 ..< totalSinks:
+      template sinkState: auto = runtimeConfig.sinkStates[sinkIdx]
 
-    for topic in logStmtTopics:
-      let topicLogLevel = if topic.logLevel != NONE: topic.logLevel
-                          else: gActiveLogLevel
-      if logStmtLevel >= topicLogLevel:
-        case topic.state
-        of Normal: normalTopicsMatch = true
-        of Enabled: enabledTopicsMatch = true
-        of Disabled: return false
-        of Required: normalTopicsMatch = true; dec requiredTopicsCount
+      if logStmtLevel < sinkState.activeLogLevel:
+        continue
 
-    if requiredTopicsCount > 0:
-      return false
+      var
+        hasEnabledTopics = sinkState.totalEnabledTopics > 0
+        enabledTopicsMatch = false
+        normalTopicsMatch = logStmtTopics.len == 0
+        requiredTopicsCount = sinkState.totalRequiredTopics
 
-    if hasEnabledTopics and not enabledTopicsMatch:
-      return false
+      for topic in logStmtTopics:
+        template topicState: auto = topic[][sinkIdx]
+        let topicLogLevel = if topicState.logLevel != DEFAULT: topicState.logLevel
+                            else: sinkState.activeLogLevel
+        if logStmtLevel >= topicLogLevel:
+          case topicState.state
+          of Normal: normalTopicsMatch = true
+          of Enabled: enabledTopicsMatch = true
+          of Disabled: continue
+          of Required: normalTopicsMatch = true; dec requiredTopicsCount
 
-    return normalTopicsMatch
+      if requiredTopicsCount > 0:
+        continue
+
+      if hasEnabledTopics and not enabledTopicsMatch:
+        continue
+
+      result.setBit(sinkIdx, normalTopicsMatch)
 
 proc getTopicState*(topic: string): ptr TopicSettings =
   lockRegistry:

@@ -100,6 +100,7 @@ template dynamicLogScope*(bindings: varargs[untyped]) {.dirty.} =
                       bindings)
 
 let chroniclesBlockName {.compileTime.} = ident "chroniclesLogStmt"
+let chroniclesTopicsMatchVar {.compileTime.} = ident "chroniclesTopicsMatch"
 
 when runtimeFilteringEnabled:
   import chronicles/topics_registry
@@ -108,7 +109,7 @@ when runtimeFilteringEnabled:
   proc topicStateIMPL(topicName: static[string]): ptr TopicSettings =
     # Nim's GC safety analysis gets confused by the global variables here
     {.gcsafe.}:
-      var topic {.global.} = TopicSettings(state: Normal, logLevel: NONE)
+      var topic {.global.}: TopicSettings
       var dummy {.global, used.} = registerTopic(topicName, addr(topic))
       return addr(topic)
 
@@ -128,7 +129,8 @@ when runtimeFilteringEnabled:
       topicsArray.add newCall(topicStateIMPL, newLit(topic))
 
     result.add quote do:
-      if not `topicsMatch`(LogLevel(`logLevel`), `topicsArray`):
+      let `chroniclesTopicsMatchVar` = `topicsMatch`(LogLevel(`logLevel`), `topicsArray`)
+      if `chroniclesTopicsMatchVar` == 0:
         break `chroniclesBlockName`
 else:
   template runtimeFilteringDisabledError =
@@ -243,6 +245,7 @@ macro logIMPL(lineInfo: static InstInfo,
   var topicsNode = newLit("")
   var activeTopics: seq[string] = @[]
   var useLineNumbers = lineNumbersEnabled
+  var useThreadIds = threadIdsEnabled
 
   if finalBindings.hasKey("topics"):
     topicsNode = finalBindings["topics"]
@@ -259,7 +262,7 @@ macro logIMPL(lineInfo: static InstInfo,
       else:
         for topic in enabledTopics:
           if topic.name == t:
-            if topic.logLevel != NONE:
+            if topic.logLevel != LogLevel.DEFAULT:
               if severity >= topic.logLevel:
                 enabledTopicsMatch = true
             elif severity >= enabledLogLevel:
@@ -267,21 +270,32 @@ macro logIMPL(lineInfo: static InstInfo,
         if t in requiredTopics:
           dec requiredTopicsCount
 
-  if severity != NONE and not enabledTopicsMatch or requiredTopicsCount > 0:
+  if requiredTopicsCount > 0:
     return
 
-  # Handling file name and line numbers on/off (lineNumbersEnabled) for particular log statements
-  if finalBindings.hasKey("chroniclesLineNumbers"):
-    let chroniclesLineNumbers = $finalBindings["chroniclesLineNumbers"]
-    if chroniclesLineNumbers notin ["true", "false"]:
-      error("chroniclesLineNumbers should be set to either true or false",
-            finalBindings["chroniclesLineNumbers"])
-    useLineNumbers = chroniclesLineNumbers == "true"
-    finalBindings.del("chroniclesLineNumbers")
+  if enabledTopics.len > 0 and not enabledTopicsMatch:
+    return
 
-  var code = newStmtList()
+  proc lookForScopeOverride(option: var bool, overrideName: string) =
+    if finalBindings.hasKey(overrideName):
+      let overrideValue = $finalBindings[overrideName]
+      if overrideValue notin ["true", "false"]:
+        error(overrideName & " should be set to either true or false",
+              finalBindings[overrideName])
+      option = overrideValue == "true"
+      finalBindings.del(overrideName)
+
+  # The user is allowed to override the compile-time options for line numbers
+  # and thread ids in particular log statements or scopes:
+  lookForScopeOverride(useLineNumbers, "chroniclesLineNumbers")
+  lookForScopeOverride(useThreadIds, "chroniclesThreadIds")
+
+  var
+    code = newStmtList()
+    bindingLets = newTree(nnkLetSection)
+
   when runtimeFilteringEnabled:
-    if severity != NONE:
+    if severity != LogLevel.NONE:
       code.add runtimeTopicFilteringCode(severity, activeTopics)
 
   # The rest of the code selects the active LogRecord type (which can
@@ -290,34 +304,70 @@ macro logIMPL(lineInfo: static InstInfo,
   # `setProperty` and `flushRecord`.
   let
     record = genSym(nskVar, "record")
+    recordTypeSym = skipTypedesc(RecordType.getTypeImpl())
+    recordTypeNodes = recordTypeSym.getTypeImpl()
+    recordArity = if recordTypeNodes.kind != nnkTupleConstr: 1
+                  else: recordTypeNodes.len
     expandItIMPL = bindSym("expandItIMPL", brForceOpen)
+
+  const
+    letVarsPrefix = "chronicles_"
+
+  template addLetVar(name: string, value: NimNode) =
+    bindingLets.add newTree(
+      nnkIdentDefs,
+        ident(letVarsPrefix & name),
+        newNimNode(nnkEmpty),
+        value)
+
+  for k, v in finalBindings:
+    addLetVar k, v
+
+  if useThreadIds:
+    addLetVar "tid", newCall(bindSym "getLogThreadId")
+
+  if useLineNumbers:
+    addLetVar "src", newLit(lineInfo.filename & ":" & $lineInfo.line)
 
   code.add quote do:
     var `record`: `RecordType`
-    prepareOutput(`record`, LogLevel(`severity`))
-    initLogRecord(`record`, LogLevel(`severity`), `topicsNode`, `eventName`)
-    # called tid even when it's a process id - this to avoid differences in
-    # logging between threads and no threads
-    when not defined(chronicles_disable_thread_id):
-      setFirstProperty(`record`, "tid", getLogThreadId())
+    `bindingLets`
 
-  if useLineNumbers:
-    var filename = lineInfo.filename & ":" & $lineInfo.line
-    code.add newCall("setProperty", record,
-                     newLit("file"), newLit(filename))
+  for i in 0 ..< recordArity:
+    let recordRef = if recordArity == 1: record
+                    else: newTree(nnkBracketExpr, record, newLit(i))
 
-  for k, v in finalBindings:
-    code.add newCall(expandItIMPL, record, newLit(k), v)
+    var perSinkStmtList = code
+    if runtimeFilteringEnabled and recordArity > 1:
+      perSinkStmtList = newStmtList()
+      let sinkBit = newLit(1 shl i)
+      let sinkFilterCondition = quote do:
+        if (`chroniclesTopicsMatchVar` and `sinkBit`) != 0:
+          discard
+      sinkFilterCondition[0][1] = perSinkStmtList
+      code.add sinkFilterCondition
 
-  code.add newCall("logAllDynamicProperties", Stream, record)
-  code.add newCall("flushRecord", record)
+    perSinkStmtList.add quote do:
+      prepareOutput(`recordRef`, LogLevel(`severity`))
+      initLogRecord(`recordRef`, LogLevel(`severity`), `topicsNode`, `eventName`)
+
+    for i in 0 ..< bindingLets.len:
+      let letVar = bindingLets[i][0]
+      perSinkStmtList.add newCall(
+        expandItIMPL,
+        recordRef,
+        newLit(substr($letVar, len(letVarsPrefix))),
+        letVar)
+
+    perSinkStmtList.add newCall("logAllDynamicProperties", Stream, record, newLit(i))
+    perSinkStmtList.add newCall("flushRecord", recordRef)
 
   result = quote do:
     try:
       block `chroniclesBlockName`:
         `code`
     except CatchableError as err:
-      logLoggingFailure(cstring(`eventName`), err)
+      logLoggingFailure(`eventName`, err)
 
   when defined(debugLogImpl):
     echo result.repr
@@ -382,23 +432,16 @@ else:
 
 # TODO:
 #
-# * don't sort the properties
-# * define all formats in terms of nim-serialization
-#   (this will remove the need for setFirstProperty and the thread id will become optional)
-# * don't have side effects in debug and trace
-# * extract the testing framework in stew/testability
 # * extract the compile-time conf framework in confutils
 # * instance carried streams that can collect the information in memory
 #
 # * define an alternative format strings API (.net style)
-# * compile-time topic-based log level (e.g. enable tracing in the p2p layer)
 # * auto-derived topics based on nimble package name and module name
 #
-# * dynamic sinks
 # * Android and iOS logging, mixed std streams (logging both to stdout and stderr?)
-# * evaluate the lexical expressions only once in the presence of multiple sinks
 # * dynamic scope overrides (plus maybe an option to control the priority
 #                            between dynamic and lexical bindings)
 #
 # * implement some of the leading standardized structured logging formats
 #
+
