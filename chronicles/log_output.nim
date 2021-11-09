@@ -548,6 +548,41 @@ proc initLogRecord*(r: var TextLineRecord,
   r.level = lvl
   appendHeader(r, lvl, topics, name, true)
 
+const
+  controlChars =  {'\x00'..'\x1f'}
+  extendedAsciiChars = {'\x7f'..'\xff'}
+  escapedChars*: set[char] = strutils.NewLines + {'"', '\\'} + controlChars + extendedAsciiChars
+  quoteChars*: set[char] = {' ', '='}
+
+func containsEscapedChars*(str: string|cstring): bool =
+  for c in str:
+    if c in escapedChars:
+      return true
+  return false
+
+func needsQuotes*(str: string|cstring): bool =
+  for c in str:
+    if c in quoteChars:
+      return true
+  return false
+
+proc writeEscapedString*(output: var string, str: string|cstring) =
+  for c in str:
+    case c
+    of '"': output.add "\\\""
+    of '\\': output.add "\\\\"
+    of '\r': output.add "\\r"
+    of '\n': output.add "\\n"
+    of '\t': output.add "\\t"
+    else:
+      const hexChars = "0123456789abcdef"
+      if c >= char(0x20) and c <= char(0x7e):
+        output.add c
+      else:
+        output.add("\\x")
+        output.add hexChars[int(c) shr 4 and 0xF]
+        output.add hexChars[int(c) and 0xF]
+
 proc setProperty*(r: var TextLineRecord, key: string, val: auto) =
   append(r.output, " ")
   let valText = $val
@@ -562,20 +597,20 @@ proc setProperty*(r: var TextLineRecord, key: string, val: auto) =
   # This is similar to how it's done in logfmt:
   # https://github.com/csquared/node-logfmt/blob/master/lib/stringify.js#L13
   let
-    needsEscape = valText.find(NewLines + {'"', '\\'}) > -1
-    needsQuote = valText.find({' ', '='}) > -1
+    needsEscape = valText.find(escapedChars) > -1
+    needsQuote = valText.find(quoteChars) > -1
 
   if needsEscape or needsQuote:
     escaped = newStringOfCap(valText.len + valText.len div 8)
+    add(escaped, '"')
     if needsEscape:
       # addQuoted adds quotes and escapes a bunch of characters
       # XXX addQuoted escapes more characters than what we look for in above
       #     needsEscape check - it's a bit weird that way
-      addQuoted(escaped, valText)
+      escaped.writeEscapedString(valText)
     elif needsQuote:
-      add(escaped, '"')
       add(escaped, valText)
-      add(escaped, '"')
+    add(escaped, '"')
     valueToWrite = addr escaped
   else:
     valueToWrite = unsafeAddr valText
