@@ -1,5 +1,5 @@
 program="../size"
-max_size=1000000
+max_size=1200000
 release
 
 chronicles_sinks="textlines[stdout]"
