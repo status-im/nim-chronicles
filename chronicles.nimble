@@ -12,8 +12,4 @@ requires "testutils"
 requires "json_serialization"
 
 task test, "run CPU tests":
-  when defined(windows):
-    # exec "cmd.exe /C ntu.cmd test tests"
-    echo "`ntu` doesn't work on Windows"
-  else:
-    exec "ntu test tests"
+  exec "ntu test tests"
