@@ -124,7 +124,9 @@ proc handleEnumOption(E: typedesc[enum],
       type R = type(result)
       return R(0)
     else:
-      return parseEnum[E](optValue)
+      # This enum parsing is supposed to be case insensitive, but it isn't in
+      # Nim-1.6.0.
+      return parseEnum[E](optValue.capitalizeAscii())
   except: error &"'{optValue}' is not a recognized value for '{optName}'. " &
                 &"Allowed values are {enumValues E}"
 

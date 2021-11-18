@@ -1,5 +1,5 @@
 program="../size"
-max_size=1250000
+max_size=1400000
 
 chronicles_sinks="textlines[stdout]"
 chronicles_colors=AnsiColors
