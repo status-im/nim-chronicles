@@ -263,7 +263,7 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   # Check if a buffered output is needed
   if defined(js) or
      sink.destinations.len > 1 or
-     sink.destinations[0].kind in {oSyslog,oDynamic} or
+     sink.destinations[0].kind in {oSysLog,oDynamic} or
      compileOption("threads"):
 
     # Here, we build the list of outputs as a tuple
