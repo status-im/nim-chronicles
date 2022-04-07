@@ -562,7 +562,7 @@ proc setProperty*(r: var TextLineRecord, key: string, val: auto) =
   # This is similar to how it's done in logfmt:
   # https://github.com/csquared/node-logfmt/blob/master/lib/stringify.js#L13
   let
-    needsEscape = valText.find(NewLines + {'"', '\\'}) > -1
+    needsEscape = valText.find(Newlines + {'"', '\\'}) > -1
     needsQuote = valText.find({' ', '='}) > -1
 
   if needsEscape or needsQuote:
@@ -617,7 +617,7 @@ proc setProperty*(r: var TextBlockRecord, key: string, val: auto) =
   append(r.output, ": ")
   applyStyle(r, styleBright)
 
-  if valText.find(NewLines) == -1:
+  if valText.find(Newlines) == -1:
     append(r.output, valText)
     append(r.output, "\n")
   else:
