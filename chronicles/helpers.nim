@@ -2,7 +2,7 @@ import
   tables, strutils, strformat,
   topics_registry
 
-func parseTopicDirectives*(directives: openarray[string]): Table[string, TopicSettings] =
+func parseTopicDirectives*(directives: openArray[string]): Table[string, TopicSettings] =
   result = initTable[string, TopicSettings]()
 
   for directive in directives:
