@@ -652,7 +652,7 @@ proc setProperty*(r: var TextBlockRecord, key: string, val: auto) =
   append(r.output, ": ")
   applyStyle(r, styleBright)
 
-  if valText.find(NewLines) == -1:
+  if valText.find(Newlines) == -1:
     append(r.output, valText)
     append(r.output, "\n")
   else:
