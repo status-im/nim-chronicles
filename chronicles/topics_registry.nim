@@ -82,7 +82,7 @@ proc setTopicState*(name: string,
     return true
 
 proc topicsMatch*(logStmtLevel: LogLevel,
-                  logStmtTopics: openarray[ptr TopicSettings]): bool =
+                  logStmtTopics: openArray[ptr TopicSettings]): bool =
   lockRegistry:
     var
       hasEnabledTopics = gTotalEnabledTopics > 0
