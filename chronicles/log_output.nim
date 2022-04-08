@@ -716,7 +716,7 @@ template setFirstProperty*(r: var JsonRecord, key: string, val: auto) =
 
 proc flushRecord*(r: var JsonRecord) =
   when defined(js):
-    r.output.append JSON.stringify(r.record)
+    r.output.append Json.stringify(r.record)
   else:
     r.jsonWriter.endRecord()
     r.outStream.write '\n'
