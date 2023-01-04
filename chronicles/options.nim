@@ -123,7 +123,7 @@ proc handleEnumOption(E: typedesc[enum],
     if optValue.toLowerAscii in falsySwitches:
       type R = type(result)
 
-      if 0 notin R.low.ord .. R.low.ord:
+      if 0 notin R.low.ord ..< R.high.ord:
         raise newException(ValueError, "falsy invalid for type")
 
       return R(0)
