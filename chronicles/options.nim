@@ -122,12 +122,16 @@ proc handleEnumOption(E: typedesc[enum],
   try:
     if optValue.toLowerAscii in falsySwitches:
       type R = type(result)
+
+      if 0 notin R.low.ord .. R.low.ord:
+        raise newException(ValueError, "falsy invalid for type")
+
       return R(0)
     else:
       # This enum parsing is supposed to be case insensitive, but it isn't in
       # Nim-1.6.0.
       return parseEnum[E](optValue.capitalizeAscii())
-  except: error &"'{optValue}' is not a recognized value for '{optName}'. " &
+  except ValueError: error &"'{optValue}' is not a recognized value for '{optName}'. " &
                 &"Allowed values are {enumValues E}"
 
 template handleEnumOption(E, varName: untyped): auto =
