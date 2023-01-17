@@ -346,8 +346,12 @@ template log*(lineInfo: static InstInfo,
 template wrapSideEffects(debug: bool, body: untyped) {.inject.} =
   when debug:
     {.noSideEffect.}:
+      when (NimMajor, NimMinor) > (1, 6):
+        {.warning[BareExcept]:off.}
       try: body
       except: discard
+      when (NimMajor, NimMinor) > (1, 6):
+        {.warning[BareExcept]:on.}
   else:
     body
 
