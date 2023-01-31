@@ -219,17 +219,14 @@ proc wildcard(str, match: string): bool =
   var strIndex = 0
 
   for matchIndex, ch in match:
-    if str.len <= strIndex: return false
-
-    if ch == '?':
-      strIndex.inc()
-      continue
-    elif ch == '*':
+    if ch == '*':
       while strIndex < str.len:
         if wildcard(str[strIndex ..< ^0], match[matchIndex + 1 .. ^1]):
           return true
         strIndex.inc()
-    elif ch == str[strIndex]:
+    elif str.len <= strIndex:
+      return false
+    elif ch == '?' or ch == str[strIndex]:
       strIndex.inc()
     else:
       return false
