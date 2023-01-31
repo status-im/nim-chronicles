@@ -215,6 +215,27 @@ macro expandIt*(T: type, expandedProps: untyped): untyped =
   when defined(debugLogImpl):
     echo result.repr
 
+proc wildcard(str, match: string): bool =
+  var strIndex = 0
+
+  for matchIndex, ch in match:
+    if str.len <= strIndex: return false
+
+    if ch == '?':
+      strIndex.inc()
+      continue
+    elif ch == '*':
+      while strIndex < str.len:
+        if wildcard(str[strIndex ..< ^0], match[matchIndex + 1 .. ^1]):
+          return true
+        strIndex.inc()
+    elif ch == str[strIndex]:
+      strIndex.inc()
+    else:
+      return false
+
+  return strIndex == str.len
+
 macro logIMPL(lineInfo: static InstInfo,
               Stream: typed,
               RecordType: type,
@@ -258,7 +279,7 @@ macro logIMPL(lineInfo: static InstInfo,
         return
       else:
         for topic in enabledTopics:
-          if topic.name == t:
+          if wildcard(t, topic.name):
             if topic.logLevel != NONE:
               if severity >= topic.logLevel:
                 enabledTopicsMatch = true
