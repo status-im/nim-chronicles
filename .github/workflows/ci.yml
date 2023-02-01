@@ -163,6 +163,7 @@ jobs:
           nim --version
           nimble --version
           nimble install -y --depsOnly
+          rm -f nimble.lock
           #nimble test # can't find or run "ntu" on Windows
           ntu test tests
 
