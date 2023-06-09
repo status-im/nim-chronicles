@@ -26,11 +26,11 @@ jobs:
         include:
           - target:
               os: linux
-            builder: ubuntu-18.04
+            builder: ubuntu-20.04
             shell: bash
           - target:
               os: macos
-            builder: macos-10.15
+            builder: macos-11
             shell: bash
           - target:
               os: windows
@@ -46,7 +46,7 @@ jobs:
     continue-on-error: ${{ matrix.branch == 'version-1-6' || matrix.branch == 'devel' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install build dependencies (Linux i386)
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
@@ -92,7 +92,7 @@ jobs:
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: external/dlls-${{ matrix.target.cpu }}
           key: 'dlls-${{ matrix.target.cpu }}'
@@ -163,6 +163,7 @@ jobs:
           nim --version
           nimble --version
           nimble install -y --depsOnly
+          rm -f nimble.lock
           #nimble test # can't find or run "ntu" on Windows
           ntu test tests
 

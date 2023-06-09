@@ -72,7 +72,7 @@ macro logScopeIMPL(prevScopes: typed,
 
   let activeScope = id("activeChroniclesScope", isPublic)
   result.add quote do:
-    template `activeScope` =
+    template `activeScope` {.used.} =
       `newRevision`
       `newAssingments`
 
@@ -346,8 +346,12 @@ template log*(lineInfo: static InstInfo,
 template wrapSideEffects(debug: bool, body: untyped) {.inject.} =
   when debug:
     {.noSideEffect.}:
+      when defined(nimHasWarnBareExcept):
+        {.push warning[BareExcept]:off.}
       try: body
       except: discard
+      when defined(nimHasWarnBareExcept):
+        {.pop.}
   else:
     body
 
