@@ -127,8 +127,9 @@ when runtimeFilteringEnabled:
     for topic in topics:
       topicsArray.add newCall(topicStateIMPL, newLit(topic))
 
+    let lvl = newDotExpr(ident "LogLevel", ident $logLevel)
     result.add quote do:
-      if not `topicsMatch`(LogLevel(`logLevel`), `topicsArray`):
+      if not `topicsMatch`(`lvl`, `topicsArray`):
         break `chroniclesBlockName`
 else:
   template runtimeFilteringDisabledError =
@@ -290,12 +291,13 @@ macro logIMPL(lineInfo: static InstInfo,
   # `setProperty` and `flushRecord`.
   let
     record = genSym(nskVar, "record")
+    lvl = newDotExpr(ident "LogLevel", ident $severity)
     expandItIMPL = bindSym("expandItIMPL", brForceOpen)
 
   code.add quote do:
     var `record`: `RecordType`
-    prepareOutput(`record`, LogLevel(`severity`))
-    initLogRecord(`record`, LogLevel(`severity`), `topicsNode`, `eventName`)
+    prepareOutput(`record`, `lvl`)
+    initLogRecord(`record`, `lvl`, `topicsNode`, `eventName`)
     # called tid even when it's a process id - this to avoid differences in
     # logging between threads and no threads
     when not defined(chronicles_disable_thread_id):
