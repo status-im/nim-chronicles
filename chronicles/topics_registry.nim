@@ -1,4 +1,4 @@
-import locks, macros, tables
+import locks, macros, tables, strutils
 from options import LogLevel
 
 export
@@ -39,6 +39,10 @@ template lockRegistry(body: untyped) =
 proc setLogLevel*(lvl: LogLevel) =
   lockRegistry:
     gActiveLogLevel = lvl
+
+proc setLogLevel*(lvl: string) =
+  lockRegistry:
+    gActiveLogLevel = parseEnum[LogLevel](lvl.toUpperAscii)
 
 proc clearTopicsRegistry* =
   lockRegistry:
