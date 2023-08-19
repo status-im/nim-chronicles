@@ -439,7 +439,10 @@ template writeTs(record) =
 
 template fgColor(record, color, brightness) =
   when record.colors == AnsiColors:
-    append(record.output, ansiForegroundColorCode(color, brightness))
+    try:
+      append(record.output, ansiForegroundColorCode(color, brightness))
+    except ValueError:
+      discard
   elif record.colors == NativeColors:
     setForegroundColor(getOutputStream(record.output), color, brightness)
 
@@ -583,7 +586,8 @@ proc writeEscapedString*(output: var string, str: string|cstring) =
         output.add hexChars[int(c) shr 4 and 0xF]
         output.add hexChars[int(c) and 0xF]
 
-proc setProperty*(r: var TextLineRecord, key: string, val: auto) =
+proc setProperty*(
+    r: var TextLineRecord, key: string, val: auto) {.raises: [].} =
   append(r.output, " ")
   let valText = $val
 
@@ -643,7 +647,8 @@ proc initLogRecord*(r: var TextBlockRecord,
   appendHeader(r, level, topics, name, false)
   append(r.output, "\n")
 
-proc setProperty*(r: var TextBlockRecord, key: string, val: auto) =
+proc setProperty*(
+    r: var TextBlockRecord, key: string, val: auto) {.raises: [].} =
   let valText = $val
 
   append(r.output, textBlockIndent)
@@ -684,7 +689,10 @@ template `[]=`(r: var JsonRecord, key: string, val: auto) =
     else:
       r.record[key] = val
   else:
-    writeField(r.jsonWriter, key, val)
+    try:
+      writeField(r.jsonWriter, key, val)
+    except IOError:
+      discard
 
 proc initLogRecord*(r: var JsonRecord,
                     level: LogLevel,
@@ -708,7 +716,7 @@ proc initLogRecord*(r: var JsonRecord,
   if topics.len > 0:
     r["topics"] = topics
 
-proc setProperty*(r: var JsonRecord, key: string, val: auto) =
+proc setProperty*(r: var JsonRecord, key: string, val: auto) {.raises: [].} =
   r[key] = val
 
 template setFirstProperty*(r: var JsonRecord, key: string, val: auto) =
