@@ -11,12 +11,5 @@ proc catchOrQuit*(error: Exception) =
 
 proc traceAsyncErrors*(fut: FutureBase) =
   fut.addCallback do (arg: pointer):
-    if not fut.error.isNil:
+    if fut.failed():
       catchOrQuit fut.error[]
-
-template traceAwaitErrors*(fut: FutureBase) =
-  let f = fut
-  yield f
-  if not f.error.isNil:
-    catchOrQuit f.error[]
-
