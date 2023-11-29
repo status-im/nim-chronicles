@@ -480,7 +480,7 @@ template shortName(lvl: LogLevel): string =
   of TRACE: "TRC"
   of DEBUG: "DBG"
   of INFO:  "INF"
-  of NOTICE:"NOT"
+  of NOTICE:"NTC"  # Legacy: "NOT"
   of WARN:  "WRN"
   of ERROR: "ERR"
   of FATAL: "FAT"
