@@ -127,7 +127,7 @@ when runtimeFilteringEnabled:
     for topic in topics:
       topicsArray.add newCall(topicStateIMPL, newLit(topic))
 
-    let lvl = newDotExpr(ident "LogLevel", ident $logLevel)
+    let lvl = newDotExpr(bindSym("LogLevel", brClosed), ident $logLevel)
     result.add quote do:
       if not `topicsMatch`(`lvl`, `topicsArray`):
         break `chroniclesBlockName`
@@ -291,7 +291,7 @@ macro logIMPL(lineInfo: static InstInfo,
   # `setProperty` and `flushRecord`.
   let
     record = genSym(nskVar, "record")
-    lvl = newDotExpr(ident "LogLevel", ident $severity)
+    lvl = newDotExpr(bindSym("LogLevel", brClosed), ident $severity)
     expandItIMPL = bindSym("expandItIMPL", brForceOpen)
 
   code.add quote do:
