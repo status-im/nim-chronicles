@@ -216,6 +216,11 @@ macro expandIt*(T: type, expandedProps: untyped): untyped =
   when defined(debugLogImpl):
     echo result.repr
 
+template chroniclesUsedMagic(x: untyped) =
+  # Force the compiler to mark any symbol in the x
+  # as used without actually generate any code.
+  when compiles(x): discard
+
 macro logIMPL(lineInfo: static InstInfo,
               Stream: typed,
               RecordType: type,
@@ -237,12 +242,12 @@ macro logIMPL(lineInfo: static InstInfo,
     finalBindings[k] = v
 
   result = newStmtList()
-  # This discard statement is to silence compiler warnings
+  # This statement is to silence compiler warnings
   # `declared but not used` when there is no logging code generated.
   # push/pop pragma pairs cannot be used in this situation
   # because the variables are declared outside of this function.
   for k, v in finalBindings:
-    result.add quote do: discard (`v`)
+    result.add quote do: chroniclesUsedMagic(`v`)
 
   if not loggingEnabled: return
 
