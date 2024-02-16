@@ -246,6 +246,7 @@ macro logIMPL(lineInfo: static InstInfo,
   # `declared but not used` when there is no logging code generated.
   # push/pop pragma pairs cannot be used in this situation
   # because the variables are declared outside of this function.
+  result.add quote do: chroniclesUsedMagic(`eventName`)
   for k, v in finalBindings:
     result.add quote do: chroniclesUsedMagic(`v`)
 
