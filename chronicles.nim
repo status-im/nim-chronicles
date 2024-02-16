@@ -159,13 +159,13 @@ else:
   else:
     proc getLogThreadId*(): int = 0
 
-template formatItIMPL*(value: any): auto =
+template formatItIMPL*(value: auto): auto =
   value
 
 template formatIt*(T: type, body: untyped) {.dirty.} =
   template formatItIMPL*(it: T): auto = body
 
-template expandItIMPL*[R](record: R, field: static string, value: any) =
+template expandItIMPL*[R](record: R, field: static string, value: auto) =
   mixin setProperty, formatItIMPL
   setProperty(record, field, formatItIMPL(value))
 
@@ -223,7 +223,6 @@ macro logIMPL(lineInfo: static InstInfo,
               severity: static[LogLevel],
               scopes: typed,
               logStmtBindings: varargs[untyped]): untyped =
-  if not loggingEnabled: return
   clearEmptyVarargs logStmtBindings
 
   # First, we merge the lexical bindings with the additional
@@ -236,6 +235,16 @@ macro logIMPL(lineInfo: static InstInfo,
 
   for k, v in assignments(lexicalBindings, acLogStatement):
     finalBindings[k] = v
+
+  result = newStmtList()
+  # This discard statement is to silence compiler warnings
+  # `declared but not used` when there is no logging code generated.
+  # push/pop pragma pairs cannot be used in this situation
+  # because the variables are declared outside of this function.
+  for k, v in finalBindings:
+    result.add quote do: discard (`v`)
+
+  if not loggingEnabled: return
 
   # This is the compile-time topic filtering code, which has a similar
   # logic to the generated run-time filtering code:
@@ -314,7 +323,7 @@ macro logIMPL(lineInfo: static InstInfo,
   code.add newCall("logAllDynamicProperties", Stream, record)
   code.add newCall("flushRecord", record)
 
-  result = quote do:
+  result.add quote do:
     try:
       block `chroniclesBlockName`:
         `code`
