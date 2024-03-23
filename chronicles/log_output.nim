@@ -893,7 +893,7 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
     # Using --tlsEmulation:on also appears to fix this, but can exact quite a
     # performance cost. This localizes the workaround's cost to this specific
     # observed issue's amelioration.
-    proc tlsSlot*(S: type `name`): auto {.noinline.} = `tlsSlot`
+    proc tlsSlot*(S: type `name`): var auto {.noinline.} = `tlsSlot`
 
     var `outputs` = `outputsTuple`
 
