@@ -807,12 +807,8 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
     # on a
     # hw.model: Mac14,3
     #
-    # (i.e. a Mac Mini with an M2). Based on CI symptoms, the same problem
-    # appears to occur on the Jenkins CI fleet's M1 hosts. It has not been
-    # observed outside this macOS with aarch64/ARM64 combination.
-    #
     # will do so, with proposeBlockAux() in nimbus-eth2 beacon_validators.nim
-    # for the
+    # for
     #
     # notice "Block proposed",
     #  blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
@@ -820,7 +816,11 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
     #
     # causing a SIGSEGV which lldb tracked to this aspect of TLS usage in
     # logAllDynamicProperties, where logAllDynamicProperties gets inlined
-    # within proposeBlockAux. With Nim 1.6, the stack trace looks like:
+    # within proposeBlockAux.
+    #
+    # Based on CI symptoms, the same problem appears to occur on the Jenkins CI
+    # fleet's M1 and M2 hosts. It has not been observed outside this macOS with
+    # aarch64/ARM64 combination. With Nim 1.6, the stack trace looks like:
     #
     # Nim Compiler Version 1.6.18 [MacOSX: arm64]
     # Compiled at 2024-03-22
@@ -893,7 +893,8 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
     # Using --tlsEmulation:on also appears to fix this, but can exact quite a
     # performance cost. This localizes the workaround's cost to this specific
     # observed issue's amelioration.
-    proc tlsSlot*(S: type `name`): var auto {.noinline.} = `tlsSlot`
+    proc tlsSlot*(S: type `name`):
+      var ptr BindingsFrame[`Record`] {.noinline.} = `tlsSlot`
 
     var `outputs` = `outputsTuple`
 
