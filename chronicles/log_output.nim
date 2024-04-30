@@ -1,6 +1,6 @@
 import
   strutils, times, macros, options, os,
-  dynamic_scope_types
+  dynamic_scope_types, stew/[objects, byteutils]
 
 when defined(js):
   import
@@ -428,14 +428,59 @@ proc rfcTimestamp: string =
 proc epochTimestamp: string =
   formatFloat(epochTime(), ffDecimal, 6)
 
-template timestamp(record): string =
-  when record.timestamps == RfcTime:
-    rfcTimestamp()
+var
+  cachedTime = dateTime(1900, mJan, 1)
+  cachedTimeArray: array[17, byte] # "yyyy-MM-dd HH:mm:"
+  cachedZonePeriod: int = -1
+  cachedZoneArray: array[6, byte] # "zzz"
+
+template timeIsCached(a: DateTime): bool =
+  if (a.year == cachedTime.year) and (a.month == cachedTime.month) and
+     (a.monthday == cachedTime.monthday) and (a.hour == cachedTime.hour) and
+     (a.minute == cachedTime.minute):
+    true
   else:
-    epochTimestamp()
+    false
+
+template timezoneIsCached(a: DateTime): bool =
+  if (ord(a.minute) div 15) == cachedZonePeriod:
+    true
+  else:
+    false
+
+proc getTimeString(a: DateTime): string =
+  if not(timeIsCached(a)):
+    let tmp = a.format("yyyy-MM-dd HH:mm:")
+    cachedTime = a
+    cachedTimeArray = toArray(17, tmp.toOpenArrayByte(0, 16))
+  string.fromBytes(cachedTimeArray)
+
+proc getZoneString(a: DateTime): string =
+  if not(timezoneIsCached(a)):
+    let tmp = a.format("zzz")
+    cachedZonePeriod = ord(a.minute) div 15
+    cachedZoneArray = toArray(6, tmp.toOpenArrayByte(0, 5))
+  string.fromBytes(cachedZoneArray)
+
+proc getSecondsString(a: DateTime): string =
+  a.format("ss'.'fff")
 
 template writeTs(record) =
-  append(record.output, timestamp(record))
+  when record.timestamps == RfcTime:
+    let ct = getTime().local
+    append(record.output, getTimeString(ct), getSecondsString(ct),
+           getZoneString(ct))
+  else:
+    append(record.output, epochTimestamp())
+
+# template timestamp(record): string =
+#   when record.timestamps == RfcTime:
+#     rfcTimestamp()
+#   else:
+#     epochTimestamp()
+
+# template writeTs(record) =
+#   append(record.output, timestamp(record))
 
 template fgColor(record, color, brightness) =
   when record.colors == AnsiColors:
