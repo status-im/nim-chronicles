@@ -164,5 +164,6 @@ jobs:
           nimble --version
           nimble install -y --depsOnly
           rm -f nimble.lock
-          nimble test
+          ls -la /c/Users/runneradmin/.nimble
           ls -la /c/Users/runneradmin/.nimble/bin
+          nimble test
