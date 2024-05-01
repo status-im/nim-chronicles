@@ -102,11 +102,6 @@ jobs:
           steps.windows-dlls-cache.outputs.cache-hit != 'true' &&
           runner.os == 'Windows'
         run: |
-          echo $HOMEDRIVE
-          echo $HOMEPATH
-          echo $HOMEDRIVE$HOMEPATH
-          whoami
-          env
           mkdir -p external
           curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
           7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
@@ -144,6 +139,11 @@ jobs:
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
           echo "ncpu=$ncpu" >> $GITHUB_ENV
           echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
+          echo $HOMEDRIVE
+          echo $HOMEPATH
+          echo $HOMEDRIVE$HOMEPATH
+          whoami
+          env
 
       - name: Build Nim and Nimble
         run: |
