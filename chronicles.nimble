@@ -16,4 +16,4 @@ else:
   requires "testutils"
 
 task test, "run CPU tests":
-  exec "ntu test tests"
+  exec "ntu.cmd test tests"
