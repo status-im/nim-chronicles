@@ -12,12 +12,12 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - os: linux
-            cpu: amd64
-          - os: linux
-            cpu: i386
-          - os: macos
-            cpu: amd64
+          # - os: linux
+          #   cpu: amd64
+          # - os: linux
+          #   cpu: i386
+          # - os: macos
+          #   cpu: amd64
           - os: windows
             cpu: amd64
           #- os: windows
@@ -102,6 +102,11 @@ jobs:
           steps.windows-dlls-cache.outputs.cache-hit != 'true' &&
           runner.os == 'Windows'
         run: |
+          echo $HOMEDRIVE
+          echo $HOMEPATH
+          echo $HOMEDRIVE$HOMEPATH
+          whoami
+          env
           mkdir -p external
           curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
           7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
