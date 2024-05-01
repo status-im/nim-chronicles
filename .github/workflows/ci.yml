@@ -12,26 +12,26 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          # - os: linux
-          #   cpu: amd64
-          # - os: linux
-          #   cpu: i386
-          # - os: macos
-          #   cpu: amd64
+          - os: linux
+            cpu: amd64
+          - os: linux
+            cpu: i386
+          - os: macos
+            cpu: amd64
           - os: windows
             cpu: amd64
           #- os: windows
             #cpu: i386
         branch: [version-1-6, version-2-0, devel]
         include:
-          # - target:
-          #     os: linux
-          #   builder: ubuntu-20.04
-          #   shell: bash
-          # - target:
-          #     os: macos
-          #   builder: macos-12
-          #   shell: bash
+          - target:
+              os: linux
+            builder: ubuntu-20.04
+            shell: bash
+          - target:
+              os: macos
+            builder: macos-12
+            shell: bash
           - target:
               os: windows
             builder: windows-2019
