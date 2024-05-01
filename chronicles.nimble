@@ -16,4 +16,7 @@ else:
   requires "testutils"
 
 task test, "run CPU tests":
-  exec "ntu.cmd test tests"
+  when defined(windows):
+    exec "ntu.cmd test tests"
+  else:
+    exec "ntu test tests"
