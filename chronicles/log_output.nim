@@ -465,22 +465,15 @@ proc getZoneString(a: DateTime): string =
 proc getSecondsString(a: DateTime): string =
   a.format("ss'.'fff")
 
-template writeTs(record) =
+template timestamp(record): string =
   when record.timestamps == RfcTime:
-    let ct = getTime().local
-    append(record.output, getTimeString(ct), getSecondsString(ct),
-           getZoneString(ct))
+    let ct = now()
+    getTimeString(ct) & getSecondsString(ct) & getZoneString(ct)
   else:
-    append(record.output, epochTimestamp())
+    epochTimestamp()
 
-# template timestamp(record): string =
-#   when record.timestamps == RfcTime:
-#     rfcTimestamp()
-#   else:
-#     epochTimestamp()
-
-# template writeTs(record) =
-#   append(record.output, timestamp(record))
+template writeTs(record) =
+  append(record.output, timestamp(record))
 
 template fgColor(record, color, brightness) =
   when record.colors == AnsiColors:
