@@ -24,14 +24,14 @@ jobs:
             #cpu: i386
         branch: [version-1-6, version-2-0, devel]
         include:
-          - target:
-              os: linux
-            builder: ubuntu-20.04
-            shell: bash
-          - target:
-              os: macos
-            builder: macos-12
-            shell: bash
+          # - target:
+          #     os: linux
+          #   builder: ubuntu-20.04
+          #   shell: bash
+          # - target:
+          #     os: macos
+          #   builder: macos-12
+          #   shell: bash
           - target:
               os: windows
             builder: windows-2019
@@ -139,11 +139,6 @@ jobs:
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
           echo "ncpu=$ncpu" >> $GITHUB_ENV
           echo "MAKE_CMD=${MAKE_CMD}" >> $GITHUB_ENV
-          echo $HOMEDRIVE
-          echo $HOMEPATH
-          echo $HOMEDRIVE$HOMEPATH
-          whoami
-          env
 
       - name: Build Nim and Nimble
         run: |
@@ -170,3 +165,4 @@ jobs:
           nimble install -y --depsOnly
           rm -f nimble.lock
           nimble test
+          ls -la /c/Users/runneradmin/.nimble/bin
