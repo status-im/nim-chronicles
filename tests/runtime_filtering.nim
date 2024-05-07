@@ -86,3 +86,12 @@ echo setTopicState("bar", Normal)
 
 foo()
 bar()
+
+echo "> set global LogLevel to string warn, set main and foo to INFO, both should print:"
+setLogLevel("warn")
+echo setTopicState("main", Normal, INFO)
+echo setTopicState("foo", Normal, INFO)
+echo setTopicState("bar", Normal)
+
+foo()
+bar()
