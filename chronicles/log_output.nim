@@ -422,9 +422,6 @@ macro append*(o: var AnyOutput,
   result.add newCall("append", o, arg2)
   for arg in restArgs: result.add newCall("append", o, arg)
 
-proc rfcTimestamp: string =
-  now().format("yyyy-MM-dd HH:mm:ss'.'fffzzz")
-
 proc epochTimestamp: string =
   formatFloat(epochTime(), ffDecimal, 6)
 
