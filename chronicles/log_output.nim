@@ -1,5 +1,5 @@
 import
-  strutils, times, macros, options, os,
+  strutils, times, macros, options, os, timestamp,
   dynamic_scope_types, stew/[objects, byteutils]
 
 when defined(js):
@@ -430,8 +430,9 @@ proc epochTimestamp: string =
 
 var
   cachedTime = dateTime(1900, mJan, 1)
+  cachedTimestamp = initTime(0'i64, 0)
+  cachedMinute = -1
   cachedTimeArray: array[17, byte] # "yyyy-MM-dd HH:mm:"
-  cachedZonePeriod: int = -1
   cachedZoneArray: array[6, byte] # "zzz"
 
 template timeIsCached(a: DateTime): bool =
@@ -442,33 +443,33 @@ template timeIsCached(a: DateTime): bool =
   else:
     false
 
-template timezoneIsCached(a: DateTime): bool =
-  if (ord(a.minute) div 15) == cachedZonePeriod:
-    true
+proc getFastDateTimeString(): string =
+  let
+    timestamp = getFastTime()
+    diff = timestamp - cachedTimestamp
+    checkTime = cachedTime + diff
+
+  if not(checkTime.timeIsCached()):
+    cachedTimestamp = timestamp
+    cachedTime = timestamp.local()
+    block:
+      # Cache string representation of first part (without seconds)
+      let tmp = cachedTime.format("yyyy-MM-dd HH:mm:")
+      cachedTimeArray = toArray(17, tmp.toOpenArrayByte(0, 16))
+    block:
+      # Cache string representation of zone part
+      let tmp = cachedTime.format("zzz")
+      cachedZoneArray = toArray(6, tmp.toOpenArrayByte(0, 5))
   else:
-    false
+    cachedTime = checkTime
+    cachedTimestamp = timestamp
 
-proc getTimeString(a: DateTime): string =
-  if not(timeIsCached(a)):
-    let tmp = a.format("yyyy-MM-dd HH:mm:")
-    cachedTime = a
-    cachedTimeArray = toArray(17, tmp.toOpenArrayByte(0, 16))
-  string.fromBytes(cachedTimeArray)
-
-proc getZoneString(a: DateTime): string =
-  if not(timezoneIsCached(a)):
-    let tmp = a.format("zzz")
-    cachedZonePeriod = ord(a.minute) div 15
-    cachedZoneArray = toArray(6, tmp.toOpenArrayByte(0, 5))
-  string.fromBytes(cachedZoneArray)
-
-proc getSecondsString(a: DateTime): string =
-  a.format("ss'.'fff")
+  string.fromBytes(cachedTimeArray) & cachedTime.format("ss'.'fff") &
+    string.fromBytes(cachedZoneArray)
 
 template timestamp(record): string =
   when record.timestamps == RfcTime:
-    let ct = now()
-    getTimeString(ct) & getSecondsString(ct) & getZoneString(ct)
+    getFastDateTimeString()
   else:
     epochTimestamp()
 
