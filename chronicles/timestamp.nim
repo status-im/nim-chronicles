@@ -18,7 +18,7 @@ else:
   const CLOCK_REALTIME_COARSE = 5
   from std/posix import Timespec, Time, clock_gettime
 
-proc getFastTime*(): Time =
+proc getFastTime*(): times.Time =
   when defined(js):
     let
       millis = newDate().getTime()

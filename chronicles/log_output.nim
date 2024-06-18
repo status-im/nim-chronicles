@@ -431,7 +431,6 @@ proc epochTimestamp: string =
 var
   cachedTime = dateTime(1900, mJan, 1)
   cachedTimestamp = initTime(0'i64, 0)
-  cachedMinute = -1
   cachedTimeArray: array[17, byte] # "yyyy-MM-dd HH:mm:"
   cachedZoneArray: array[6, byte] # "zzz"
 
@@ -447,9 +446,9 @@ proc getFastDateTimeString(): string =
   let
     timestamp = getFastTime()
     diff = timestamp - cachedTimestamp
-    checkTime = cachedTime + diff
+    currentTime = cachedTime + diff
 
-  if not(checkTime.timeIsCached()):
+  if not(currentTime.timeIsCached()):
     cachedTimestamp = timestamp
     cachedTime = timestamp.local()
     block:
@@ -461,7 +460,7 @@ proc getFastDateTimeString(): string =
       let tmp = cachedTime.format("zzz")
       cachedZoneArray = toArray(6, tmp.toOpenArrayByte(0, 5))
   else:
-    cachedTime = checkTime
+    cachedTime = currentTime
     cachedTimestamp = timestamp
 
   string.fromBytes(cachedTimeArray) & cachedTime.format("ss'.'fff") &
