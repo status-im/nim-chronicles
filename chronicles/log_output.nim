@@ -427,26 +427,41 @@ proc epochTimestamp: string =
 
 var
   cachedTime = dateTime(1900, mJan, 1)
-  cachedTimestamp = initTime(0'i64, 0)
+  cachedMinutes = 0'i64
   cachedTimeArray: array[17, byte] # "yyyy-MM-dd HH:mm:"
   cachedZoneArray: array[6, byte] # "zzz"
 
-template timeIsCached(a: DateTime): bool =
-  if (a.year == cachedTime.year) and (a.month == cachedTime.month) and
-     (a.monthday == cachedTime.monthday) and (a.hour == cachedTime.hour) and
-     (a.minute == cachedTime.minute):
-    true
-  else:
-    false
+proc getSecondsPart(timestamp: Time): string =
+  var res = "00.000"
+  let
+    sec = timestamp.toUnix() mod 60
+    msec = timestamp.nanosecond() div 1_000_000
+
+  if sec > 0 and sec <= 9:
+    let tmp = $sec
+    res[1] = tmp[0]
+  elif sec >= 10:
+    let tmp = $sec
+    res[0] = tmp[0]; res[1] = tmp[1]
+
+  if msec > 0 and msec <= 9:
+    let tmp = $msec
+    res[5] = tmp[0]
+  elif msec >= 10 and msec <= 99:
+    let tmp = $msec
+    res[4] = tmp[0]; res[5] = tmp[1]
+  elif msec >= 100:
+    let tmp = $msec
+    res[3] = tmp[0]; res[4] = tmp[1]; res[5] = tmp[2]
+  res
 
 proc getFastDateTimeString(): string =
   let
     timestamp = getFastTime()
-    dur = timestamp - cachedTimestamp
-    currentTime = fastAdd(cachedTime, dur)
+    minutes = timestamp.toUnix() div 60
 
-  if not(currentTime.timeIsCached()):
-    cachedTimestamp = timestamp
+  if minutes != cachedMinutes:
+    cachedMinutes = minutes
     cachedTime = timestamp.local()
     block:
       # Cache string representation of first part (without seconds)
@@ -456,11 +471,8 @@ proc getFastDateTimeString(): string =
       # Cache string representation of zone part
       let tmp = cachedTime.format("zzz")
       cachedZoneArray = toArray(6, tmp.toOpenArrayByte(0, 5))
-  else:
-    cachedTime = currentTime
-    cachedTimestamp = timestamp
 
-  string.fromBytes(cachedTimeArray) & cachedTime.format("ss'.'fff") &
+  string.fromBytes(cachedTimeArray) & timestamp.getSecondsPart() &
     string.fromBytes(cachedZoneArray)
 
 template timestamp(record): string =
