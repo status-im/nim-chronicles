@@ -72,7 +72,7 @@ macro logScopeIMPL(prevScopes: typed,
 
   let activeScope = id("activeChroniclesScope", isPublic)
   result.add quote do:
-    template `activeScope` =
+    template `activeScope` {.used.} =
       `newRevision`
       `newAssingments`
 
@@ -127,8 +127,9 @@ when runtimeFilteringEnabled:
     for topic in topics:
       topicsArray.add newCall(topicStateIMPL, newLit(topic))
 
+    let lvl = newDotExpr(bindSym("LogLevel", brClosed), ident $logLevel)
     result.add quote do:
-      if not `topicsMatch`(LogLevel(`logLevel`), `topicsArray`):
+      if not `topicsMatch`(`lvl`, `topicsArray`):
         break `chroniclesBlockName`
 else:
   template runtimeFilteringDisabledError =
@@ -158,13 +159,13 @@ else:
   else:
     proc getLogThreadId*(): int = 0
 
-template formatItIMPL*(value: any): auto =
+template formatItIMPL*(value: auto): auto =
   value
 
 template formatIt*(T: type, body: untyped) {.dirty.} =
   template formatItIMPL*(it: T): auto = body
 
-template expandItIMPL*[R](record: R, field: static string, value: any) =
+template expandItIMPL*[R](record: R, field: static string, value: auto) =
   mixin setProperty, formatItIMPL
   setProperty(record, field, formatItIMPL(value))
 
@@ -231,7 +232,12 @@ proc wildcard(str, match: string): bool =
     else:
       return false
 
-  return strIndex == str.len
+  strIndex == str.len
+
+template chroniclesUsedMagic(x: untyped) =
+  # Force the compiler to mark any symbol in the x
+  # as used without actually generate any code.
+  when compiles(x): discard
 
 macro logIMPL(lineInfo: static InstInfo,
               Stream: typed,
@@ -240,7 +246,6 @@ macro logIMPL(lineInfo: static InstInfo,
               severity: static[LogLevel],
               scopes: typed,
               logStmtBindings: varargs[untyped]): untyped =
-  if not loggingEnabled: return
   clearEmptyVarargs logStmtBindings
 
   # First, we merge the lexical bindings with the additional
@@ -253,6 +258,17 @@ macro logIMPL(lineInfo: static InstInfo,
 
   for k, v in assignments(lexicalBindings, acLogStatement):
     finalBindings[k] = v
+
+  result = newStmtList()
+  # This statement is to silence compiler warnings
+  # `declared but not used` when there is no logging code generated.
+  # push/pop pragma pairs cannot be used in this situation
+  # because the variables are declared outside of this function.
+  result.add quote do: chroniclesUsedMagic(`eventName`)
+  for k, v in finalBindings:
+    result.add quote do: chroniclesUsedMagic(`v`)
+
+  if not loggingEnabled: return
 
   # This is the compile-time topic filtering code, which has a similar
   # logic to the generated run-time filtering code:
@@ -308,12 +324,13 @@ macro logIMPL(lineInfo: static InstInfo,
   # `setProperty` and `flushRecord`.
   let
     record = genSym(nskVar, "record")
+    lvl = newDotExpr(bindSym("LogLevel", brClosed), ident $severity)
     expandItIMPL = bindSym("expandItIMPL", brForceOpen)
 
   code.add quote do:
     var `record`: `RecordType`
-    prepareOutput(`record`, LogLevel(`severity`))
-    initLogRecord(`record`, LogLevel(`severity`), `topicsNode`, `eventName`)
+    prepareOutput(`record`, `lvl`)
+    initLogRecord(`record`, `lvl`, `topicsNode`, `eventName`)
     # called tid even when it's a process id - this to avoid differences in
     # logging between threads and no threads
     when not defined(chronicles_disable_thread_id):
@@ -330,7 +347,7 @@ macro logIMPL(lineInfo: static InstInfo,
   code.add newCall("logAllDynamicProperties", Stream, record)
   code.add newCall("flushRecord", record)
 
-  result = quote do:
+  result.add quote do:
     try:
       block `chroniclesBlockName`:
         `code`
@@ -364,12 +381,12 @@ template log*(lineInfo: static InstInfo,
 template wrapSideEffects(debug: bool, body: untyped) {.inject.} =
   when debug:
     {.noSideEffect.}:
-      when (NimMajor, NimMinor) > (1, 6):
-        {.warning[BareExcept]:off.}
+      when defined(nimHasWarnBareExcept):
+        {.push warning[BareExcept]:off.}
       try: body
       except: discard
-      when (NimMajor, NimMinor) > (1, 6):
-        {.warning[BareExcept]:on.}
+      when defined(nimHasWarnBareExcept):
+        {.pop.}
   else:
     body
 
@@ -384,23 +401,13 @@ template logFn(name: untyped, severity: typed, debug=false) {.dirty.} =
     wrapSideEffects(debug):
       log(instantiationInfo(), stream, severity, eventName, props)
 
-# workaround for https://github.com/status-im/nim-chronicles/issues/92
-when defined(windows) and (NimMajor, NimMinor, NimPatch) < (1, 4, 4):
-  logFn trace , LogLevel.TRACE, debug=true
-  logFn debug , LogLevel.DEBUG, debug=true
-  logFn info  , LogLevel.INFO, debug=true
-  logFn notice, LogLevel.NOTICE, debug=true
-  logFn warn  , LogLevel.WARN, debug=true
-  logFn error , LogLevel.ERROR, debug=true
-  logFn fatal , LogLevel.FATAL, debug=true
-else:
-  logFn trace , LogLevel.TRACE, debug=true
-  logFn debug , LogLevel.DEBUG
-  logFn info  , LogLevel.INFO
-  logFn notice, LogLevel.NOTICE
-  logFn warn  , LogLevel.WARN
-  logFn error , LogLevel.ERROR
-  logFn fatal , LogLevel.FATAL
+logFn trace , LogLevel.TRACE, debug=true
+logFn debug , LogLevel.DEBUG
+logFn info  , LogLevel.INFO
+logFn notice, LogLevel.NOTICE
+logFn warn  , LogLevel.WARN
+logFn error , LogLevel.ERROR
+logFn fatal , LogLevel.FATAL
 
 # TODO:
 #
@@ -423,4 +430,3 @@ else:
 #                            between dynamic and lexical bindings)
 #
 # * implement some of the leading standardized structured logging formats
-#

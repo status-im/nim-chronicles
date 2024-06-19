@@ -439,7 +439,10 @@ template writeTs(record) =
 
 template fgColor(record, color, brightness) =
   when record.colors == AnsiColors:
-    append(record.output, ansiForegroundColorCode(color, brightness))
+    try:
+      append(record.output, ansiForegroundColorCode(color, brightness))
+    except ValueError:
+      discard
   elif record.colors == NativeColors:
     setForegroundColor(getOutputStream(record.output), color, brightness)
 
@@ -477,7 +480,7 @@ template shortName(lvl: LogLevel): string =
   of TRACE: "TRC"
   of DEBUG: "DBG"
   of INFO:  "INF"
-  of NOTICE:"NOT"
+  of NOTICE:"NTC"  # Legacy: "NOT"
   of WARN:  "WRN"
   of ERROR: "ERR"
   of FATAL: "FAT"
@@ -548,7 +551,43 @@ proc initLogRecord*(r: var TextLineRecord,
   r.level = lvl
   appendHeader(r, lvl, topics, name, true)
 
-proc setProperty*(r: var TextLineRecord, key: string, val: auto) =
+const
+  controlChars =  {'\x00'..'\x1f'}
+  extendedAsciiChars = {'\x7f'..'\xff'}
+  escapedChars*: set[char] = strutils.Newlines + {'"', '\\'} + controlChars + extendedAsciiChars
+  quoteChars*: set[char] = {' ', '='}
+
+func containsEscapedChars*(str: string|cstring): bool =
+  for c in str:
+    if c in escapedChars:
+      return true
+  return false
+
+func needsQuotes*(str: string|cstring): bool =
+  for c in str:
+    if c in quoteChars:
+      return true
+  return false
+
+proc writeEscapedString*(output: var string, str: string|cstring) =
+  for c in str:
+    case c
+    of '"': output.add "\\\""
+    of '\\': output.add "\\\\"
+    of '\r': output.add "\\r"
+    of '\n': output.add "\\n"
+    of '\t': output.add "\\t"
+    else:
+      const hexChars = "0123456789abcdef"
+      if c >= char(0x20) and c <= char(0x7e):
+        output.add c
+      else:
+        output.add("\\x")
+        output.add hexChars[int(c) shr 4 and 0xF]
+        output.add hexChars[int(c) and 0xF]
+
+proc setProperty*(
+    r: var TextLineRecord, key: string, val: auto) {.raises: [].} =
   append(r.output, " ")
   let valText = $val
 
@@ -562,20 +601,20 @@ proc setProperty*(r: var TextLineRecord, key: string, val: auto) =
   # This is similar to how it's done in logfmt:
   # https://github.com/csquared/node-logfmt/blob/master/lib/stringify.js#L13
   let
-    needsEscape = valText.find(Newlines + {'"', '\\'}) > -1
-    needsQuote = valText.find({' ', '='}) > -1
+    needsEscape = valText.find(escapedChars) > -1
+    needsQuote = valText.find(quoteChars) > -1
 
   if needsEscape or needsQuote:
     escaped = newStringOfCap(valText.len + valText.len div 8)
+    add(escaped, '"')
     if needsEscape:
       # addQuoted adds quotes and escapes a bunch of characters
       # XXX addQuoted escapes more characters than what we look for in above
       #     needsEscape check - it's a bit weird that way
-      addQuoted(escaped, valText)
+      escaped.writeEscapedString(valText)
     elif needsQuote:
-      add(escaped, '"')
       add(escaped, valText)
-      add(escaped, '"')
+    add(escaped, '"')
     valueToWrite = addr escaped
   else:
     valueToWrite = unsafeAddr valText
@@ -608,7 +647,8 @@ proc initLogRecord*(r: var TextBlockRecord,
   appendHeader(r, level, topics, name, false)
   append(r.output, "\n")
 
-proc setProperty*(r: var TextBlockRecord, key: string, val: auto) =
+proc setProperty*(
+    r: var TextBlockRecord, key: string, val: auto) {.raises: [].} =
   let valText = $val
 
   append(r.output, textBlockIndent)
@@ -649,7 +689,10 @@ template `[]=`(r: var JsonRecord, key: string, val: auto) =
     else:
       r.record[key] = val
   else:
-    writeField(r.jsonWriter, key, val)
+    try:
+      writeField(r.jsonWriter, key, val)
+    except IOError:
+      discard
 
 proc initLogRecord*(r: var JsonRecord,
                     level: LogLevel,
@@ -673,7 +716,7 @@ proc initLogRecord*(r: var JsonRecord,
   if topics.len > 0:
     r["topics"] = topics
 
-proc setProperty*(r: var JsonRecord, key: string, val: auto) =
+proc setProperty*(r: var JsonRecord, key: string, val: auto) {.raises: [].} =
   r[key] = val
 
 template setFirstProperty*(r: var JsonRecord, key: string, val: auto) =
@@ -743,7 +786,115 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
         for f in r.fields: flushRecord(f)
 
     var `tlsSlot` {.threadvar.}: ptr BindingsFrame[`Record`]
-    template tlsSlot*(S: type `name`): auto = `tlsSlot`
+
+    # If this tlsSlot accessor is allowed to be inlined and LTO employed, both
+    #
+    # Apple clang version 15.0.0 (clang-1500.1.0.2.5)
+    # Target: arm64-apple-darwin23.2.0
+    # Thread model: posix
+    #
+    # and
+    #
+    # Homebrew clang version 16.0.6
+    # Target: arm64-apple-darwin23.2.0
+    # Thread model: posix
+    #
+    # running on
+    # ProductName:		macOS
+    # ProductVersion:		14.2.1
+    # BuildVersion:		23C71
+    #
+    # on a
+    # hw.model: Mac14,3
+    #
+    # will do so, with proposeBlockAux() in nimbus-eth2 beacon_validators.nim
+    # for
+    #
+    # notice "Block proposed",
+    #  blockRoot = shortLog(blockRoot), blck = shortLog(forkyBlck),
+    #  signature = shortLog(signature), validator = shortLog(validator)
+    #
+    # causing a SIGSEGV which lldb tracked to this aspect of TLS usage in
+    # logAllDynamicProperties, where logAllDynamicProperties gets inlined
+    # within proposeBlockAux.
+    #
+    # Based on CI symptoms, the same problem appears to occur on the Jenkins CI
+    # fleet's M1 and M2 hosts. It has not been observed outside this macOS with
+    # aarch64/ARM64 combination. With Nim 1.6, the stack trace looks like:
+    #
+    # Nim Compiler Version 1.6.18 [MacOSX: arm64]
+    # Compiled at 2024-03-22
+    # Copyright (c) 2006-2023 by Andreas Rumpf
+    #
+    # git hash: a749a8b742bd0a4272c26a65517275db4720e58a
+    # active boot switches: -d:release
+    #
+    # Traceback (most recent call last, using override)
+    # vendor/nim-chronos/chronos/internal/asyncfutures.nim(382) futureContinue
+    # beacon_chain/validators/beacon_validators.nim(406) proposeBlock
+    # vendor/nim-chronos/chronos/internal/asyncfutures.nim(382) futureContinue
+    # beacon_chain/validators/beacon_validators.nim(419) proposeBlock
+    # beacon_chain/validators/beacon_validators.nim(324) proposeBlockAux
+    # vendor/nim-chronos/chronos/internal/asyncfutures.nim(382) futureContinue
+    # beacon_chain/validators/beacon_validators.nim(398) proposeBlockAux
+    # vendor/nimbus-build-system/vendor/Nim/lib/system/excpt.nim(631) signalHandler
+    # SIGSEGV: Illegal storage access. (Attempt to read from nil?)
+    #
+    # using Nim 1.6 with refc and, with:
+    #
+    # Nim Compiler Version 2.0.3 [MacOSX: arm64]
+    # Compiled at 2024-03-22
+    # Copyright (c) 2006-2023 by Andreas Rumpf
+    # git hash: e374759f29da733f3c404718c333f5f3cb5f332d
+    # active boot switches: -d:release
+    #
+    # one sees
+    #
+    # Traceback (most recent call last, using override)
+    # vendor/nim-chronos/chronos/internal/asyncfutures.nim(382) _ZN12asyncfutures14futureContinueE3refIN7futures26FutureBasecolonObjectType_EE
+    # beacon_chain/validators/beacon_validators.nim(406) _ZN17beacon_validators12proposeBlockE3refIN9block_dag24BlockRefcolonObjectType_EE6uInt64
+    # vendor/nim-chronos/chronos/internal/asyncfutures.nim(382) _ZN12asyncfutures14futureContinueE3refIN7futures26FutureBasecolonObjectType_EE
+    # beacon_chain/validators/beacon_validators.nim(419) _ZN12proposeBlock12proposeBlockE3refIN7futures26FutureBasecolonObjectType_EE
+    # beacon_chain/validators/beacon_validators.nim(324) _ZN15proposeBlockAux15proposeBlockAuxE8typeDescI3intE8typeDescI3intE3refIN17beacon_validators33AttachedValidatorcolonObjectType_EE3int5int323refIN9block_dag24BlockRefcolonObjectType_EE6uInt64
+    # vendor/nim-chronos/chronos/internal/asyncfutures.nim(382) _ZN12asyncfutures14futureContinueE3refIN7futures26FutureBasecolonObjectType_EE
+    # beacon_chain/validators/beacon_validators.nim(398) _ZN15proposeBlockAux15proposeBlockAuxE3refIN7futures26FutureBasecolonObjectType_EE
+    # vendor/nimbus-build-system/vendor/Nim/lib/system/excpt.nim(631) signalHandler
+    # vendor/nimbus-build-system/vendor/Nim/lib/system/stacktraces.nim(86) _ZN11stacktraces30auxWriteStackTraceWithOverrideE3varI6stringE
+    # SIGSEGV: Illegal storage access. (Attempt to read from nil?)
+    #
+    # Chronicles commit there is:
+    # commit ab3ab545be0b550cca1c2529f7e97fbebf5eba81
+    # Date:   Fri Feb 16 11:34:42 2024 +0700
+    #
+    # and Chronos commit is:
+    # commit 7b02247ce74d5ad5630013334f2e347680b02f65
+    # Date:   Wed Feb 14 19:23:15 2024 +0200
+    #
+    # This is likely the same issue as documented by
+    # https://github.com/status-im/nimbus-eth2/blob/33e34ee8bdaff625276b5826ba366edda7f7280e/beacon_chain/validators/beacon_validators.nim#L1190-L1318
+    # which also contains similar stack traces and occurred under similar
+    # circumstances. In particular it's also macOS aarch64-only, reported
+    # specifically on macOS 14.2.1 and Xcode 15.1, like this issue.
+    #
+    # Splitting a let block allowed proceeding/working around it before, but
+    # adding Electra to the nimbuus-eth2 ConsensusFork types appears to have
+    # triggered it again more robustly, necessitating further investigation.
+    #
+    # https://github.com/status-im/nimbus-eth2/pull/6092 in macos-aarch64-repo2
+    # branch and https://github.com/status-im/nimbus-eth2/pull/6104, which uses
+    # the macos-aarch64-moreminimal branch, have more information.
+    #
+    # This workaround appears to be the least risky and performance-affecting
+    # available in the short term. Disabling threading altogether avoids this
+    # in the minimized repro sample, but isn't feasible in `nimbus-eth2`. The
+    # test triggering this, `test_keymanager_api`, could be avoided on macOS,
+    # when running on aarch64, but this might occur elsewhere, just silently.
+    #
+    # Using --tlsEmulation:on also appears to fix this, but can exact quite a
+    # performance cost. This localizes the workaround's cost to this specific
+    # observed issue's amelioration.
+    proc tlsSlot*(S: type `name`):
+      var ptr BindingsFrame[`Record`] {.noinline.} = `tlsSlot`
 
     var `outputs` = `outputsTuple`
 

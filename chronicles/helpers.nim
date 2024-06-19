@@ -33,7 +33,7 @@ func parseTopicDirectives*(directives: openArray[string]): Table[string, TopicSe
         forEachTopic: topic.logLevel = DEBUG
       of "inf", "info":
         forEachTopic: topic.logLevel = INFO
-      of "not", "notice":
+      of "ntc", "notice", #[legacy compatibility:]# "not":
         forEachTopic: topic.logLevel = NOTICE
       of "wrn", "warn":
         forEachTopic: topic.logLevel = WARN
@@ -43,4 +43,3 @@ func parseTopicDirectives*(directives: openArray[string]): Table[string, TopicSe
         forEachTopic: topic.logLevel = FATAL
       else:
         raise newException(ValueError, &"'{parts[0]}' is not a recognized log level.")
-
