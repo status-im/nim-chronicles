@@ -442,8 +442,8 @@ template timeIsCached(a: DateTime): bool =
 proc getFastDateTimeString(): string =
   let
     timestamp = getFastTime()
-    diff = timestamp - cachedTimestamp
-    currentTime = cachedTime + diff
+    dur = timestamp - cachedTimestamp
+    currentTime = fastAdd(cachedTime, dur)
 
   if not(currentTime.timeIsCached()):
     cachedTimestamp = timestamp
