@@ -5,7 +5,9 @@ import std/times
 export times
 
 when defined(macos) or defined(macosx) or defined(osx):
-  from posix import gettimeofday, Timeval
+  from posix import Timeval
+  proc gettimeofday(tp: var Timeval, tzp: pointer = nil) {.
+       importc: "gettimeofday", header: "<sys/time.h>", sideEffect.}
 elif defined(windows):
   type
     FILETIME {.final, pure, completeStruct.} = object
