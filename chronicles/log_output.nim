@@ -426,10 +426,9 @@ proc epochTimestamp: string =
   formatFloat(epochTime(), ffDecimal, 6)
 
 var
-  cachedTime = dateTime(1900, mJan, 1)
-  cachedMinutes = 0'i64
-  cachedTimeArray: array[17, byte] # "yyyy-MM-dd HH:mm:"
-  cachedZoneArray: array[6, byte] # "zzz"
+  cachedMinutes {.threadvar.}: int64
+  cachedTimeArray {.threadvar.}: array[17, byte] # "yyyy-MM-dd HH:mm:"
+  cachedZoneArray {.threadvar.}: array[6, byte] # "zzz"
 
 proc getSecondsPart(timestamp: Time): string =
   var res = "00.000"
@@ -462,14 +461,14 @@ proc getFastDateTimeString(): string =
 
   if minutes != cachedMinutes:
     cachedMinutes = minutes
-    cachedTime = timestamp.local()
+    let datetime = timestamp.local()
     block:
       # Cache string representation of first part (without seconds)
-      let tmp = cachedTime.format("yyyy-MM-dd HH:mm:")
+      let tmp = datetime.format("yyyy-MM-dd HH:mm:")
       cachedTimeArray = toArray(17, tmp.toOpenArrayByte(0, 16))
     block:
       # Cache string representation of zone part
-      let tmp = cachedTime.format("zzz")
+      let tmp = datetime.format("zzz")
       cachedZoneArray = toArray(6, tmp.toOpenArrayByte(0, 5))
 
   string.fromBytes(cachedTimeArray) & timestamp.getSecondsPart() &
