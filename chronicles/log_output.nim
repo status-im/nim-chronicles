@@ -437,21 +437,21 @@ proc getSecondsPart(timestamp: Time): string =
     msec = timestamp.nanosecond() div 1_000_000
 
   if sec > 0 and sec <= 9:
-    let tmp = $sec
-    res[1] = tmp[0]
+    res[1] = '0' + char(sec)
   elif sec >= 10:
-    let tmp = $sec
-    res[0] = tmp[0]; res[1] = tmp[1]
+    res[0] = '0' + char(sec div 10)
+    res[1] = '0' + char(sec mod 10)
 
   if msec > 0 and msec <= 9:
-    let tmp = $msec
-    res[5] = tmp[0]
+    res[5] = '0' + char(msec)
   elif msec >= 10 and msec <= 99:
-    let tmp = $msec
-    res[4] = tmp[0]; res[5] = tmp[1]
+    res[4] = '0' + char(msec div 10)
+    res[5] = '0' + char(msec mod 10)
   elif msec >= 100:
-    let tmp = $msec
-    res[3] = tmp[0]; res[4] = tmp[1]; res[5] = tmp[2]
+    let tmp = msec mod 100
+    res[3] = '0' + char(msec div 100)
+    res[4] = '0' + char(tmp div 10)
+    res[5] = '0' + char(tmp mod 10)
   res
 
 proc getFastDateTimeString(): string =
