@@ -1,6 +1,6 @@
 import
-  strutils, times, macros, options, os,
-  dynamic_scope_types
+  strutils, times, macros, options, os, timestamp,
+  dynamic_scope_types, stew/[objects, byteutils]
 
 when defined(js):
   import
@@ -422,15 +422,61 @@ macro append*(o: var AnyOutput,
   result.add newCall("append", o, arg2)
   for arg in restArgs: result.add newCall("append", o, arg)
 
-proc rfcTimestamp: string =
-  now().format("yyyy-MM-dd HH:mm:ss'.'fffzzz")
-
 proc epochTimestamp: string =
   formatFloat(epochTime(), ffDecimal, 6)
 
+var
+  cachedMinutes {.threadvar.}: int64
+  cachedTimeArray {.threadvar.}: array[17, byte] # "yyyy-MM-dd HH:mm:"
+  cachedZoneArray {.threadvar.}: array[6, byte] # "zzz"
+
+proc getSecondsPart(timestamp: Time): string =
+  var res = "00.000"
+  let
+    sec = timestamp.toUnix() mod 60
+    msec = timestamp.nanosecond() div 1_000_000
+
+  if sec > 0 and sec <= 9:
+    res[1] = chr(ord('0') + sec)
+  elif sec >= 10:
+    res[0] = chr(ord('0') + (sec div 10))
+    res[1] = chr(ord('0') + (sec mod 10))
+
+  if msec > 0 and msec <= 9:
+    res[5] = chr(ord('0') + msec)
+  elif msec >= 10 and msec <= 99:
+    res[4] = chr(ord('0') + (msec div 10))
+    res[5] = chr(ord('0') + (msec mod 10))
+  elif msec >= 100:
+    let tmp = msec mod 100
+    res[3] = chr(ord('0') + (msec div 100))
+    res[4] = chr(ord('0') + (tmp div 10))
+    res[5] = chr(ord('0') + (tmp mod 10))
+  res
+
+proc getFastDateTimeString(): string =
+  let
+    timestamp = getFastTime()
+    minutes = timestamp.toUnix() div 60
+
+  if minutes != cachedMinutes:
+    cachedMinutes = minutes
+    let datetime = timestamp.local()
+    block:
+      # Cache string representation of first part (without seconds)
+      let tmp = datetime.format("yyyy-MM-dd HH:mm:")
+      cachedTimeArray = toArray(17, tmp.toOpenArrayByte(0, 16))
+    block:
+      # Cache string representation of zone part
+      let tmp = datetime.format("zzz")
+      cachedZoneArray = toArray(6, tmp.toOpenArrayByte(0, 5))
+
+  string.fromBytes(cachedTimeArray) & timestamp.getSecondsPart() &
+    string.fromBytes(cachedZoneArray)
+
 template timestamp(record): string =
   when record.timestamps == RfcTime:
-    rfcTimestamp()
+    getFastDateTimeString()
   else:
     epochTimestamp()
 
