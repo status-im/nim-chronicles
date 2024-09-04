@@ -73,7 +73,8 @@ type
   TimestampsScheme* = enum
     NoTimestamps,
     UnixTime,
-    RfcTime
+    RfcTime,
+    RfcUtcTime
 
   ColorScheme* = enum
     NoColors,
@@ -257,6 +258,7 @@ proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
           of "notimestamps": setTimestamps(NoTimestamps)
           of "unixtime": setTimestamps(UnixTime)
           of "rfctime": setTimestamps(RfcTime)
+          of "rfcutctime": setTimestamps(RfcUtcTime)
           else: discard
 
         let dst = logDestinationFromNode(dstSpec)

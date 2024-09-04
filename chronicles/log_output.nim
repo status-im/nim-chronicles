@@ -454,29 +454,35 @@ proc getSecondsPart(timestamp: Time): string =
     res[5] = chr(ord('0') + (tmp mod 10))
   res
 
-proc getFastDateTimeString(): string =
+proc getFastDateTimeString(useUtc = false): string =
+  ## if useUtc is true, utc time is used and Z for the timezone part.
+  ## if useUtc is false, the local time will be used and the time zone will be obtained each time.
   let
     timestamp = getFastTime()
     minutes = timestamp.toUnix() div 60
 
   if minutes != cachedMinutes:
     cachedMinutes = minutes
-    let datetime = timestamp.local()
+    let datetime = if useUtc: timestamp.utc() else: timestamp.local()
     block:
       # Cache string representation of first part (without seconds)
       let tmp = datetime.format("yyyy-MM-dd HH:mm:")
       cachedTimeArray = toArray(17, tmp.toOpenArrayByte(0, 16))
     block:
-      # Cache string representation of zone part
-      let tmp = datetime.format("zzz")
-      cachedZoneArray = toArray(6, tmp.toOpenArrayByte(0, 5))
+      if not useUtc:
+        # Cache string representation of zone part
+        let tmp = datetime.format("zzz")
+        cachedZoneArray = toArray(6, tmp.toOpenArrayByte(0, 5))
 
-  string.fromBytes(cachedTimeArray) & timestamp.getSecondsPart() &
-    string.fromBytes(cachedZoneArray)
+  let timeZone = if useUtc: "Z" else: string.fromBytes(cachedZoneArray)
+
+  string.fromBytes(cachedTimeArray) & timestamp.getSecondsPart() & timeZone
 
 template timestamp(record): string =
   when record.timestamps == RfcTime:
-    getFastDateTimeString()
+    getFastDateTimeString(useUtc = false)
+  elif record.timestamps == RfcUtcTime:
+    getFastDateTimeString(useUtc = true)
   else:
     epochTimestamp()
 

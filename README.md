@@ -392,6 +392,13 @@ Possible values are:
 
   https://en.wikipedia.org/wiki/Unix_time
 
+- `RfcUtcTime`
+
+  Chronicles will use the UTC but in human-readable format specified in
+  RFC 3339: Date and Time on the Internet: Timestamps
+
+  https://tools.ietf.org/html/rfc3339
+
 - `None` or `NoTimestamps`
 
   Chronicles will not include timestamps in the log output.
