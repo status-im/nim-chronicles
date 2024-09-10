@@ -71,10 +71,16 @@ macro logScopeIMPL(prevScopes: typed,
     result.add chroniclesExportNode
 
   let activeScope = id("activeChroniclesScope", isPublic)
-  result.add quote do:
-    template `activeScope` {.redefine, used.} =
-      `newRevision`
-      `newAssingments`
+  when NimMajor >= 2:
+    result.add quote do:
+      template `activeScope` {.redefine, used.} =
+        `newRevision`
+        `newAssingments`
+  else:
+    result.add quote do:
+      template `activeScope` {.used.} =
+        `newRevision`
+        `newAssingments`
 
 template logScope*(newBindings: untyped) {.dirty.} =
   bind bindSym, logScopeIMPL, brForceOpen
