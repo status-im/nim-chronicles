@@ -72,7 +72,7 @@ macro logScopeIMPL(prevScopes: typed,
 
   let activeScope = id("activeChroniclesScope", isPublic)
   result.add quote do:
-    template `activeScope` {.used.} =
+    template `activeScope` {.redefine, used.} =
       `newRevision`
       `newAssingments`
 
