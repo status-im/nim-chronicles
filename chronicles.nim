@@ -71,7 +71,7 @@ macro logScopeIMPL(prevScopes: typed,
     result.add chroniclesExportNode
 
   let activeScope = id("activeChroniclesScope", isPublic)
-  when NimMajor >= 2:
+  when defined(nimHasTemplateRedefinitionPragma):
     result.add quote do:
       template `activeScope` {.redefine, used.} =
         `newRevision`
