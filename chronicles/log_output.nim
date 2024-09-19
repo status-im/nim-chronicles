@@ -454,7 +454,7 @@ proc getSecondsPart(timestamp: Time): string =
     res[5] = chr(ord('0') + (tmp mod 10))
   res
 
-proc getFastDateTimeString(useUtc = false): string =
+proc getFastDateTimeString(useUtc: bool): string =
   ## if useUtc is true, utc time is used and Z for the timezone part.
   ## if useUtc is false, the local time will be used and the time zone will be obtained each time.
   let
