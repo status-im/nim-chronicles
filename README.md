@@ -385,19 +385,19 @@ Possible values are:
 
   https://tools.ietf.org/html/rfc3339
 
-- `UnixTime`
-
-  Chronicles will write a single float value for the number
-  of seconds since the "Unix epoch"
-
-  https://en.wikipedia.org/wiki/Unix_time
-
 - `RfcUtcTime`
 
   Chronicles will use the UTC but in human-readable format specified in
   RFC 3339: Date and Time on the Internet: Timestamps
 
   https://tools.ietf.org/html/rfc3339
+
+- `UnixTime`
+
+  Chronicles will write a single float value for the number
+  of seconds since the "Unix epoch"
+
+  https://en.wikipedia.org/wiki/Unix_time
 
 - `None` or `NoTimestamps`
 
