@@ -17,6 +17,6 @@ else:
 
 task test, "run CPU tests":
   when defined(windows):
-    exec "ntu.cmd test tests"
+    exec "nimble --package:testutils run ntu.cmd test tests"
   else:
-    exec "ntu test tests"
+    exec "nimble --package:testutils run ntu test tests"
