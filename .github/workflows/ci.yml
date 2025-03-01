@@ -11,7 +11,7 @@ jobs:
     uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@main
     with:
       test-command: |
-        OS=uname -s | tr [:upper:] [:lower:]
+        OS=$(uname -s | tr [:upper:] [:lower:])
         if [[ '${OS}' == 'linux' ]]; then
           echo '/home/runner/.nimble/bin' >> $GITHUB_PATH
         elif [[ '${OS}' == 'windows' ]]; then
