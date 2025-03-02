@@ -26,6 +26,9 @@ export
 template activeChroniclesScope* =
   0 # track the scope revision
 
+when not defined(nimHasTemplateRedefinitionPragma):
+  {.pragma: redefine.}
+
 macro logScopeIMPL(prevScopes: typed,
                    newBindings: untyped,
                    isPublic: static[bool]): untyped =
@@ -72,7 +75,7 @@ macro logScopeIMPL(prevScopes: typed,
 
   let activeScope = id("activeChroniclesScope", isPublic)
   result.add quote do:
-    template `activeScope` {.used.} =
+    template `activeScope` {.used, redefine.} =
       `newRevision`
       `newAssingments`
 
