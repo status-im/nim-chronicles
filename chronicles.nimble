@@ -10,7 +10,11 @@ skipDirs      = @["tests"]
 requires "nim >= 2.0.16"
 requires "json_serialization"
 
-taskRequires "test", "testutils"
+# Allow old nimble versions to parse this nimble file
+when NimMajor >= 2:
+  taskRequires "test", "testutils"
+else:
+  requires "testutils"
 
 task test, "run CPU tests":
   when defined(windows):
