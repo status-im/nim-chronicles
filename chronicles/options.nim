@@ -139,8 +139,9 @@ template handleEnumOption(E, varName: untyped): auto =
 
 proc handleColorSchemeOption(optValue: string): ColorScheme {.compileTime.} =
   case optValue.toLowerAscii
+  of falsySwitches: ColorScheme.NoColors
   of "autocolors", "auto": ColorScheme.AutoColors
-  of "nocolors", "no": ColorScheme.NoColors
+  of "nocolors": ColorScheme.NoColors
   of "ansicolors", "ansi": ColorScheme.AnsiColors
   of "nativecolors": # up to 0.11
     hint "nativecolors is deprecated, using \"autocolors\" instead"
