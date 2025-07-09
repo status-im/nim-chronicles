@@ -215,7 +215,7 @@ proc createStdOutOutput(): StdOutOutput =
 proc createStdErrOutput(): StdErrOutput =
   result.colors = enableColors(stdout)
 proc createDynamicOutput(): DynamicOutput =
-  result.colors = hasNoColor() # The application can choose to modify this later
+  result.colors = not hasNoColor() # The application can choose to modify this later
 
 template ignoreIOErrors(body: untyped) =
   try: body
