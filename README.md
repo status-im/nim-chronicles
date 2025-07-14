@@ -24,7 +24,6 @@ socket.accept(...)
 ...
 debug "Client PSK", psk = client.getPskIdentity
 info "New incoming connection", remoteAddr = ip, remotePort = port
-
 ```
 
 Here, `debug` and `info` are logging statements, corresponding to different
@@ -230,7 +229,12 @@ that will be better illustrated by the following examples:
 - `textblocks[stdout,file(/var/log/myapp.log)]`
 
   Use the 'textblocks' format and send the output both to stdout and
-  to a file with an absolute path /var/log/myapp.log
+  to a file with an absolute path /var/log/myapp.log. If stdout is a terminal,
+  colors will be used both for stdout and the file!
+
+- `textblocks[stdout],textblocks[nocolors,file(/var/log/myapp.log)]`
+
+  Same as above, but always write the file without colors.
 
 - `textlines[notimestamps,file(myapp.txt),syslog]`
 
@@ -426,13 +430,17 @@ its human-readable text formats when sent to the standard output streams.
 
 Possible values are:
 
-- `NativeColors` (used by default)
+- `auto` or `AutoColors` (used by default)
 
-  In this mode, Windows builds will produce output suitable for the console
-  application in older versions of Windows. On Unix-like systems, ANSI codes
-  are still used.
+  In this mode, colors are used when at least one destination is a terminal and
+  disabled otherwise. Take care to use separate sinks for stdout and files when
+  using this option or the file will receive colored output when stdout is a
+  terminal.
 
-- `AnsiColors`
+  Automatic mode respects the [`NO_COLOR=1`](https://no-color.org/) environment
+  variable.
+
+- `ansi` or `AnsiColors`
 
   Output suitable for terminals supporting the standard ANSI escape codes:
   https://en.wikipedia.org/wiki/ANSI_escape_code
@@ -441,20 +449,13 @@ Possible values are:
   Windows console replacements such as ConEmu, and the native Console
   and PowerShell applications on Windows 10.
 
-- `None` or `NoColors`
+  In this mode, colors codes are always emitted, ie even for files
+
+- `no` or `NoColors`
 
   Chronicles will produce color-less output. Please note that this is the
   default mode for sinks logging only to files or for sinks using the json
   format.
-
-Current known limitations:
-
-- Chronicles will not try to detect if the standard outputs
-  of the program are being redirected to another program or a file.
-  It's typical for the colored output to be disabled in such circumstances.
-  ([issue][ISSUE1])
-
-[ISSUE1]: https://github.com/status-im/nim-chronicles/issues/1
 
 ### chronicles_indent
 
@@ -521,6 +522,8 @@ to specify a gcsafe closure:
 defaultChroniclesStream.output.writer =
   proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe.} =
     database.writeLogEntry(msg)
+# Control colors (in autocolors mode)
+defaultChroniclesStream.output.colors = false
 ```
 
 ## Using Chronicles with `{.noSideEffect.}`

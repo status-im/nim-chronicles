@@ -33,9 +33,13 @@ type
     outFile*: File
     outPath: string
     mode: FileMode
+    colors*: bool
 
   StdOutOutput* = object
+    colors*: bool
+
   StdErrOutput* = object
+    colors*: bool
 
   SysLogOutput* = object
     currentRecordLevel: LogLevel
@@ -44,6 +48,7 @@ type
 
   DynamicOutput* = object
     currentRecordLevel: LogLevel
+    colors*: bool
     writer*: proc (logLevel: LogLevel, logRecord: OutStr) {.gcsafe, raises: [Defect].}
 
   PassThroughOutput*[FinalOutputs: tuple] = object
@@ -57,13 +62,13 @@ type
   AnyOutput = AnyFileOutput|SysLogOutput|BufferedOutput|PassThroughOutput
 
   TextLineRecord*[Output;
-                  timestamps: static[TimestampsScheme],
+                  timestamps: static[TimestampScheme],
                   colors: static[ColorScheme]] = object
     output*: Output
     level: LogLevel
 
   TextBlockRecord*[Output;
-                   timestamps: static[TimestampsScheme],
+                   timestamps: static[TimestampScheme],
                    colors: static[ColorScheme]] = object
     output*: Output
 
@@ -76,14 +81,14 @@ type
 
 when defined(js):
   type
-    JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
+    JsonRecord*[Output; timestamps: static[TimestampScheme]] = object
       output*: Output
       record: js
 
     JsonString* = distinct string
 else:
   type
-    JsonRecord*[Output; timestamps: static[TimestampsScheme]] = object
+    JsonRecord*[Output; timestamps: static[TimestampScheme]] = object
       output*: Output
       outStream: OutputStream
       jsonWriter: Json.Writer
@@ -119,6 +124,56 @@ template bnd(s): NimNode =
 template deref(so: StreamOutputRef): auto =
   (outputs(so.Stream))[so.outputId]
 
+when defined(windows):
+  # MS recommends that ANSI colors are used for the terminal:
+  # https://learn.microsoft.com/en-us/windows/console/classic-vs-vt
+  #
+  # ANSI colors are available from Windows 10+ and need to be explicitly enabled.
+  # Instead of trying to detect versions, we simply try to enable it and revert
+  # back to no colors if it doesn't work:
+  # https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences#example-of-enabling-virtual-terminal-processing
+  #
+  # std/terminal is broken at the time of writing, ie the version check uses a
+  # deprecated version check api that may or may not work depending on how the
+  # application is built:
+  # https://msdn.microsoft.com/en-us/library/windows/desktop/ms724451(v=vs.85).aspx
+  import winlean
+  const ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+
+  proc getConsoleMode(hConsoleHandle: Handle, dwMode: ptr DWORD): WINBOOL{.
+      stdcall, dynlib: "kernel32", importc: "GetConsoleMode".}
+
+  proc setConsoleMode(hConsoleHandle: Handle, dwMode: DWORD): WINBOOL{.
+      stdcall, dynlib: "kernel32", importc: "SetConsoleMode".}
+
+proc hasNoColor(): bool =
+  when declared(getEnv):
+    # https://no-color.org/
+    getEnv("NO_COLOR").len > 0
+  else:
+    false
+
+proc enableColors(f: File): bool =
+  if not isatty(f):
+    return false
+
+  if hasNoColor():
+    return false
+
+  when defined(windows):
+    let handle = getStdHandle(
+      if f == stderr: STD_ERROR_HANDLE
+      else: STD_OUTPUT_HANDLE)
+
+    var mode: DWORD = 0
+    if getConsoleMode(handle, addr(mode)) != 0:
+      mode = mode or ENABLE_VIRTUAL_TERMINAL_PROCESSING
+      setConsoleMode(handle, mode) != 0
+    else:
+      false
+  else:
+    true
+
 when not defined(js):
   proc open*(o: ptr FileOutput, path: string, mode = fmAppend): bool =
     if o.outFile != nil:
@@ -149,10 +204,18 @@ when not defined(js):
     doAssert o.outPath.len > 0 and o.mode != fmRead
     createDir o.outPath.splitFile.dir
     o.outFile = open(o.outPath, o.mode)
+    o.colors = enableColors(o.outFile)
 
 proc createFileOutput(path: string, mode: FileMode): FileOutput =
   result.mode = mode
   result.outPath = path
+
+proc createStdOutOutput(): StdOutOutput =
+  result.colors = enableColors(stdout)
+proc createStdErrOutput(): StdErrOutput =
+  result.colors = enableColors(stdout)
+proc createDynamicOutput(): DynamicOutput =
+  result.colors = not hasNoColor() # The application can choose to modify this later
 
 template ignoreIOErrors(body: untyped) =
   try: body
@@ -205,7 +268,7 @@ when not defined(js):
     result.add ".log"
 
 proc selectOutputType(s: var StreamCodeNodes, dst: LogDestination): NimNode =
-  var outputId = 0
+  var outputId = s.outputsTuple.len
   if dst.kind == oFile:
     when defined(js):
       error "File outputs are not supported in the js target"
@@ -221,14 +284,15 @@ proc selectOutputType(s: var StreamCodeNodes, dst: LogDestination): NimNode =
 
       s.outputsTuple.add newCall(bindSym"createFileOutput", fileName, mode)
   elif dst.kind == oDynamic:
-    outputId = s.outputsTuple.len
-    s.outputsTuple.add newTree(nnkObjConstr, bnd"DynamicOutput")
+    s.outputsTuple.add newCall(bindSym"createDynamicOutput")
+  elif dst.kind == oStdOut:
+    s.outputsTuple.add newCall(bindSym"createStdOutOutput")
+  elif dst.kind == oStdErr:
+    s.outputsTuple.add newCall(bindSym"createStdErrOutput")
 
   case dst.kind
-  of oStdOut: bnd"StdOutOutput"
-  of oStdErr: bnd"StdErrOutput"
   of oSysLog: bnd"SysLogOutput"
-  of oFile, oDynamic:
+  of oStdOut, oStdErr, oFile, oDynamic:
     newTree(nnkBracketExpr,
             bnd"StreamOutputRef", s.streamName, newLit(outputId))
 
@@ -285,9 +349,6 @@ proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   # Set the color scheme for the record types that require it
   if sink.format != json:
     var colorScheme = sink.colorScheme
-    when not defined(windows):
-      # `NativeColors' means `AnsiColors` on non-Windows platforms:
-      if colorScheme == NativeColors: colorScheme = AnsiColors
     result.add newIdentNode($colorScheme)
 
 # The `append` and `flushOutput` functions implement the actual writing
@@ -363,6 +424,18 @@ template flushOutput*(o: var StreamOutputRef)       = flushOutput(deref(o))
 
 template getOutputStream(o: StreamOutputRef): File =
   getOutputStream(deref(o))
+
+template colors*(o: StreamOutputRef): bool =
+  deref(o).colors
+
+template colors*(o: BufferedOutput|PassThroughOutput): bool =
+  var res = false
+  for f in o.finalOutputs.fields:
+    if f.colors:
+      res = true
+      break
+
+  res
 
 template append*(o: var SysLogOutput, s: OutStr) =
   let syslogLevel = case o.currentRecordLevel
@@ -495,20 +568,27 @@ template fgColor(record, color, brightness) =
       append(record.output, ansiForegroundColorCode(color, brightness))
     except ValueError:
       discard
-  elif record.colors == NativeColors:
-    setForegroundColor(getOutputStream(record.output), color, brightness)
+  elif record.colors == AutoColors:
+    if record.output.colors:
+      try:
+        append(record.output, ansiForegroundColorCode(color, brightness))
+      except ValueError:
+        discard
+
 
 template resetColors(record) =
   when record.colors == AnsiColors:
     append(record.output, ansiResetCode)
-  elif record.colors == NativeColors:
-    resetAttributes(getOutputStream(record.output))
+  elif record.colors == AutoColors:
+    if record.output.colors:
+      append(record.output, ansiResetCode)
 
 template applyStyle(record, style) =
   when record.colors == AnsiColors:
     append(record.output, ansiStyleCode(style))
-  elif record.colors == NativeColors:
-    setStyle(getOutputStream(record.output), {style})
+  elif record.colors == AutoColors:
+    if record.output.colors:
+      append(record.output, ansiStyleCode(style))
 
 template levelToStyle(lvl: LogLevel): untyped =
   # Bright Black is gray
@@ -1003,29 +1083,3 @@ macro createStreamRecordTypes: untyped =
   # echo result.repr
 
 createStreamRecordTypes()
-
-when defined(windows) and false:
-  # This is some experimental code that enables native ANSI color codes
-  # support on Windows 10 (it has been confirmed to work, but the feature
-  # detection should be done in a more robust way).
-  # Please note that Nim's terminal module already has some provisions for
-  # enabling the ANSI codes through calling `enableTrueColors`, but this
-  # relies internally on `getVersionExW` which doesn't always return the
-  # correct Windows version (the returned value depends on the manifest
-  # file shipped with the application). For more info, see MSDN:
-  # https://msdn.microsoft.com/en-us/library/windows/desktop/ms724451(v=vs.85).aspx
-  import winlean
-  const ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
-
-  proc getConsoleMode(hConsoleHandle: Handle, dwMode: ptr DWORD): WINBOOL{.
-      stdcall, dynlib: "kernel32", importc: "GetConsoleMode".}
-
-  proc setConsoleMode(hConsoleHandle: Handle, dwMode: DWORD): WINBOOL{.
-      stdcall, dynlib: "kernel32", importc: "SetConsoleMode".}
-
-  var mode: DWORD = 0
-  if getConsoleMode(getStdHandle(STD_OUTPUT_HANDLE), addr(mode)) != 0:
-    mode = mode or ENABLE_VIRTUAL_TERMINAL_PROCESSING
-    if setConsoleMode(getStdHandle(STD_OUTPUT_HANDLE), mode) != 0:
-      discard
-      # echo "ANSI MODE ENABLED"

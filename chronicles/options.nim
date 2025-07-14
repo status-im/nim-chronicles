@@ -22,7 +22,7 @@ const
                                        else: "DEBUG"
 
   chronicles_timestamps {.strdefine.} = "RfcTime"
-  chronicles_colors* {.strdefine.} = "NativeColors"
+  chronicles_colors* {.strdefine.} = "AutoColors"
 
   chronicles_indent {.intdefine.} = 2
   chronicles_line_numbers {.strdefine.} = "off"
@@ -70,21 +70,21 @@ type
     else:
       discard
 
-  TimestampsScheme* = enum
-    NoTimestamps,
-    UnixTime,
-    RfcTime,
+  TimestampScheme* = enum
+    NoTimestamps
+    UnixTime
+    RfcTime
     RfcUtcTime
 
   ColorScheme* = enum
-    NoColors,
-    AnsiColors,
-    NativeColors
+    AutoColors
+    NoColors
+    AnsiColors
 
   SinkSpec* = object
     format*: LogFormat
     colorScheme*: ColorScheme
-    timestamps*: TimestampsScheme
+    timestamps*: TimestampScheme
     destinations*: seq[LogDestination]
 
   StreamSpec* = object
@@ -129,14 +129,26 @@ proc handleEnumOption(E: typedesc[enum],
 
       return R(0)
     else:
-      # This enum parsing is supposed to be case insensitive, but it isn't in
-      # Nim-1.6.0.
+      # Make parsing fully case and style insensitive
       return parseEnum[E](optValue.capitalizeAscii())
   except ValueError: error &"'{optValue}' is not a recognized value for '{optName}'. " &
                 &"Allowed values are {enumValues E}"
 
 template handleEnumOption(E, varName: untyped): auto =
   handleEnumOption(E, astToStr(varName), varName)
+
+proc handleColorSchemeOption(optValue: string): ColorScheme {.compileTime.} =
+  case optValue.toLowerAscii
+  of falsySwitches: ColorScheme.NoColors
+  of "autocolors", "auto": ColorScheme.AutoColors
+  of "nocolors": ColorScheme.NoColors
+  of "ansicolors", "ansi": ColorScheme.AnsiColors
+  of "nativecolors": # up to 0.11
+    hint "nativecolors is deprecated, using \"autocolors\" instead"
+    ColorScheme.AutoColors
+  else:
+     error &"'{optValue}' is not a recognized value for 'chronicles_colors` " &
+                &"Allowed values are {enumValues ColorScheme}"
 
 template topicsAsSeq*(topics: string): untyped =
   when topics.len > 0:
@@ -176,7 +188,7 @@ proc logFormatFromIdent(n: NimNode): LogFormat =
 
 proc makeSinkSpec(fmt: LogFormat,
                   colors: ColorScheme,
-                  timestamps: TimestampsScheme,
+                  timestamps: TimestampScheme,
                   destinations: varargs[LogDestination]): SinkSpec =
   result.format = fmt
   result.colorScheme = colors
@@ -215,8 +227,8 @@ proc logDestinationFromNode(n: NimNode): LogDestination =
            "Please refer to the documentation for the supported options."
 
 const
-  defaultColorScheme = handleEnumOption(ColorScheme, chronicles_colors)
-  defaultTimestamsScheme = handleEnumOption(TimestampsScheme, chronicles_timestamps)
+  defaultColorScheme = handleColorSchemeOption(chronicles_colors)
+  defaultTimestamsScheme = handleEnumOption(TimestampScheme, chronicles_timestamps)
 
 proc syntaxCheckStreamExpr*(n: NimNode) =
   if n.kind != nnkBracketExpr or n[0].kind != nnkIdent:
@@ -238,13 +250,9 @@ proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
                               defaultColorScheme,
                               defaultTimestamsScheme)
       for i in 1 ..< n.len:
-        var hasExplicitColors = false
-
         template setColors(c) =
           spec.colorScheme = c
-          hasExplicitColors = true
           continue
-
         template setTimestamps(t) =
           spec.timestamps = t
           continue
@@ -252,9 +260,12 @@ proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
         let dstSpec = n[i]
         if dstSpec.kind == nnkIdent:
           case ($dstSpec).toLowerAscii:
+          of "autocolors": setColors(AutoColors)
           of "nocolors": setColors(NoColors)
           of "ansicolors": setColors(AnsiColors)
-          of "nativecolors": setColors(NativeColors)
+          of "nativecolors":
+            hint("nativecolors is deprecated, using \"autocolors\" instead", streamNode)
+            setColors(AutoColors)
           of "notimestamps": setTimestamps(NoTimestamps)
           of "unixtime": setTimestamps(UnixTime)
           of "rfctime": setTimestamps(RfcTime)
@@ -262,7 +273,8 @@ proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
           else: discard
 
         let dst = logDestinationFromNode(dstSpec)
-        if dst.kind == oSysLog and not hasExplicitColors:
+
+        if spec.colorScheme == AutoColors and (defined(js) or dst.kind == oSysLog):
           spec.colorScheme = NoColors
 
         spec.destinations.add dst
@@ -349,4 +361,3 @@ proc isLogFormatUsed*(format: LogFormat): bool =
     for sink in stream.sinks:
       if sink.format == format: return true
   return false
-
