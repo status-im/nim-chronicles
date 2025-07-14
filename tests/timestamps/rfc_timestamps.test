@@ -5,9 +5,9 @@ chronicles_timestamps=RfcTime
 chronicles_thread_ids=None
 timestamp_peg="""{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d}  '.' {\d\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"""
 [Output]
-stdout="""INF 2025-07-14 11:32:29.302+02:00 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 z=20 arg=50 c=10
-INF 2025-07-14 11:32:29.302+02:00 exiting                                    msg="bye bye" x=16 b=overriden-b a=12 c=100
+stdout="""INF 2025-07-14 13:06:43.355+02:00 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
+INF 2025-07-14 13:06:43.355+02:00 exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """
-rfc_timestamps.log="""INF 2025-07-14 11:32:29.302+02:00 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 z=20 arg=50 c=10
-INF 2025-07-14 11:32:29.302+02:00 exiting                                    msg="bye bye" x=16 b=overriden-b a=12 c=100
+rfc_timestamps.log="""INF 2025-07-14 13:06:43.355+02:00 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
+INF 2025-07-14 13:06:43.355+02:00 exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """

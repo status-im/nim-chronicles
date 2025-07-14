@@ -37,7 +37,7 @@ macro logScopeIMPL(prevScopes: typed,
     bestScope = prevScopes.lastScopeBody
     bestScopeRev = bestScope.scopeRevision
     newRevision = newLit(bestScopeRev + 1)
-    finalBindings = initTable[string, NimNode]()
+    finalBindings = initOrderedTable[string, NimNode]()
     newAssingments = newStmtList()
     chroniclesExportNode: NimNode = if not isPublic: nil
                                     else: newTree(nnkExportExceptStmt,

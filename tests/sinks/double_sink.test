@@ -4,23 +4,23 @@ chronicles_timestamps=None
 chronicles_colors=None
 chronicles_thread_ids=None
 [Output]
-lines.txt="""INF main started                               topics="main" a=12 b=overriden-b d=some-d x=16 z=20 arg=50 c=10
-INF exiting                                    msg="bye bye" x=16 b=overriden-b a=12 c=100
+lines.txt="""INF main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
+INF exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """
 blocks.txt="""INF main started topics="main"
   a: 12
   b: overriden-b
   d: some-d
   x: 16
-  z: 20
-  arg: 50
   c: 10
+  arg: 50
+  z: 20
 
 INF exiting
   msg: bye bye
-  x: 16
-  b: overriden-b
   a: 12
+  b: overriden-b
+  x: 16
   c: 100
 
 """

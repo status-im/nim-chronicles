@@ -3,23 +3,23 @@ chronicles_sinks="textlines[file(lines.txt,truncate),nocolors],textblocks[file(b
 chronicles_thread_ids=None
 timestamp_peg="""{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d}  '.' {\d\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"""
 [Output]
-lines.txt="""INF 2025-07-14 11:40:17.435+02:00 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 z=20 arg=50 c=10
-INF 2025-07-14 11:40:17.435+02:00 exiting                                    msg="bye bye" x=16 b=overriden-b a=12 c=100
+lines.txt="""INF 2025-07-14 12:53:42.379+02:00 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
+INF 2025-07-14 12:53:42.379+02:00 exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """
 blocks.txt="""[96mINF[0m [1mmain started[0m topics="[93mmain[0m"
   [34ma: [1m12
 [0m  [34mb: [1moverriden-b
 [0m  [34md: [1msome-d
 [0m  [34mx: [1m16
-[0m  [34mz: [1m20
-[0m  [34marg: [1m50
 [0m  [34mc: [1m10
+[0m  [34marg: [1m50
+[0m  [34mz: [1m20
 [0m
 [96mINF[0m [1mexiting[0m
   [34mmsg: [1mbye bye
-[0m  [34mx: [1m16
-[0m  [34mb: [1moverriden-b
 [0m  [34ma: [1m12
+[0m  [34mb: [1moverriden-b
+[0m  [34mx: [1m16
 [0m  [34mc: [1m100
 [0m
 """

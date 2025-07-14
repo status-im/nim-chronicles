@@ -5,9 +5,9 @@ chronicles_timestamps=UnixTime
 chronicles_thread_ids=None
 timestamp_peg="{\\d+} '.' {\\d+} \\s"
 [Output]
-ownpeg_timestamps.log="""INF 1582643131.192854 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 z=20 arg=50 c=10
-INF 1582643131.192885 exiting                                    msg="bye bye" x=16 b=overriden-b a=12 c=100
+ownpeg_timestamps.log="""INF 1752491206.637806 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
+INF 1752491206.637832 exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """
-stdout="""INF 1582643131.192854 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 z=20 arg=50 c=10
-INF 1582643131.192885 exiting                                    msg="bye bye" x=16 b=overriden-b a=12 c=100
+stdout="""INF 1752491206.637806 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
+INF 1752491206.637832 exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """

@@ -9,15 +9,15 @@ textblocks_file_stdout.log="""INF main started topics="main"
   b: overriden-b
   d: some-d
   x: 16
-  z: 20
-  arg: 50
   c: 10
+  arg: 50
+  z: 20
 
 INF exiting
   msg: bye bye
-  x: 16
-  b: overriden-b
   a: 12
+  b: overriden-b
+  x: 16
   c: 100
 
 """
@@ -26,15 +26,15 @@ stdout="""INF main started topics="main"
   b: overriden-b
   d: some-d
   x: 16
-  z: 20
-  arg: 50
   c: 10
+  arg: 50
+  z: 20
 
 INF exiting
   msg: bye bye
-  x: 16
-  b: overriden-b
   a: 12
+  b: overriden-b
+  x: 16
   c: 100
 
 """
