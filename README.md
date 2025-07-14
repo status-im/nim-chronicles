@@ -331,9 +331,13 @@ the program.
 Topics in `chronicles_disabled_topics` have precedence over the ones in
 `chronicles_enabled_topics` or `chronicles_required_topics`.
 
-### chronicles_disable_thread_id
+### chronicles_thread_ids
 
-Disable log thread(tid)
+Enables or disables logging of the thread id. Can also be set in each log line:
+
+```nim
+info "with thread id", chroniclesThreadIds = true
+```
 
 ### chronicles_log_level
 
@@ -652,9 +656,6 @@ template initLogRecord*(r: var XmlRecord, lvl: LogLevel,
 template setProperty*(r: var XmlRecord, key: string, val: auto) =
   r.output.append textBlockIndent, "<", key, ">", escape($val), "</", key, ">\n"
 
-template setFirstProperty*(r: var XmlRecord, key: string, val: auto) =
-  r.setProperty key, val
-
 template flushRecord*(r: var XmlRecord) =
   r.output.append "</event>\n"
   r.output.flushOutput
@@ -681,7 +682,7 @@ As you can see, `customLogStream` looks similar to a regular `logStream`,
 but it expects a log record type as its only argument.
 
 The record type is implemented by providing suitable definitons for
-`initLogRecord`, `setFirstProperty`, `setProperty` and `flushRecord`.
+`initLogRecord`, `setProperty` and `flushRecord`.
 We recommend defining these operations as templates because this will
 facilitate the aggressive constant-folding employed by Chronicles (discussed
 in more details in the next section). We also recommend making your log

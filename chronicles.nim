@@ -245,15 +245,17 @@ macro logIMPL(lineInfo: static InstInfo,
     finalBindings[k] = v
 
   result = newStmtList()
-  # This statement is to silence compiler warnings
-  # `declared but not used` when there is no logging code generated.
-  # push/pop pragma pairs cannot be used in this situation
-  # because the variables are declared outside of this function.
-  result.add quote do: chroniclesUsedMagic(`eventName`)
-  for k, v in finalBindings:
-    result.add quote do: chroniclesUsedMagic(`v`)
 
-  if not loggingEnabled: return
+  if not loggingEnabled:
+    # This statement is to silence compiler warnings
+    # `declared but not used` when there is no logging code generated.
+    # push/pop pragma pairs cannot be used in this situation
+    # because the variables are declared outside of this function.
+    result.add quote do: chroniclesUsedMagic(`eventName`)
+    for k, v in finalBindings:
+      result.add quote do: chroniclesUsedMagic(`v`)
+
+    return
 
   # This is the compile-time topic filtering code, which has a similar
   # logic to the generated run-time filtering code:
@@ -262,6 +264,7 @@ macro logIMPL(lineInfo: static InstInfo,
   var topicsNode = newLit("")
   var activeTopics: seq[string] = @[]
   var useLineNumbers = lineNumbersEnabled
+  var useThreadIds = threadIdsEnabled
 
   if finalBindings.hasKey("topics"):
     topicsNode = finalBindings["topics"]
@@ -289,18 +292,24 @@ macro logIMPL(lineInfo: static InstInfo,
   if severity != NONE and not enabledTopicsMatch or requiredTopicsCount > 0:
     return
 
-  # Handling file name and line numbers on/off (lineNumbersEnabled) for particular log statements
-  if finalBindings.hasKey("chroniclesLineNumbers"):
-    let chroniclesLineNumbers = $finalBindings["chroniclesLineNumbers"]
-    if chroniclesLineNumbers notin ["true", "false"]:
-      error("chroniclesLineNumbers should be set to either true or false",
-            finalBindings["chroniclesLineNumbers"])
-    useLineNumbers = chroniclesLineNumbers == "true"
-    finalBindings.del("chroniclesLineNumbers")
+  proc lookForScopeOverride(option: var bool, overrideName: string) =
+    if finalBindings.hasKey(overrideName):
+      let overrideValue = $finalBindings[overrideName]
+      if overrideValue notin ["true", "false"]:
+        error(overrideName & " should be set to either true or false",
+              finalBindings[overrideName])
+      option = overrideValue == "true"
+      finalBindings.del(overrideName)
+
+  # The user is allowed to override the compile-time options for line numbers
+  # and thread ids in particular log statements or scopes:
+  lookForScopeOverride(useLineNumbers, "chroniclesLineNumbers")
+  lookForScopeOverride(useThreadIds, "chroniclesThreadIds")
 
   var code = newStmtList()
+
   when runtimeFilteringEnabled:
-    if severity != NONE:
+    if severity != LogLevel.NONE:
       code.add runtimeTopicFilteringCode(severity, activeTopics)
 
   # The rest of the code selects the active LogRecord type (which can
@@ -311,20 +320,24 @@ macro logIMPL(lineInfo: static InstInfo,
     record = genSym(nskVar, "record")
     lvl = newDotExpr(bindSym("LogLevel", brClosed), ident $severity)
     expandItIMPL = bindSym("expandItIMPL", brForceOpen)
+    prepareOutput = bindSym("prepareOutput", brForceOpen)
+    initLogRecord = bindSym("initLogRecord", brForceOpen)
+    setProperty = bindSym("setProperty", brForceOpen)
 
   code.add quote do:
     var `record`: `RecordType`
-    prepareOutput(`record`, `lvl`)
-    initLogRecord(`record`, `lvl`, `topicsNode`, `eventName`)
-    # called tid even when it's a process id - this to avoid differences in
-    # logging between threads and no threads
-    when not defined(chronicles_disable_thread_id):
-      setFirstProperty(`record`, "tid", getLogThreadId())
+    `prepareOutput`(`record`, `lvl`)
+    `initLogRecord`(`record`, `lvl`, `topicsNode`, `eventName`)
+
+  if useThreadIds:
+    code.add quote do:
+      # called tid even when it's a process id - this to avoid differences in
+      # logging between threads and no threads
+      `setProperty`(`record`, "tid", getLogThreadId())
 
   if useLineNumbers:
     var filename = lineInfo.filename & ":" & $lineInfo.line
-    code.add newCall("setProperty", record,
-                     newLit("file"), newLit(filename))
+    code.add newCall(setProperty, record, newLit("file"), newLit(filename))
 
   for k, v in finalBindings:
     code.add newCall(expandItIMPL, record, newLit(k), v)
@@ -396,10 +409,7 @@ logFn fatal , LogLevel.FATAL
 
 # TODO:
 #
-# * don't sort the properties
 # * define all formats in terms of nim-serialization
-#   (this will remove the need for setFirstProperty and the thread id will become optional)
-# * don't have side effects in debug and trace
 # * extract the testing framework in stew/testability
 # * extract the compile-time conf framework in confutils
 # * instance carried streams that can collect the information in memory
@@ -415,3 +425,4 @@ logFn fatal , LogLevel.FATAL
 #                            between dynamic and lexical bindings)
 #
 # * implement some of the leading standardized structured logging formats
+

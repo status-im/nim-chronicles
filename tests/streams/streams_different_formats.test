@@ -2,13 +2,13 @@ program="../multiple_streams"
 chronicles_streams="foo[textlines],bar[json[file]]"
 chronicles_colors=None
 chronicles_timestamps=None
-
+chronicles_thread_ids=None
 [Output]
-stdout="""INF logging to foo                             tid=0
-INF logging to foo                             tid=0
+stdout="""INF logging to foo                            
+INF logging to foo                            
+"""
+bar.log="""{"lvl":"INF","msg":"dynamic scope starts","reqId":10,"userId":20}
+{"lvl":"INF","msg":"dynamic scope ends","reqId":10,"userId":20}
+{"lvl":"WRN","msg":"about to exit main"}
 """
 
-bar.log="""{"lvl":"INF","msg":"dynamic scope starts","tid":0,"reqId":10,"userId":20}
-{"lvl":"INF","msg":"dynamic scope ends","tid":0,"reqId":10,"userId":20}
-{"lvl":"WRN","msg":"about to exit main","tid":0}
-"""

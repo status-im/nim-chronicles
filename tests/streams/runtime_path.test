@@ -2,8 +2,8 @@ program="../runtime_path"
 chronicles_sinks="textlines[file]"
 chronicles_colors=None
 chronicles_timestamps=None
-
+chronicles_thread_ids=None
 [Output]
 stdout=""""""
-mylog.log="""INF log record                                 tid=0 prop=10
+mylog.log="""INF log record                                 prop=10
 """

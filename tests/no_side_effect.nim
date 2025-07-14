@@ -6,7 +6,7 @@ func main =
 main()
 
 # issue #92
-proc test() {.raises: [Defect].} =
+proc test() {.raises: [].} =
   error "should not raises exception"
 
 test()

@@ -2,8 +2,10 @@ program="../no_side_effect"
 chronicles_sinks="textlines[stdout]"
 chronicles_colors=None
 chronicles_timestamps=None
+chronicles_thread_ids=None
 chronicles_log_level=TRACE
 
 [Output]
-stdout="""TRC effect-free                                tid=0
+stdout="""TRC effect-free                               
+ERR should not raises exception               
 """

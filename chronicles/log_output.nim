@@ -666,8 +666,8 @@ template appendHeader(r: var TextLineRecord | var TextBlockRecord,
 #
 # 2. It's initialized with a call to `initLogRecord`.
 #
-# 3. Zero or more calls to `setFirstProperty` and `setPropery` are
-#    executed with the current lixical and dynamic bindings.
+# 3. Zero or more calls to `setPropery` are
+#    executed with the current lexical and dynamic bindings.
 #
 # 4. Finally, `flushRecord` should wrap-up the record and flush the output.
 #
@@ -761,9 +761,6 @@ proc setProperty*(
   append(r.output, valueToWrite[])
   resetColors(r)
 
-template setFirstProperty*(r: var TextLineRecord, key: string, val: auto) =
-  setProperty(r, key, val)
-
 proc flushRecord*(r: var TextLineRecord) =
   append(r.output, "\n")
   flushOutput(r.output)
@@ -802,9 +799,6 @@ proc setProperty*(
       first = false
 
   resetColors(r)
-
-template setFirstProperty*(r: var TextBlockRecord, key: string, val: auto) =
-  setProperty(r, key, val)
 
 proc flushRecord*(r: var TextBlockRecord) =
   append(r.output, "\n")
@@ -849,9 +843,6 @@ proc initLogRecord*(r: var JsonRecord,
     r["topics"] = topics
 
 proc setProperty*(r: var JsonRecord, key: string, val: auto) {.raises: [].} =
-  r[key] = val
-
-template setFirstProperty*(r: var JsonRecord, key: string, val: auto) =
   r[key] = val
 
 proc flushRecord*(r: var JsonRecord) =
@@ -907,9 +898,6 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
       template initLogRecord*(r: var `Record`, lvl: LogLevel,
                               topics: string, name: string) =
         for f in r.fields: initLogRecord(f, lvl, topics, name)
-
-      template setFirstProperty*(r: var `Record`, key: string, val: auto) =
-        for f in r.fields: setFirstProperty(f, key, val)
 
       template setProperty*(r: var `Record`, key: string, val: auto) =
         for f in r.fields: setProperty(f, key, val)

@@ -10,9 +10,6 @@ template initLogRecord*(r: var XmlRecord, lvl: LogLevel,
 template setProperty*(r: var XmlRecord, key: string, val: auto) =
   r.output.append textBlockIndent, "<", key, ">", escape($val), "</", key, ">\n"
 
-template setFirstProperty*(r: var XmlRecord, key: string, val: auto) =
-  r.setProperty key, val
-
 template flushRecord*(r: var XmlRecord) =
   r.output.append "</event>\n"
   r.output.flushOutput

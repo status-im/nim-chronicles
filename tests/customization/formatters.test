@@ -2,14 +2,14 @@ program="../custom_formatters"
 chronicles_sinks="textlines[file(lines.txt,truncate)],textblocks[file(blocks.txt,truncate)],json[file(json.txt,truncate)]"
 chronicles_timestamps=None
 chronicles_colors=None
+chronicles_thread_ids=None
 
 [Output]
-lines.txt="""INF Got attestation 1                          tid=3923 attestation="some attestation" peer="Peer 1" it="not renamed" asig="some signature" a=renamed complex_a_concatenation=X
-WRN Got attestation 2                          tid=3923 attestation="some attestation" peer="Peer 1" it="not renamed" attestationsig="some signature" attestation=renamed complex_attestation_concatenation=X
+lines.txt="""INF Got attestation 1                          attestation="some attestation" peer="Peer 1" it="not renamed" asig="some signature" a=renamed complex_a_concatenation=X
+WRN Got attestation 2                          attestation="some attestation" peer="Peer 1" it="not renamed" attestationsig="some signature" attestation=renamed complex_attestation_concatenation=X
 """
 
 blocks.txt="""INF Got attestation 1
-  tid: 3923
   attestation: some attestation
   peer: Peer 1
   it: not renamed
@@ -18,7 +18,6 @@ blocks.txt="""INF Got attestation 1
   complex_a_concatenation: X
 
 WRN Got attestation 2
-  tid: 3923
   attestation: some attestation
   peer: Peer 1
   it: not renamed
@@ -28,6 +27,6 @@ WRN Got attestation 2
 
 """
 
-json.txt="""{"lvl":"INF","msg":"Got attestation 1","tid":0,"attestation":"some attestation","peer":"Peer 1","it":"not renamed","asig":"some signature","a":"renamed","complex_a_concatenation":"X"}
-{"lvl":"WRN","msg":"Got attestation 2","tid":0,"attestation":"some attestation","peer":"Peer 1","it":"not renamed","attestationsig":"some signature","attestation":"renamed","complex_attestation_concatenation":"X"}
+json.txt="""{"lvl":"INF","msg":"Got attestation 1","attestation":"some attestation","peer":"Peer 1","it":"not renamed","asig":"some signature","a":"renamed","complex_a_concatenation":"X"}
+{"lvl":"WRN","msg":"Got attestation 2","attestation":"some attestation","peer":"Peer 1","it":"not renamed","attestationsig":"some signature","attestation":"renamed","complex_attestation_concatenation":"X"}
 """

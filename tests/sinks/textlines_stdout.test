@@ -2,7 +2,8 @@ program="../lexical_scopes"
 chronicles_sinks="textlines[stdout]"
 chronicles_colors=None
 chronicles_timestamps=None
+chronicles_thread_ids=None
 [Output]
-stdout="""INF main started                               topics="main" tid=26172 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
-INF exiting                                    tid=26172 msg="bye bye" b=overriden-b x=16 c=100 a=12
+stdout="""INF main started                               topics="main" a=12 b=overriden-b d=some-d x=16 z=20 arg=50 c=10
+INF exiting                                    msg="bye bye" x=16 b=overriden-b a=12 c=100
 """

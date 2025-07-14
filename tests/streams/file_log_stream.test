@@ -2,10 +2,9 @@ program="../file_log_stream"
 chronicles_sinks="textlines[stdout]"
 chronicles_colors=None
 chronicles_timestamps=None
-
+chronicles_thread_ids=None
 [Output]
 stdout=""""""
 logger.log="""INF hello
-  tid: 0
 
 """

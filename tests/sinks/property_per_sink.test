@@ -1,25 +1,25 @@
 program="../lexical_scopes"
 chronicles_sinks="textlines[file(lines.txt,truncate),nocolors],textblocks[file(blocks.txt,truncate),notimestamps,ansicolors]"
+chronicles_thread_ids=None
+timestamp_peg="""{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d}  '.' {\d\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"""
 [Output]
-lines.txt="""INF 2020-02-25 17:04:35+02:00 main started                               topics="main" tid=26216 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
-INF 2020-02-25 17:04:35+02:00 exiting                                    tid=26216 msg="bye bye" b=overriden-b x=16 c=100 a=12
+lines.txt="""INF 2025-07-14 11:40:17.435+02:00 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 z=20 arg=50 c=10
+INF 2025-07-14 11:40:17.435+02:00 exiting                                    msg="bye bye" x=16 b=overriden-b a=12 c=100
 """
-blocks.txt="""[32mINF[0m [1mmain started[0m topics="[93mmain[0m"
-  [34mtid: [1m26216
-[0m  [34ma: [1m12
+blocks.txt="""[96mINF[0m [1mmain started[0m topics="[93mmain[0m"
+  [34ma: [1m12
 [0m  [34mb: [1moverriden-b
 [0m  [34md: [1msome-d
-[0m  [34marg: [1m50
-[0m  [34mz: [1m20
 [0m  [34mx: [1m16
+[0m  [34mz: [1m20
+[0m  [34marg: [1m50
 [0m  [34mc: [1m10
 [0m
-[32mINF[0m [1mexiting[0m
-  [34mtid: [1m26216
-[0m  [34mmsg: [1mbye bye
-[0m  [34mb: [1moverriden-b
+[96mINF[0m [1mexiting[0m
+  [34mmsg: [1mbye bye
 [0m  [34mx: [1m16
-[0m  [34mc: [1m100
+[0m  [34mb: [1moverriden-b
 [0m  [34ma: [1m12
+[0m  [34mc: [1m100
 [0m
 """

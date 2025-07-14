@@ -11,7 +11,7 @@ logScope:
 logScope:
   c = 100
 
-proc main(arg: int) {.raises: [Defect].} =
+proc main(arg: int) {.raises: [].} =
   logScope:
     topics = "main"
     arg

@@ -2,15 +2,12 @@ program="../lexical_scopes"
 chronicles_sinks="textlines[stdout,file]"
 chronicles_colors=None
 chronicles_timestamps=UnixTime
+chronicles_thread_ids=None
 timestamp_peg="{\\d+} '.' {\\d+} \\s"
 [Output]
-ownpeg_timestamps.log="""INF 1582640908.612774 main started                               topics="main" tid=22164 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
-INF 1582640908.612812 exiting                                    tid=22164 msg="bye bye" b=overriden-b x=16 c=100 a=12
-INF 1582641361.106187 main started                               topics="main" tid=23529 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
-INF 1582641361.106221 exiting                                    tid=23529 msg="bye bye" b=overriden-b x=16 c=100 a=12
-INF 1582643131.192854 main started                               topics="main" tid=26785 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
-INF 1582643131.192885 exiting                                    tid=26785 msg="bye bye" b=overriden-b x=16 c=100 a=12
+ownpeg_timestamps.log="""INF 1582643131.192854 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 z=20 arg=50 c=10
+INF 1582643131.192885 exiting                                    msg="bye bye" x=16 b=overriden-b a=12 c=100
 """
-stdout="""INF 1582643131.192854 main started                               topics="main" tid=26785 a=12 b=overriden-b d=some-d arg=50 z=20 x=16 c=10
-INF 1582643131.192885 exiting                                    tid=26785 msg="bye bye" b=overriden-b x=16 c=100 a=12
+stdout="""INF 1582643131.192854 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 z=20 arg=50 c=10
+INF 1582643131.192885 exiting                                    msg="bye bye" x=16 b=overriden-b a=12 c=100
 """

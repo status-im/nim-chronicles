@@ -2,14 +2,11 @@ program="../lexical_scopes"
 chronicles_sinks="json[stdout,file]"
 chronicles_colors=None
 chronicles_timestamps=None
+chronicles_thread_ids=None
 [Output]
-json_file_stdout.log="""{"lvl":"INF","msg":"main started","topics":"main","tid":21495,"a":12,"b":"overriden-b","d":"some-d","arg":50,"z":20,"x":16,"c":10}
-{"lvl":"INF","msg":"exiting","tid":21495,"msg":"bye bye","b":"overriden-b","x":16,"c":100,"a":12}
-{"lvl":"INF","msg":"main started","topics":"main","tid":22790,"a":12,"b":"overriden-b","d":"some-d","arg":50,"z":20,"x":16,"c":10}
-{"lvl":"INF","msg":"exiting","tid":22790,"msg":"bye bye","b":"overriden-b","x":16,"c":100,"a":12}
-{"lvl":"INF","msg":"main started","topics":"main","tid":26106,"a":12,"b":"overriden-b","d":"some-d","arg":50,"z":20,"x":16,"c":10}
-{"lvl":"INF","msg":"exiting","tid":26106,"msg":"bye bye","b":"overriden-b","x":16,"c":100,"a":12}
+json_file_stdout.log="""{"lvl":"INF","msg":"main started","topics":"main","a":12,"b":"overriden-b","d":"some-d","x":16,"z":20,"arg":50,"c":10}
+{"lvl":"INF","msg":"exiting","msg":"bye bye","x":16,"b":"overriden-b","a":12,"c":100}
 """
-stdout="""{"lvl":"INF","msg":"main started","topics":"main","tid":26106,"a":12,"b":"overriden-b","d":"some-d","arg":50,"z":20,"x":16,"c":10}
-{"lvl":"INF","msg":"exiting","tid":26106,"msg":"bye bye","b":"overriden-b","x":16,"c":100,"a":12}
+stdout="""{"lvl":"INF","msg":"main started","topics":"main","a":12,"b":"overriden-b","d":"some-d","x":16,"z":20,"arg":50,"c":10}
+{"lvl":"INF","msg":"exiting","msg":"bye bye","x":16,"b":"overriden-b","a":12,"c":100}
 """
