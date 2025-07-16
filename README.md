@@ -18,12 +18,19 @@ well-defined event records with arbitrary properties that are easy to read
 for both humans and machines. Let's illustrate this with an example:
 
 ``` nim
-import net, chronicles
+import chronicles, chronos/apps/http/httpclient
 
-socket.accept(...)
-...
-debug "Client PSK", psk = client.getPskIdentity
-info "New incoming connection", remoteAddr = ip, remotePort = port
+proc retrievePage*(uri: string): Future[seq[byte]] {.async.} =
+  debug "Fetching page", uri
+  let httpSession = HttpSessionRef.new()
+  try:
+    let resp = await httpSession.fetch(parseUri(uri))
+    resp.data
+  finally: # Close the session
+    await noCancel(httpSession.closeWait())
+
+let page = waitFor retrievePage("https://raw.githubusercontent.com/status-im/nim-chronos/master/README.md")
+info "Retrieved page", bytes = page.len
 ```
 
 Here, `debug` and `info` are logging statements, corresponding to different
@@ -35,21 +42,21 @@ From these logging statements, Chronicles can be configured to produce log
 output in various structured formats. The default format is called `textlines`
 and it looks like this:
 
-![textblocks format example](media/textlines.svg)
+![textblocks format example](media/textlines.png)
 
 This format is compatible with tooling written for
 [heroku/logfmt](https://brandur.org/logfmt).
 
 Alternatively, you can use a multi-line format called `textblocks`:
 
-![textblocks format example](media/textblocks.svg)
+![textblocks format example](media/textblocks.png)
 
 While these human-readable formats provide a more traditional and familiar
 experience of using a logging library, the true power of Chronicles is
 unlocked only after switching to the `JSON` format. Then, the same log output
 will look like this:
 
-![json format example](media/json.svg)
+![json format example](media/json.png)
 
 At first, switching to JSON may look like a daunting proposition, but
 Chronicles provides a customized log tailing program called `chronicles-tail`
@@ -559,7 +566,28 @@ chronicles.formatIt(Dollar): "$" & $(it.int)
 ```
 
 The `formatIt` block can evaluate to any expression that will be then
-subjected to the standard serialization logic described above.
+subjected to the standard serialization logic described above, such as when
+returning a `tuple` - logging `value = DivMod3(13)` noow results in
+`value = (4, 1)` being written to the log.
+
+``` nim
+import chronicles/formats
+type DivMod3 = distinct int
+formats.formatIt(DivMod3): (int(it) div 3, int(it) mod 3)
+```
+
+Note how `chronicles/formats` is used for the import this time - this technique
+is useful if you want to avoid importing the full library in a module that
+itself doesn't do any logging.
+
+This technique can also be used to mask passwords and other sensitive
+information in logs.
+
+```nim
+import chronicles/formats
+type Password = distinct string
+formats.formatIt(Password): "***"
+```
 
 ### `expandIt`
 

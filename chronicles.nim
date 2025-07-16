@@ -1,9 +1,9 @@
 import
   macros, tables, strutils, strformat,
-  chronicles/[scope_helpers, dynamic_scope, log_output, options]
+  chronicles/[formats, scope_helpers, dynamic_scope, log_output, options]
 
 export
-  dynamic_scope, log_output, options
+  formats, dynamic_scope, log_output, options
 
 # So, how does Chronicles work?
 #
@@ -162,63 +162,6 @@ else:
   else:
     proc getLogThreadId*(): int = 0
 
-template formatItIMPL*(value: auto): auto =
-  value
-
-template formatIt*(T: type, body: untyped) {.dirty.} =
-  template formatItIMPL*(it: T): auto = body
-
-template expandItIMPL*[R](record: R, field: static string, value: auto) =
-  mixin setProperty, formatItIMPL
-  setProperty(record, field, formatItIMPL(value))
-
-macro expandIt*(T: type, expandedProps: untyped): untyped =
-  let
-    setProperty = bindSym("setProperty", brForceOpen)
-    formatItIMPL = bindSym("formatItIMPL", brForceOpen)
-    expandItIMPL = id("expandItIMPL", true)
-    record = ident "record"
-    it = ident "it"
-    it_name = ident "it_name"
-    setPropertyCalls = newStmtList()
-
-  for prop in expandedProps:
-    if prop.kind != nnkAsgn:
-      error "An `expandIt` definition should consist only of key-value assignments", prop
-
-    var key = prop[0]
-    let value = prop[1]
-    case key.kind
-    of nnkAccQuoted:
-      proc toStrLit(n: NimNode): NimNode =
-        let nAsStr = $n
-        if nAsStr == "it": it_name
-        else: newLit(nAsStr)
-
-      if key.len < 2:
-        key = key.toStrLit
-      else:
-        var concatCall = infix(key[0].toStrLit, "&", key[1].toStrLit)
-        for i in 2 ..< key.len:
-          concatCall = infix(concatCall, "&", key[i].toStrLit)
-        key = newTree(nnkStaticExpr, concatCall)
-
-    of nnkIdent, nnkSym:
-      key = newLit($key)
-
-    else:
-      error &"Unexpected AST kind for an `epxpandIt` key: {key.kind} ", key
-
-    setPropertyCalls.add quote do:
-      `setProperty` `record`, `key`, `formatItIMPL`(`value`)
-
-  result = quote do:
-    template `expandItIMPL`(`record`: auto, `it_name`: static string, `it`: `T`) =
-      `setPropertyCalls`
-
-  when defined(debugLogImpl):
-    echo result.repr
-
 template chroniclesUsedMagic(x: untyped) =
   # Force the compiler to mark any symbol in the x
   # as used without actually generate any code.
@@ -281,7 +224,7 @@ macro logIMPL(lineInfo: static InstInfo,
       else:
         for topic in enabledTopics:
           if topic.name == t:
-            if topic.logLevel != NONE:
+            if topic.logLevel != LogLevel.NONE:
               if severity >= topic.logLevel:
                 enabledTopicsMatch = true
             elif severity >= enabledLogLevel:
@@ -319,7 +262,7 @@ macro logIMPL(lineInfo: static InstInfo,
   let
     record = genSym(nskVar, "record")
     lvl = newDotExpr(bindSym("LogLevel", brClosed), ident $severity)
-    expandItIMPL = bindSym("expandItIMPL", brForceOpen)
+    chroniclesExpandItIMPL = bindSym("chroniclesExpandItIMPL", brForceOpen)
     prepareOutput = bindSym("prepareOutput", brForceOpen)
     initLogRecord = bindSym("initLogRecord", brForceOpen)
     setProperty = bindSym("setProperty", brForceOpen)
@@ -340,7 +283,7 @@ macro logIMPL(lineInfo: static InstInfo,
     code.add newCall(setProperty, record, newLit("file"), newLit(filename))
 
   for k, v in finalBindings:
-    code.add newCall(expandItIMPL, record, newLit(k), v)
+    code.add newCall(chroniclesExpandItIMPL, record, newLit(k), v)
 
   code.add newCall("logAllDynamicProperties", Stream, record)
   code.add newCall("flushRecord", record)

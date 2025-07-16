@@ -8,13 +8,12 @@ license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
 requires "nim >= 2.0.16"
+requires "faststreams >= 0.3.0"
+requires "serialization"
 requires "json_serialization"
 
 # Allow old nimble versions to parse this nimble file
-when NimMajor >= 2:
-  taskRequires "test", "testutils"
-else:
-  requires "testutils"
+requires "testutils"
 
 task test, "run CPU tests":
   when defined(windows):
