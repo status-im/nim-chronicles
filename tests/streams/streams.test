@@ -1,11 +1,12 @@
 program="../multiple_streams"
 chronicles_streams="foo[textlines],bar[textlines]"
 chronicles_colors=None
-
+chronicles_thread_ids=None
+timestamp_peg="""{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d}  '.' {\d\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"""
 [Output]
-stdout="""INF 2018-10-12 21:15:33+02:00 dynamic scope starts                       tid=0 reqId=10 userId=20
-INF 2018-10-12 21:15:33+02:00 logging to foo                             tid=0
-INF 2018-10-12 21:15:33+02:00 dynamic scope ends                         tid=0 reqId=10 userId=20
-INF 2018-10-12 21:15:33+02:00 logging to foo                             tid=0
-WRN 2018-10-12 21:15:33+02:00 about to exit main                         tid=0
+stdout="""INF 2025-07-14 11:44:48.619+02:00 dynamic scope starts                       reqId=10 userId=20
+INF 2025-07-14 11:44:48.619+02:00 logging to foo                            
+INF 2025-07-14 11:44:48.619+02:00 dynamic scope ends                         reqId=10 userId=20
+INF 2025-07-14 11:44:48.619+02:00 logging to foo                            
+WRN 2025-07-14 11:44:48.619+02:00 about to exit main                        
 """

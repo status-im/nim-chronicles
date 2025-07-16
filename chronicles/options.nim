@@ -26,6 +26,7 @@ const
 
   chronicles_indent {.intdefine.} = 2
   chronicles_line_numbers {.strdefine.} = "off"
+  chronicles_thread_ids {.strdefine.} = when compileOption("threads"): "yes" else: "no"
 
   truthySwitches = ["yes", "1", "on", "true"]
   falsySwitches = ["no", "0", "off", "false", "none"]
@@ -34,6 +35,8 @@ when chronicles_streams.len > 0 and chronicles_sinks.len > 0:
   {.error: "Please specify only one of the options 'chronicles_streams' and 'chronicles_sinks'." }
 when chronicles_enabled_topics.len > 0 and chronicles_required_topics.len > 0:
   {.error: "Please specify only one of the options 'chronicles_enabled_topics' and 'chronicles_required_topics'." }
+when defined(chronicles_disable_thread_id):
+  {.warning: "-d:chronicles_disable_thread_id is deprecated, use `-d:chronicles_thread_ids=no` instead".}
 
 type
   LogLevel* = enum
@@ -338,6 +341,7 @@ const
   disabledTopics* = topicsAsSeq chronicles_disabled_topics
   requiredTopics* = topicsAsSeq chronicles_required_topics
   lineNumbersEnabled* = handleYesNoOption chronicles_line_numbers
+  threadIdsEnabled* = (handleYesNoOption chronicles_thread_ids) and not defined(chronicles_disable_thread_id)
 
   config* = when chronicles_streams.len > 0: parseStreamsSpec(chronicles_streams)
             elif chronicles_sinks.len > 0:   parseSinksSpec(chronicles_sinks)

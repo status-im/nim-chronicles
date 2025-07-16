@@ -4,29 +4,29 @@ import
 type
   MyRecord[Output] = object
     output*: Output
+    first*: bool
 
 template initLogRecord*(r: var MyRecord, lvl: LogLevel,
                         topics: string, name: string) =
   r.output.append "[", $lvl, "] ", name, ": "
-
-template setPropertyImpl(r: var MyRecord, key: string, val: auto) =
-  r.output.append key, "=", $val
-
-template setFirstProperty*(r: var MyRecord, key: string, val: auto) =
-  r.output.append " ("
-  r.setPropertyImpl(key, val)
+  r.first = true
 
 template setProperty*(r: var MyRecord, key: string, val: auto) =
-  r.output.append ", "
-  r.setPropertyImpl(key, val)
+  if r.first:
+    r.output.append " ("
+    r.first = false
+  else:
+    r.output.append(" ,")
+  r.output.append key, "=", $val
 
 template flushRecord*(r: var MyRecord) =
-  r.output.append ")\n"
+  if not r.first:
+    r.output.append ")"
+  r.output.append "\n"
+
   r.output.flushOutput
 
 customLogStream myStream[MyRecord[StdOutOutput]]
-
-var x = 10
 
 proc main =
   logScope:

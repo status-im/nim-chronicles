@@ -1,12 +1,13 @@
 program="../multiple_streams"
 chronicles_streams="foo[textlines[stdout,nocolors]],bar[textlines[file,notimestamps,ansicolors]]"
-
+chronicles_thread_ids=None
+timestamp_peg="""{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d}  '.' {\d\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"""
 [Output]
-stdout="""INF 2018-10-12 21:56:43+02:00 logging to foo                             tid=0
-INF 2018-10-12 21:56:43+02:00 logging to foo                             tid=0
+stdout="""INF 2025-07-14 11:44:45.128+02:00 logging to foo                            
+INF 2025-07-14 11:44:45.128+02:00 logging to foo                            
+"""
+bar.log="""[96mINF[0m [1mdynamic scope starts                      [0m [96mreqId[0m=[94m10[0m [96muserId[0m=[94m20[0m
+[96mINF[0m [1mdynamic scope ends                        [0m [96mreqId[0m=[94m10[0m [96muserId[0m=[94m20[0m
+[33mWRN[0m [1mabout to exit main                        [0m
 """
 
-bar.log="""[32mINF[0m [1mdynamic scope starts                      [0m [32mtid[0m=[94m0[0m [32mreqId[0m=[94m10[0m [32muserId[0m=[94m20[0m
-[32mINF[0m [1mdynamic scope ends                        [0m [32mtid[0m=[94m0[0m [32mreqId[0m=[94m10[0m [32muserId[0m=[94m20[0m
-[93mWRN[0m [1mabout to exit main                        [0m [93mtid[0m=[94m0[0m
-"""

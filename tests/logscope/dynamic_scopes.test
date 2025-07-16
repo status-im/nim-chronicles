@@ -2,8 +2,9 @@ program="../dynamic_scopes"
 chronicles_sinks="textlines[stdout]"
 chronicles_colors=None
 chronicles_timestamps=None
+chronicles_thread_ids=None
 
 [Output]
-stdout="""INF test                                       topics="main" tid=0 reqId=10 userId=20
-WRN about to exit                              topics="main" tid=0 timeSpent=2s
+stdout="""INF test                                       topics="main" reqId=10 userId=20
+WRN about to exit                              topics="main" timeSpent=2s
 """

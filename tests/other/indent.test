@@ -2,24 +2,24 @@ program="../lexical_scopes"
 chronicles_sinks="textblocks[stdout]"
 chronicles_colors=None
 chronicles_timestamps=None
+chronicles_thread_ids=None
 chronicles_indent=1
+
 [Output]
 stdout="""INF main started topics="main"
- tid: 26603
  a: 12
  b: overriden-b
  d: some-d
- arg: 50
- z: 20
  x: 16
  c: 10
+ arg: 50
+ z: 20
 
 INF exiting
- tid: 26603
  msg: bye bye
+ a: 12
  b: overriden-b
  x: 16
  c: 100
- a: 12
 
 """

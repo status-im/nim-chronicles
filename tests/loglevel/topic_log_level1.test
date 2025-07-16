@@ -2,13 +2,15 @@ program="../topics_and_loglvls"
 chronicles_sinks="textlines[stdout]"
 chronicles_colors=None
 chronicles_timestamps=None
+chronicles_thread_ids=None
 chronicles_log_level=DEBUG
 chronicles_enabled_topics="foo:WARN,bar:INFO,main"
+
 [Output]
-stdout="""WRN inside main                                topics="main" tid=26843 b=10 arg=50 a=1
-INF inside main                                topics="main" tid=26843 b=10 arg=50 a=1
-DBG inside main                                topics="main" tid=26843 b=10 arg=50 a=1
-WRN inside foo                                 topics="foo" tid=26843 b=10 arg=10
-WRN inside foobar                              topics="foo bar" tid=26843 b=10 arg=20
-INF inside foobar                              topics="foo bar" tid=26843 b=10 arg=20
+stdout="""WRN inside main                                topics="main" b=10 arg=50 a=1
+INF inside main                                topics="main" b=10 arg=50 a=1
+DBG inside main                                topics="main" b=10 arg=50 a=1
+WRN inside foo                                 topics="foo" b=10 arg=10
+WRN inside foobar                              topics="foo bar" b=10 arg=20
+INF inside foobar                              topics="foo bar" b=10 arg=20
 """

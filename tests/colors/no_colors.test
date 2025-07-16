@@ -2,18 +2,17 @@ program="../long_lines"
 chronicles_sinks="textlines[stdout]"
 chronicles_colors=None
 chronicles_timestamps=None
+chronicles_thread_ids=None
 
 [Output]
-stdout="""INF long info                                  tid=0 file=long_lines.nim:10 str="some multiline\nstring\nmore lines"
-WRN long warning                               tid=0 str="some multiline\nstring\nmore lines"
+stdout="""INF long info                                  file=long_lines.nim:10 str="some multiline\nstring\nmore lines"
+WRN long warning                               str="some multiline\nstring\nmore lines"
 INF long info
-  tid: 0
   str: some multiline
        string
        more lines
 
 WRN long warning
-  tid: 0
   str: some multiline
        string
        more lines
