@@ -28,8 +28,6 @@ template flushRecord*(r: var MyRecord) =
 
 customLogStream myStream[MyRecord[StdOutOutput]]
 
-var x = 10
-
 proc main =
   logScope:
     stream = myStream

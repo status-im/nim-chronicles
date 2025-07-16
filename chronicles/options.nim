@@ -26,7 +26,7 @@ const
 
   chronicles_indent {.intdefine.} = 2
   chronicles_line_numbers {.strdefine.} = "off"
-  chronicles_thread_ids {.strdefine.} = when defined(threads): "on" else: "off"
+  chronicles_thread_ids {.strdefine.} = when compileOption("threads"): "yes" else: "no"
 
   truthySwitches = ["yes", "1", "on", "true"]
   falsySwitches = ["no", "0", "off", "false", "none"]
