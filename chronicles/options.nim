@@ -336,10 +336,14 @@ const
 
   indentStr* = repeat(' ', chronicles_indent)
 
-  newLine* = case handleEnumOption(LineEndingsScheme, chronicles_line_endings)
-             of windowsLineEndings: "\r\n"
-             of posixLineEndings: "\n"
-             of platformLineEndings: "\p"
+  newLine* =
+    case handleEnumOption(LineEndingsScheme, chronicles_line_endings)
+    of WindowsLineEndings:
+      "\r\n"
+    of PosixLineEndings:
+      "\n"
+    of NativeLineEndings:
+      when defined(windows): "\r\n" else: "\n"
 
   enabledTopics*  = topicsWithLogLevelAsSeq chronicles_enabled_topics
   disabledTopics* = topicsAsSeq chronicles_disabled_topics
