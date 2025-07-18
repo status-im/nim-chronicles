@@ -9,6 +9,7 @@ skipDirs      = @["tests"]
 
 requires "nim >= 1.2.0"
 requires "testutils"
+requires "faststreams"
 requires "json_serialization"
 
 task test, "run CPU tests":
