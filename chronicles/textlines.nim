@@ -141,7 +141,7 @@ proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
 
   # Log level comes first - allows for easy regex match with ^
   writeLogLevelMarker(TextLogRecord[r.Output, r.format](r), level)
-  r.writeSpaceAndTs()
+  writeSpaceAndTs(TextLogRecord[r.Output, r.format](r))
 
   r.stream.write(' ')
   applyStyle(r, styleBright)

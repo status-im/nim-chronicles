@@ -137,8 +137,9 @@ proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
   r.stream = initOutputStream type(r)
   r.level = level
 
+  # Casts not needed on nim 2.2+
   writeLogLevelMarker(TextLogRecord[r.Output, r.format](r), level)
-  r.writeSpaceAndTs()
+  writeSpaceAndTs(TextLogRecord[r.Output, r.format](r))
 
   r.stream.write(' ')
   r.applyStyle(styleBright)
