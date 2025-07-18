@@ -1,5 +1,6 @@
 import
-  macros, strutils, strformat, sequtils, os
+  std/[strutils, strformat, sequtils, os],
+  stew/shims/macros
 
 # The default behavior of Chronicles can be configured through a wide-range
 # of compile-time -d: switches (for more information, see the README).
@@ -54,6 +55,8 @@ type
     textLines,
     textBlocks
 
+  LogFormatPlugin* = distinct string
+
   OutputDeviceKind* = enum
     oStdOut,
     oStdErr,
@@ -84,8 +87,12 @@ type
     NoColors
     AnsiColors
 
+  FormatSpec* = object
+    colors*: ColorScheme
+    timestamps*: TimestampScheme
+
   SinkSpec* = object
-    format*: LogFormat
+    format*: LogFormatPlugin
     colorScheme*: ColorScheme
     timestamps*: TimestampScheme
     destinations*: seq[LogDestination]
@@ -176,20 +183,7 @@ proc topicsWithLogLevelAsSeq(topics: string): seq[EnabledTopic] =
         sequence.add(EnabledTopic(name: values[0], logLevel: NONE))
   return sequence
 
-proc logFormatFromIdent(n: NimNode): LogFormat =
-  let format = $n
-  case format.toLowerAscii
-  of "json":
-    return json
-  of "textlines":
-    return textLines
-  of "textblocks":
-    return textBlocks
-  else:
-    error &"'{format}' is not a recognized output format. " &
-          &"Allowed values are {enumValues LogFormat}."
-
-proc makeSinkSpec(fmt: LogFormat,
+proc makeSinkSpec(fmt: LogFormatPlugin,
                   colors: ColorScheme,
                   timestamps: TimestampScheme,
                   destinations: varargs[LogDestination]): SinkSpec =
@@ -244,12 +238,12 @@ proc sinkSpecsFromNode*(streamNode: NimNode): seq[SinkSpec] =
     let n = streamNode[i]
     case n.kind
     of nnkIdent:
-      result.add makeSinkSpec(logFormatFromIdent(n),
+      result.add makeSinkSpec(LogFormatPlugin($n),
                               defaultColorScheme,
                               defaultTimestamsScheme,
                               logDestinationFromStr(chronicles_default_output_device))
     of nnkBracketExpr:
-      var spec = makeSinkSpec(logFormatFromIdent(n[0]),
+      var spec = makeSinkSpec(LogFormatPlugin($(n[0])),
                               defaultColorScheme,
                               defaultTimestamsScheme)
       for i in 1 ..< n.len:
@@ -335,7 +329,7 @@ const
 
   enabledLogLevel* = handleEnumOption(LogLevel, chronicles_log_level)
 
-  textBlockIndent* = repeat(' ', chronicles_indent)
+  indentStr* = repeat(' ', chronicles_indent)
 
   enabledTopics*  = topicsWithLogLevelAsSeq chronicles_enabled_topics
   disabledTopics* = topicsAsSeq chronicles_disabled_topics
@@ -360,8 +354,11 @@ const
             # * properies may be easier to find
             else: parseSinksSpec "textlines"
 
-proc isLogFormatUsed*(format: LogFormat): bool =
+proc isLogFormatUsed*(format: string): bool {.compileTime.} =
   for stream in config.streams:
     for sink in stream.sinks:
-      if sink.format == format: return true
+      if sink.format.string == format: return true
   return false
+
+proc isLogFormatUsed*(format: LogFormat): bool {.compileTime.} =
+  isLogFormatUsed($format)

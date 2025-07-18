@@ -1,5 +1,4 @@
-import
-  macros, tables, strformat, options
+import stew/shims/macros, std/[tables, strformat], ./options
 
 type
   BindingsSet* = Table[string, NimNode]

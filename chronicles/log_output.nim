@@ -1,32 +1,16 @@
 import
-  strutils, times, macros, options, os, timestamp,
-  dynamic_scope_types, stew/[objects, byteutils]
+  std/[deques, macrocache, strutils, times, os, terminal],
+  stew/[ptrops, strings],
+  stew/shims/macros,
+  faststreams/outputs,
+  ./[ansicolors, dynamic_scope_types, options]
 
 when defined(js):
-  import
-    jscore, jsconsole, jsffi
-
-  export
-    convertToConsoleLoggable
-
   type OutStr = cstring
-
 else:
-  import
-    terminal,
-    faststreams/outputs, json_serialization/writer
-
-  export
-    outputs, writer
-
   type OutStr = string
 
-  const
-    propColor = fgBlue
-    topicsColor = fgYellow
-
-export
-  LogLevel
+export LogLevel
 
 type
   FileOutput* = object
@@ -49,62 +33,33 @@ type
   DynamicOutput* = object
     currentRecordLevel: LogLevel
     colors*: bool
-    writer*: proc (logLevel: LogLevel, logRecord: OutStr) {.gcsafe, raises: [Defect].}
+    writer*: proc(logLevel: LogLevel, logRecord: OutStr) {.gcsafe, raises: [].}
 
-  PassThroughOutput*[FinalOutputs: tuple] = object
-    finalOutputs: FinalOutputs
+  PassThroughOutput*[Outputs: tuple] = object
+    outputs: Outputs
 
-  BufferedOutput*[FinalOutputs: tuple] = object
-    finalOutputs: FinalOutputs
-    buffer: string
-
-  AnyFileOutput = FileOutput|StdOutOutput|StdErrOutput
-  AnyOutput = AnyFileOutput|SysLogOutput|BufferedOutput|PassThroughOutput
-
-  TextLineRecord*[Output;
-                  timestamps: static[TimestampScheme],
-                  colors: static[ColorScheme]] = object
-    output*: Output
-    level: LogLevel
-
-  TextBlockRecord*[Output;
-                   timestamps: static[TimestampScheme],
-                   colors: static[ColorScheme]] = object
-    output*: Output
+  AnyOutput =
+    FileOutput | StdOutOutput | StdErrOutput | SysLogOutput | PassThroughOutput
 
   StreamOutputRef*[Stream; outputId: static[int]] = object
+    ## Stream outputs from the global configuration are stored in a global
+    ## tuple with each output indexed by outputId - to access it, `deref` of
+    ## `StreamOutputRef` is used.
 
   StreamCodeNodes = object
     streamName: NimNode
     recordType: NimNode
     outputsTuple: NimNode
 
-when defined(js):
-  type
-    JsonRecord*[Output; timestamps: static[TimestampScheme]] = object
-      output*: Output
-      record: js
-
-    JsonString* = distinct string
-else:
-  type
-    JsonRecord*[Output; timestamps: static[TimestampScheme]] = object
-      output*: Output
-      outStream: OutputStream
-      jsonWriter: Json.Writer
-
-export
-  JsonString
-
 when defined(posix):
-  {.pragma: syslog_h, importc, header: "<syslog.h>"}
+  {.pragma: syslog_h, importc, header: "<syslog.h>".}
 
   # proc openlog(ident: cstring, option, facility: int) {.syslog_h.}
   proc syslog(priority: int, format: cstring, msg: cstring) {.syslog_h.}
   # proc closelog() {.syslog_h.}
 
-  var LOG_EMERG {.syslog_h.}: int
-  var LOG_ALERT {.syslog_h.}: int
+  # var LOG_EMERG {.syslog_h.}: int
+  # var LOG_ALERT {.syslog_h.}: int
   var LOG_CRIT {.syslog_h.}: int
   var LOG_ERR {.syslog_h.}: int
   var LOG_WARNING {.syslog_h.}: int
@@ -226,9 +181,22 @@ proc logLoggingFailure*(msg: cstring, ex: ref Exception) =
     stderr.writeLine("[Chronicles] Log message not delivered: ", msg)
     if ex != nil: stderr.writeLine(ex.msg)
 
-template undeliveredMsg(reason: string, logMsg: OutStr, ex: ref Exception) =
-  const error = "[Chronicles] " & reason & ". Log message not delivered: "
-  logLoggingFailure(cstring(error & logMsg), ex)
+proc undeliveredMsg(reason: string, logMsg: openArray[char], ex: ref Exception) =
+  const
+    lineTag = "[Chronicles] "
+    infoMsg = ". Log message not delivered: "
+
+  var msg = newStringOfCap(lineTag.len + reason.len + infoMsg.len + logMsg.len)
+  msg.add lineTag
+  msg.add reason
+  msg.add infoMsg
+  msg.add logMsg
+
+  logLoggingFailure(cstring(msg), ex)
+
+proc undeliveredMsg(reason: string, logMsg: openArray[byte], ex: ref Exception) =
+  let p = cast[ptr char](logMsg.baseAddr)
+  undeliveredMsg(reason, makeOpenArray(p, logMsg.len), ex)
 
 # XXX:
 # Uncomenting this leads to an error message that the Outputs tuple
@@ -296,60 +264,35 @@ proc selectOutputType(s: var StreamCodeNodes, dst: LogDestination): NimNode =
     newTree(nnkBracketExpr,
             bnd"StreamOutputRef", s.streamName, newLit(outputId))
 
+template id(fmt: LogFormatPlugin): string =
+  "chronicles_" & toHex(string fmt)
+
 proc selectRecordType(s: var StreamCodeNodes, sink: SinkSpec): NimNode =
   # This proc translates the SinkSpecs loaded in the `options` module
   # to their corresponding LogRecord types.
-  #
-  # We must use buffered output if any of the following is true:
-  #
-  # * Threading is enabled
-  #   (we don't wont races between the `setProperty` calls)
-  #
-  # * The syslog output is used or we are comping to JavaScript
-  #   (we must send a single sting to the output)
-  #
-  # * Multiple destinations are present
-  #   (we don't want to compute the output multiple times)
-  #
-  #
-  # The faststreams-based outputs (such as json) are already buffered,
-  # so we don't need to handle them in a special way.
-  #
 
-  # Determine the head symbol of the instantiation
-  let RecordType = case sink.format
-                   of json: bnd"JsonRecord"
-                   of textLines: bnd"TextLineRecord"
-                   of textBlocks: bnd"TextBlockRecord"
+  result = newTree(nnkBracketExpr,
+                   newTree(nnkDotExpr, ident(sink.format.id), ident("LogRecord")))
 
-  result = newTree(nnkBracketExpr, RecordType)
-
-  # Check if a buffered output is needed
-  if defined(js) or
-     sink.destinations.len > 1 or
-     sink.destinations[0].kind in {oSysLog,oDynamic} or
-     compileOption("threads"):
-
+  # Check if a composite output is needed
+  if sink.destinations.len > 1:
     # Here, we build the list of outputs as a tuple
     var outputsTuple = newTree(nnkTupleConstr)
     for dst in sink.destinations:
       outputsTuple.add selectOutputType(s, dst)
 
-    var outputType = if sink.format in {textLines, textBlocks}:
-      bnd"BufferedOutput"
-    else:
-      bnd"PassThroughOutput"
-
+    var outputType = bnd"PassThroughOutput"
     result.add newTree(nnkBracketExpr, outputType, outputsTuple)
   else:
     result.add selectOutputType(s, sink.destinations[0])
 
-  result.add newIdentNode($sink.timestamps)
+  # create a FormatSpec for the type
+  let
+    timestamps = newLit(sink.timestamps)
+    colors = newLit(sink.colorScheme)
 
-  # Set the color scheme for the record types that require it
-  if sink.format != json:
-    var colorScheme = sink.colorScheme
-    result.add newIdentNode($colorScheme)
+  result.add quote do:
+    FormatSpec(colors: `colors`, timestamps: `timestamps`)
 
 # The `append` and `flushOutput` functions implement the actual writing
 # to the log destinations (which we call Outputs).
@@ -363,18 +306,20 @@ template activateOutput*(o: var FileOutput, level: LogLevel) =
   if o.outFile == nil: openOutput(o)
 
 template activateOutput*(o: var StreamOutputRef, level: LogLevel) =
+  mixin activateOutput
+  bind deref
   activateOutput(deref(o), level)
 
 template activateOutput*(o: var (SysLogOutput|DynamicOutput), level: LogLevel) =
   o.currentRecordLevel = level
 
-template activateOutput*(o: var BufferedOutput|PassThroughOutput, level: LogLevel) =
-  for f in o.finalOutputs.fields:
+template activateOutput*(o: var PassThroughOutput, level: LogLevel) =
+  mixin activateOutput
+  for f in o.outputs.fields:
     activateOutput(f, level)
 
 template prepareOutput*(r: var auto, level: LogLevel) =
   mixin activateOutput
-  r = default(type(r)) # Remove once nim is updated past #9790
 
   when r is tuple:
     for f in r.fields:
@@ -391,9 +336,6 @@ template flushOutput*(o: var FileOutput) =
   # doAssert o.outFile != nil
   o.outFile.flushFile
 
-template getOutputStream(o: FileOutput): File =
-  o.outFile
-
 when defined(js):
   template append*(o: var StdOutOutput, s: OutStr) = console.log s
   template flushOutput*(o: var StdOutOutput)       = discard
@@ -403,34 +345,76 @@ when defined(js):
 
 else:
   template append*(o: var StdOutOutput, s: OutStr) =
-    try: stdout.write s
-    except IOError as err:
-      undeliveredMsg("Failed to write to stdout", s, err)
+    stdout.write s
 
   template flushOutput*(o: var StdOutOutput) =
-    ignoreIOErrors(stdout.flushFile)
+    stdout.flushFile
 
   template append*(o: var StdErrOutput, s: OutStr) =
-    ignoreIOErrors(stderr.write s)
+    stderr.write s
 
   template flushOutput*(o: var StdErrOutput) =
-    ignoreIOErrors(stderr.flushFile)
+    stderr.flushFile
 
-template getOutputStream(o: StdOutOutput): File = stdout
-template getOutputStream(o: StdErrOutput): File = stderr
+template append*(o: var StreamOutputRef, s: OutStr) =
+  mixin append
+  bind deref
+  append(deref(o), s)
 
-template append*(o: var StreamOutputRef, s: OutStr) = append(deref(o), s)
-template flushOutput*(o: var StreamOutputRef)       = flushOutput(deref(o))
+template flushOutput*(o: var StreamOutputRef) =
+  mixin flushOutput
+  bind deref
+  flushOutput(deref(o))
 
-template getOutputStream(o: StreamOutputRef): File =
-  getOutputStream(deref(o))
+proc append(f: File, outStream: OutputStream) =
+  when compiles(outStream.consumeAll):
+    for span in outStream.consumeAll:
+      discard writeBuffer(f, span.startAddr, span.len())
+  else:
+    outStream.consumeOutputs output:
+      try:
+        discard writeBuffer(f, unsafeAddr output[0], len output)
+      except IOError as err:
+        undeliveredMsg("Failed to write to output", output, err)
+
+template append*(o: FileOutput, outStream: OutputStream) =
+  o.outFile.append(outStream)
+
+template append*(o: StdOutOutput, outStream: OutputStream) =
+  system.stdout.append(outStream)
+
+template append*(o: StdErrOutput, outStream: OutputStream) =
+  system.stderr.append(outStream)
+
+proc initOutputStream*(LogRecord: type): auto =
+  ## Return a distinct outputstream for the given LogRecord type that is reused
+  ## for each log statement
+  when not declared(outputs.consumeAll):
+    # faststreams 0.3.0 and earlier are too buggy to reuse streams
+    # preventing them from being reused :/
+    memoryOutput()
+  else:
+    var outStream {.threadvar.}: OutputStreamHandle
+    if outStream.s == nil:
+      outStream = memoryOutput()
+    outStream.s
+
+proc append*(o: DynamicOutput, outStream: OutputStream) =
+  o.writer(o.currentRecordLevel, outStream.getOutput(string))
+
+template append*(output: StreamOutputRef, outStream: OutputStream) =
+  mixin append
+  bind deref
+
+  deref(output).append(outStream)
 
 template colors*(o: StreamOutputRef): bool =
+  bind deref
   deref(o).colors
 
-template colors*(o: BufferedOutput|PassThroughOutput): bool =
+template colors*(o: PassThroughOutput): bool =
   var res = false
-  for f in o.finalOutputs.fields:
+  for f in o.outputs.fields:
     if f.colors:
       res = true
       break
@@ -446,7 +430,7 @@ template append*(o: var SysLogOutput, s: OutStr) =
                     of ERROR:              LOG_ERR
                     of FATAL:              LOG_CRIT
 
-  syslog(syslogLevel or LOG_PID, "%s", s)
+  syslog(syslogLevel or LOG_PID, "%s", cstring(s))
 
 template append*(o: var DynamicOutput, s: OutStr) =
   if o.writer.isNil:
@@ -456,31 +440,17 @@ template append*(o: var DynamicOutput, s: OutStr) =
 
 template flushOutput*(o: var (SysLogOutput|DynamicOutput)) = discard
 
-# The buffered Output works in a very simple way. The log message is first
-# buffered into a sting and when it needs to be flushed, we just instantiate
-# each of the Output types and call `append` and `flush` on the instance:
-
-template append*(o: var BufferedOutput, s: OutStr) =
-  o.buffer.add(s)
-
-template flushOutput*(o: var BufferedOutput) =
-  for f in o.finalOutputs.fields:
-    append(f, o.buffer)
-    flushOutput(f)
-
-template getOutputStream(o: BufferedOutput|PassThroughOutput): File =
-  getOutputStream(o.finalOutputs[0])
-
 # The pass-through output just acts as a proxy, redirecting a single `append`
 # call to multiple destinations:
 
-template append*(o: var PassThroughOutput, strExpr: OutStr) =
-  let str = strExpr
-  for f in o.finalOutputs.fields:
+proc append*(o: var PassThroughOutput, stream: OutputStream) =
+  let str = stream.getOutput(string)
+
+  for f in o.outputs.fields:
     append(f, str)
 
-template flushOutput*(o: var PassThroughOutput) =
-  for f in o.finalOutputs.fields:
+proc flushOutput*(o: var PassThroughOutput) =
+  for f in o.outputs.fields:
     flushOutput(f)
 
 # We also define a macro form of `append` that takes multiple parameters and
@@ -495,118 +465,7 @@ macro append*(o: var AnyOutput,
   result.add newCall("append", o, arg2)
   for arg in restArgs: result.add newCall("append", o, arg)
 
-proc epochTimestamp: string =
-  formatFloat(epochTime(), ffDecimal, 6)
-
-var
-  cachedMinutes {.threadvar.}: int64
-  cachedTimeArray {.threadvar.}: array[17, byte] # "yyyy-MM-dd HH:mm:"
-  cachedZoneArray {.threadvar.}: array[6, byte] # "zzz"
-
-proc getSecondsPart(timestamp: Time): string =
-  var res = "00.000"
-  let
-    sec = timestamp.toUnix() mod 60
-    msec = timestamp.nanosecond() div 1_000_000
-
-  if sec > 0 and sec <= 9:
-    res[1] = chr(ord('0') + sec)
-  elif sec >= 10:
-    res[0] = chr(ord('0') + (sec div 10))
-    res[1] = chr(ord('0') + (sec mod 10))
-
-  if msec > 0 and msec <= 9:
-    res[5] = chr(ord('0') + msec)
-  elif msec >= 10 and msec <= 99:
-    res[4] = chr(ord('0') + (msec div 10))
-    res[5] = chr(ord('0') + (msec mod 10))
-  elif msec >= 100:
-    let tmp = msec mod 100
-    res[3] = chr(ord('0') + (msec div 100))
-    res[4] = chr(ord('0') + (tmp div 10))
-    res[5] = chr(ord('0') + (tmp mod 10))
-  res
-
-proc getFastDateTimeString(useUtc: bool): string =
-  ## if useUtc is true, utc time is used and Z for the timezone part.
-  ## if useUtc is false, the local time will be used and the time zone will be obtained each time.
-  let
-    timestamp = getFastTime()
-    minutes = timestamp.toUnix() div 60
-
-  if minutes != cachedMinutes:
-    cachedMinutes = minutes
-    let datetime = if useUtc: timestamp.utc() else: timestamp.local()
-    block:
-      # Cache string representation of first part (without seconds)
-      let tmp = datetime.format("yyyy-MM-dd HH:mm:")
-      cachedTimeArray = toArray(17, tmp.toOpenArrayByte(0, 16))
-    block:
-      if not useUtc:
-        # Cache string representation of zone part
-        let tmp = datetime.format("zzz")
-        cachedZoneArray = toArray(6, tmp.toOpenArrayByte(0, 5))
-
-  let timeZone = if useUtc: "Z" else: string.fromBytes(cachedZoneArray)
-
-  string.fromBytes(cachedTimeArray) & timestamp.getSecondsPart() & timeZone
-
-template timestamp(record): string =
-  when record.timestamps == RfcTime:
-    getFastDateTimeString(useUtc = false)
-  elif record.timestamps == RfcUtcTime:
-    getFastDateTimeString(useUtc = true)
-  else:
-    epochTimestamp()
-
-template writeTs(record) =
-  append(record.output, timestamp(record))
-
-template fgColor(record, color, brightness) =
-  when record.colors == AnsiColors:
-    try:
-      append(record.output, ansiForegroundColorCode(color, brightness))
-    except ValueError:
-      discard
-  elif record.colors == AutoColors:
-    if record.output.colors:
-      try:
-        append(record.output, ansiForegroundColorCode(color, brightness))
-      except ValueError:
-        discard
-
-
-template resetColors(record) =
-  when record.colors == AnsiColors:
-    append(record.output, ansiResetCode)
-  elif record.colors == AutoColors:
-    if record.output.colors:
-      append(record.output, ansiResetCode)
-
-template applyStyle(record, style) =
-  when record.colors == AnsiColors:
-    append(record.output, ansiStyleCode(style))
-  elif record.colors == AutoColors:
-    if record.output.colors:
-      append(record.output, ansiStyleCode(style))
-
-template levelToStyle(lvl: LogLevel): untyped =
-  # Bright Black is gray
-  # Light green doesn't display well on white consoles
-  # Light yellow doesn't display well on white consoles
-  # Light cyan is darker than green
-
-  case lvl
-  of TRACE: (fgWhite, false)
-  of DEBUG: (fgBlack, true) # Bright Black is gray
-  of INFO:  (fgCyan, true)
-  of NOTICE:(fgMagenta, false)
-  of WARN:  (fgYellow, false)
-  of ERROR: (fgRed, true)
-  of FATAL: (fgRed, false)
-  of NONE:  (fgWhite, false)
-
-template shortName(lvl: LogLevel): string =
+template shortName*(lvl: LogLevel): string =
   # Same-length strings make for nice alignment
   case lvl
   of TRACE: "TRC"
@@ -617,243 +476,6 @@ template shortName(lvl: LogLevel): string =
   of ERROR: "ERR"
   of FATAL: "FAT"
   of NONE:  "   "
-
-template appendLogLevelMarker(r: var auto, lvl: LogLevel, align: bool) =
-  when r.colors != NoColors:
-    let (color, bright) = levelToStyle(lvl)
-    fgColor(r, color, bright)
-
-  append(r.output, when align: shortName(lvl)
-                   else: $lvl)
-  resetColors(r)
-
-template appendHeader(r: var TextLineRecord | var TextBlockRecord,
-                      lvl: LogLevel,
-                      topics: string,
-                      name: string,
-                      pad: bool) =
-  # Log level comes first - allows for easy regex match with ^
-  appendLogLevelMarker(r, lvl, true)
-
-  when r.timestamps != NoTimestamps:
-    append(r.output, " ")
-    writeTs(r)
-
-  if name.len > 0:
-    # no good way to tell how much padding is going to be needed so we
-    # choose an arbitrary number and use that - should be fine even for
-    # 80-char terminals
-    # XXX: This should be const, but the compiler fails with an ICE
-    let padding = repeat(' ', if pad: 42 - min(42, name.len) else: 0)
-
-    append(r.output, " ")
-    applyStyle(r, styleBright)
-    append(r.output, name)
-    append(r.output, padding)
-    resetColors(r)
-
-  if topics.len > 0:
-    append(r.output, " topics=\"")
-    fgColor(r, topicsColor, true)
-    append(r.output, topics)
-    resetColors(r)
-    append(r.output, "\"")
-
-#
-# A LogRecord is a single "logical line" in the output.
-#
-# 1. It's instantiated by the log statement.
-#
-# 2. It's initialized with a call to `initLogRecord`.
-#
-# 3. Zero or more calls to `setPropery` are
-#    executed with the current lexical and dynamic bindings.
-#
-# 4. Finally, `flushRecord` should wrap-up the record and flush the output.
-#
-
-#
-# Text line records:
-#
-
-proc initLogRecord*(r: var TextLineRecord,
-                    lvl: LogLevel,
-                    topics: string,
-                    name: string) =
-  r.level = lvl
-  appendHeader(r, lvl, topics, name, true)
-
-const
-  controlChars =  {'\x00'..'\x1f'}
-  extendedAsciiChars = {'\x7f'..'\xff'}
-  escapedChars*: set[char] = strutils.Newlines + {'"', '\\'} + controlChars + extendedAsciiChars
-  quoteChars*: set[char] = {' ', '='}
-
-func containsEscapedChars*(str: string|cstring): bool =
-  for c in str:
-    if c in escapedChars:
-      return true
-  return false
-
-func needsQuotes*(str: string|cstring): bool =
-  for c in str:
-    if c in quoteChars:
-      return true
-  return false
-
-proc writeEscapedString*(output: var string, str: string|cstring) =
-  for c in str:
-    case c
-    of '"': output.add "\\\""
-    of '\\': output.add "\\\\"
-    of '\r': output.add "\\r"
-    of '\n': output.add "\\n"
-    of '\t': output.add "\\t"
-    else:
-      const hexChars = "0123456789abcdef"
-      if c >= char(0x20) and c <= char(0x7e):
-        output.add c
-      else:
-        output.add("\\x")
-        output.add hexChars[int(c) shr 4 and 0xF]
-        output.add hexChars[int(c) and 0xF]
-
-proc setProperty*(
-    r: var TextLineRecord, key: string, val: auto) {.raises: [].} =
-  append(r.output, " ")
-  let valText = $val
-
-  var
-    escaped: string
-    valueToWrite: ptr string
-
-  # Escaping is done to avoid issues with quoting and newlines
-  # Quoting is done to distinguish strings with spaces in them from a new
-  # key-value pair
-  # This is similar to how it's done in logfmt:
-  # https://github.com/csquared/node-logfmt/blob/master/lib/stringify.js#L13
-  let
-    needsEscape = valText.find(escapedChars) > -1
-    needsQuote = valText.find(quoteChars) > -1
-
-  if needsEscape or needsQuote:
-    escaped = newStringOfCap(valText.len + valText.len div 8)
-    add(escaped, '"')
-    if needsEscape:
-      # addQuoted adds quotes and escapes a bunch of characters
-      # XXX addQuoted escapes more characters than what we look for in above
-      #     needsEscape check - it's a bit weird that way
-      escaped.writeEscapedString(valText)
-    elif needsQuote:
-      add(escaped, valText)
-    add(escaped, '"')
-    valueToWrite = addr escaped
-  else:
-    valueToWrite = unsafeAddr valText
-
-  when r.colors != NoColors:
-    let (color, bright) = levelToStyle(r.level)
-    fgColor(r, color, bright)
-  append(r.output, key)
-  resetColors(r)
-  append(r.output, "=")
-  fgColor(r, propColor, true)
-  append(r.output, valueToWrite[])
-  resetColors(r)
-
-proc flushRecord*(r: var TextLineRecord) =
-  append(r.output, "\n")
-  flushOutput(r.output)
-
-#
-# Textblock records:
-#
-
-proc initLogRecord*(r: var TextBlockRecord,
-                    level: LogLevel,
-                    topics: string,
-                    name: string) =
-  appendHeader(r, level, topics, name, false)
-  append(r.output, "\n")
-
-proc setProperty*(
-    r: var TextBlockRecord, key: string, val: auto) {.raises: [].} =
-  let valText = $val
-
-  append(r.output, textBlockIndent)
-  fgColor(r, propColor, false)
-  append(r.output, key)
-  append(r.output, ": ")
-  applyStyle(r, styleBright)
-
-  if valText.find(Newlines) == -1:
-    append(r.output, valText)
-    append(r.output, "\n")
-  else:
-    let indent = textBlockIndent & repeat(' ', key.len + 2)
-    var first = true
-    for line in splitLines(valText):
-      if not first: append(r.output, indent)
-      append(r.output, line)
-      append(r.output, "\n")
-      first = false
-
-  resetColors(r)
-
-proc flushRecord*(r: var TextBlockRecord) =
-  append(r.output, "\n")
-  flushOutput(r.output)
-
-#
-# JSON records:
-#
-
-template `[]=`(r: var JsonRecord, key: string, val: auto) =
-  when defined(js):
-    when val is string:
-      r.record[key] = when val is string: cstring(val) else: val
-    else:
-      r.record[key] = val
-  else:
-    try:
-      writeField(r.jsonWriter, key, val)
-    except IOError:
-      discard
-
-proc initLogRecord*(r: var JsonRecord,
-                    level: LogLevel,
-                    topics: string,
-                    name: string) =
-  when defined(js):
-    r.record = newJsObject()
-  else:
-    r.outStream = memoryOutput()
-    r.jsonWriter = Json.Writer.init(r.outStream, pretty = false)
-    r.jsonWriter.beginRecord()
-
-  if level != NONE:
-    r["lvl"] = level.shortName
-
-  when r.timestamps != NoTimestamps:
-    r["ts"] = r.timestamp()
-
-  r["msg"] = name
-
-  if topics.len > 0:
-    r["topics"] = topics
-
-proc setProperty*(r: var JsonRecord, key: string, val: auto) {.raises: [].} =
-  r[key] = val
-
-proc flushRecord*(r: var JsonRecord) =
-  when defined(js):
-    r.output.append Json.stringify(r.record)
-  else:
-    r.jsonWriter.endRecord()
-    r.outStream.write '\n'
-    r.output.append r.outStream.getOutput(string)
-
-  flushOutput r.output
 
 #
 # When any of the output streams have multiple output formats, we need to
@@ -868,8 +490,7 @@ proc flushRecord*(r: var JsonRecord) =
 # configured output stream.
 #
 
-proc sinkSpecsToCode(streamName: NimNode,
-                     sinks: seq[SinkSpec]): StreamCodeNodes =
+proc sinkSpecsToCode(streamName: NimNode, sinks: seq[SinkSpec]): StreamCodeNodes =
   result.streamName = streamName
   result.outputsTuple = newTree(nnkTupleConstr)
   if sinks.len > 1:
@@ -894,15 +515,28 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
     type `Record` = `RecordType`
     template Record*(S: type `name`): typedesc = `Record`
 
-    when `Record` is tuple:
-      template initLogRecord*(r: var `Record`, lvl: LogLevel,
-                              topics: string, name: string) =
-        for f in r.fields: initLogRecord(f, lvl, topics, name)
+    var `outputs` = `outputsTuple`
 
-      template setProperty*(r: var `Record`, key: string, val: auto) =
+    # The output objects are currently not GC-safe because they contain
+    # strings (the `outPath` field). Since these templates are not used
+    # in situations where these paths are modified, it's safe to provide
+    # a gcsafe override until we switch to Nim's --newruntime.
+    template outputs*(S: type `name`): auto = ({.gcsafe.}: addr `outputs`)[]
+    template output* (S: type `name`): auto = ({.gcsafe.}: addr `outputs`[0])[]
+
+    when `Record` is tuple:
+      proc initLogRecord*(r: var `Record`, lvl: LogLevel,
+                              topics: string, name: string) =
+        mixin initLogRecord
+        for f in r.fields:
+          initLogRecord(f, lvl, topics, name)
+
+      proc setProperty*(r: var `Record`, key: string, val: auto) =
+        mixin setProperty
         for f in r.fields: setProperty(f, key, val)
 
-      template flushRecord*(r: var `Record`) =
+      proc flushRecord*(r: var `Record`) =
+        mixin flushRecord
         for f in r.fields: flushRecord(f)
 
     var `tlsSlot` {.threadvar.}: ptr BindingsFrame[`Record`]
@@ -1013,22 +647,36 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
     # Using --tlsEmulation:on also appears to fix this, but can exact quite a
     # performance cost. This localizes the workaround's cost to this specific
     # observed issue's amelioration.
-    proc tlsSlot*(S: type `name`):
-      var ptr BindingsFrame[`Record`] {.noinline.} = `tlsSlot`
-
-    var `outputs` = `outputsTuple`
-
-    # The output objects are currently not GC-safe because they contain
-    # strings (the `outPath` field). Since these templates are not used
-    # in situations where these paths are modified, it's safe to provide
-    # a gcsafe override until we switch to Nim's --newruntime.
-    template outputs*(S: type `name`): auto = ({.gcsafe.}: addr `outputs`)[]
-    template output* (S: type `name`): auto = ({.gcsafe.}: addr `outputs`[0])[]
+    proc tlsSlot*(S: type `name`): var ptr BindingsFrame[`Record`] {.noinline.} =
+      `tlsSlot`
 
 # This is a placeholder that will be overriden in the user code.
 # XXX: replace that with a proper check that the user type requires
 # an output resource.
 proc createOutput(T: typedesc): byte = discard
+
+func toModuleName(format: LogFormatPlugin): string =
+  case format.string.toLowerAscii
+  of "json":
+    "chronicles/json_records"
+  of "textlines":
+    "chronicles/textlines"
+  of "textblocks":
+    "chronicles/textblocks"
+  else:
+    string format
+
+const importedPlugins = CacheTable"importedPlugins"
+
+func importSink(sink: SinkSpec): NimNode =
+  if string(sink.format) notin importedPlugins:
+    let res = parseStmt(
+      "import $1 as $2\nexport $2" % [sink.format.toModuleName, sink.format.id]
+    )
+    importedPlugins[string sink.format] = res
+    res
+  else:
+    newEmptyNode()
 
 macro customLogStream*(streamDef: untyped): untyped =
   syntaxCheckStreamExpr streamDef
@@ -1036,38 +684,50 @@ macro customLogStream*(streamDef: untyped): untyped =
     createOutput = bindSym("createOutput", brForceOpen)
     outputsTuple = newTree(nnkTupleConstr, newCall(createOutput, streamDef[1]))
 
-  result = getAst(createStreamSymbol(streamDef[0],
-                                     streamDef[1],
-                                     outputsTuple))
+  result = getAst(createStreamSymbol(streamDef[0], streamDef[1], outputsTuple))
+  when defined(debugLogImpl):
+    echo result.repr
 
 macro logStream*(streamDef: untyped): untyped =
   # syntaxCheckStreamExpr streamDef
   let
     streamSinks = sinkSpecsFromNode(streamDef)
-    streamName  = streamDef[0]
+    streamName = streamDef[0]
     streamCode = sinkSpecsToCode(streamName, streamSinks)
 
-  result = getAst(createStreamSymbol(streamName,
-                                     streamCode.recordType,
-                                     streamCode.outputsTuple))
+  result = newStmtList()
+
+  for sink in streamSinks:
+    result.add importSink(sink)
+
+  result.add getAst(
+    createStreamSymbol(streamName, streamCode.recordType, streamCode.outputsTuple)
+  )
+  when defined(debugLogImpl):
+    echo result.repr
 
 macro createStreamRecordTypes: untyped =
   result = newStmtList()
 
   for i in 0 ..< config.streams.len:
-    let
-      s = config.streams[i]
-      streamName = newIdentNode(s.name)
-      streamCode = sinkSpecsToCode(streamName, s.sinks)
+    let stream = config.streams[i]
 
-    result.add getAst(createStreamSymbol(streamName,
-                                         streamCode.recordType,
-                                         streamCode.outputsTuple))
+    for sink in stream.sinks:
+      result.add importSink(sink)
+
+    let
+      streamName = newIdentNode(stream.name)
+      streamCode = sinkSpecsToCode(streamName, stream.sinks)
+
+    result.add getAst(
+      createStreamSymbol(streamName, streamCode.recordType, streamCode.outputsTuple)
+    )
 
     if i == 0:
       result.add quote do:
         template activeChroniclesStream*: typedesc = `streamName`
 
-  # echo result.repr
+  when defined(debugLogImpl):
+    echo result.repr
 
 createStreamRecordTypes()

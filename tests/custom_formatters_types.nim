@@ -1,5 +1,4 @@
-import
-  chronicles
+import chronicles/formats
 
 type
   AttestationData* = object
@@ -11,7 +10,7 @@ type
     privData: seq[int]
     name*: string
 
-chronicles.expandIt(AttestationData):
+expandIt(AttestationData):
   attestation = it.attestation
   peer = it.peer
 
@@ -23,6 +22,5 @@ chronicles.expandIt(AttestationData):
   `it` = "renamed"
   `"complex_" it "_concatenation"` = Peer(name: "X")
 
-chronicles.formatIt(Peer):
+formatIt(Peer):
   it.name
-

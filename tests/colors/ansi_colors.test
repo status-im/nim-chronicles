@@ -8,14 +8,14 @@ chronicles_thread_ids=None
 stdout="""[96mINF[0m [1mlong info                                 [0m [96mfile[0m=[94mlong_lines.nim:10[0m [96mstr[0m=[94m"some multiline\nstring\nmore lines"[0m
 [33mWRN[0m [1mlong warning                              [0m [33mstr[0m=[94m"some multiline\nstring\nmore lines"[0m
 [96mINF[0m [1mlong info[0m
-  [34mstr: [1msome multiline
+  [96mstr[0m: [94msome multiline
        string
        more lines
 [0m
 [33mWRN[0m [1mlong warning[0m
-  [34mstr: [1msome multiline
+  [33mstr[0m: [94msome multiline
        string
        more lines
-[0m  [34mz: [1m10
-[0m
+[0m  [33mz[0m: [94m10[0m
+
 """
