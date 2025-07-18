@@ -1,5 +1,6 @@
 import
-  macros, log_output, scope_helpers, options, dynamic_scope_types
+  std/typetraits, stew/shims/macros,
+  ./[dynamic_scope_types, log_output, scope_helpers]
 
 proc appenderIMPL[LogRecord, PropertyType](log: var LogRecord,
                                            keyValuePair: ptr ScopeBindingBase[LogRecord]) =

@@ -6,20 +6,20 @@ timestamp_peg="""{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\
 lines.txt="""INF 2025-07-14 12:53:42.379+02:00 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
 INF 2025-07-14 12:53:42.379+02:00 exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """
-blocks.txt="""[96mINF[0m [1mmain started[0m topics="[93mmain[0m"
-  [34ma: [1m12
-[0m  [34mb: [1moverriden-b
-[0m  [34md: [1msome-d
-[0m  [34mx: [1m16
-[0m  [34mc: [1m10
-[0m  [34marg: [1m50
-[0m  [34mz: [1m20
-[0m
+blocks.txt="""[96mINF[0m [1mmain started[0m [34mtopics[0m=[93m"main"
+  [96ma[0m: [94m12[0m
+  [96mb[0m: [94moverriden-b
+[0m  [96md[0m: [94msome-d
+[0m  [96mx[0m: [94m16[0m
+  [96mc[0m: [94m10[0m
+  [96marg[0m: [94m50[0m
+  [96mz[0m: [94m20[0m
+
 [96mINF[0m [1mexiting[0m
-  [34mmsg: [1mbye bye
-[0m  [34ma: [1m12
-[0m  [34mb: [1moverriden-b
-[0m  [34mx: [1m16
-[0m  [34mc: [1m100
-[0m
+  [96mmsg[0m: [94mbye bye
+[0m  [96ma[0m: [94m12[0m
+  [96mb[0m: [94moverriden-b
+[0m  [96mx[0m: [94m16[0m
+  [96mc[0m: [94m100[0m
+
 """

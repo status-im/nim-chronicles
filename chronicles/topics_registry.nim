@@ -1,4 +1,5 @@
-import locks, macros, tables
+import std/[locks, tables], stew/shims/macros
+
 from options import LogLevel
 
 export

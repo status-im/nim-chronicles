@@ -1,6 +1,6 @@
 import
-  tables, strutils, strformat,
-  topics_registry
+  std/[tables, strutils, strformat],
+  ./topics_registry
 
 func parseTopicDirectives*(directives: openArray[string]): Table[string, TopicSettings] =
   result = initTable[string, TopicSettings]()
@@ -24,7 +24,7 @@ func parseTopicDirectives*(directives: openArray[string]): Table[string, TopicSe
 
       case toLowerAscii(parts[0].strip)
       of "required":
-        forEachTopic: topic().state = Required
+        forEachTopic: topic.state = Required
       of "disabled":
         forEachTopic: topic.state = Disabled
       of "trc", "trace":

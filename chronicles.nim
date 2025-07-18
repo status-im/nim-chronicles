@@ -111,7 +111,7 @@ when runtimeFilteringEnabled:
   proc topicStateIMPL(topicName: static[string]): ptr TopicSettings =
     # Nim's GC safety analysis gets confused by the global variables here
     {.gcsafe.}:
-      var topic {.global.} = TopicSettings(state: Normal, logLevel: NONE)
+      var topic {.global.}: TopicSettings
       var dummy {.global, used.} = registerTopic(topicName, addr(topic))
       return addr(topic)
 
@@ -352,18 +352,13 @@ logFn fatal , LogLevel.FATAL
 
 # TODO:
 #
-# * define all formats in terms of nim-serialization
-# * extract the testing framework in stew/testability
 # * extract the compile-time conf framework in confutils
 # * instance carried streams that can collect the information in memory
 #
 # * define an alternative format strings API (.net style)
-# * compile-time topic-based log level (e.g. enable tracing in the p2p layer)
 # * auto-derived topics based on nimble package name and module name
 #
-# * dynamic sinks
 # * Android and iOS logging, mixed std streams (logging both to stdout and stderr?)
-# * evaluate the lexical expressions only once in the presence of multiple sinks
 # * dynamic scope overrides (plus maybe an option to control the priority
 #                            between dynamic and lexical bindings)
 #
