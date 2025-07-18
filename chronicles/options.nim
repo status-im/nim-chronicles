@@ -23,7 +23,7 @@ const
                                        else: "DEBUG"
   chronicles_timestamps {.strdefine.} = "RfcTime"
   chronicles_colors* {.strdefine.} = "AutoColors"
-  chronicles_line_endings {.strdefine.} = "native"
+  chronicles_line_endings {.strdefine.} = "Native"
 
   chronicles_indent {.intdefine.} = 2
   chronicles_line_numbers {.strdefine.} = "off"
@@ -88,9 +88,9 @@ type
     AnsiColors
 
   LineEndingScheme* = enum
-    NativeLineEndings = "native"
-    WindowsLineEndings = "windows"
-    PosixLineEndings = "posix"
+    NativeLineEndings = "Native"
+    WindowsLineEndings = "Windows"
+    PosixLineEndings = "Posix"
 
   FormatSpec* = object
     colors*: ColorScheme
@@ -337,7 +337,7 @@ const
   indentStr* = repeat(' ', chronicles_indent)
 
   newLine* =
-    case handleEnumOption(LineEndingsScheme, chronicles_line_endings)
+    case handleEnumOption(LineEndingScheme, chronicles_line_endings)
     of WindowsLineEndings:
       "\r\n"
     of PosixLineEndings:
