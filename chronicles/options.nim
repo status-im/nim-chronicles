@@ -21,9 +21,9 @@ const
   chronicles_runtime_filtering {.strdefine.} = "off"
   chronicles_log_level {.strdefine.} = when defined(release): "INFO"
                                        else: "DEBUG"
-
   chronicles_timestamps {.strdefine.} = "RfcTime"
   chronicles_colors* {.strdefine.} = "AutoColors"
+  chronicles_line_endings {.strdefine.} = "native"
 
   chronicles_indent {.intdefine.} = 2
   chronicles_line_numbers {.strdefine.} = "off"
@@ -86,6 +86,11 @@ type
     AutoColors
     NoColors
     AnsiColors
+
+  LineEndingScheme* = enum
+    NativeLineEndings = "native"
+    WindowsLineEndings = "windows"
+    PosixLineEndings = "posix"
 
   FormatSpec* = object
     colors*: ColorScheme
@@ -330,6 +335,11 @@ const
   enabledLogLevel* = handleEnumOption(LogLevel, chronicles_log_level)
 
   indentStr* = repeat(' ', chronicles_indent)
+
+  newLine* = case handleEnumOption(LineEndingsScheme, chronicles_line_endings)
+             of windowsLineEndings: "\r\n"
+             of posixLineEndings: "\n"
+             of platformLineEndings: "\p"
 
   enabledTopics*  = topicsWithLogLevelAsSeq chronicles_enabled_topics
   disabledTopics* = topicsAsSeq chronicles_disabled_topics

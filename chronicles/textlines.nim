@@ -19,7 +19,6 @@ const
   extendedAsciiChars = {'\x7f' .. '\xff'}
   escapedChars: set[char] = {'\n', '\r', '"', '\\'} + controlChars + extendedAsciiChars
   quoteChars: set[char] = {' ', '='}
-  newLine = '\n'
 
 # Nim 2.0 compat
 template base(r: var LogRecord): untyped = TextLogRecord[r.Output, r.format](r)
