@@ -21,6 +21,9 @@ const
   quoteChars: set[char] = {' ', '='}
   newLine = '\n'
 
+# Nim 2.0 compat
+template base(r: var LogRecord): untyped = TextLogRecord[r.Output, r.format](r)
+
 func containsEscapedChars(str: string | cstring): bool =
   for c in str:
     if c in escapedChars:
@@ -123,9 +126,9 @@ proc writeFieldName(r: var LogRecord, name: string) =
   r.stream.write(' ')
   when r.format.colors != NoColors:
     let (color, bright) = levelToStyle(r.level)
-    r.setFgColor(color, bright)
+    base(r).setFgColor(color, bright)
   r.stream.write name
-  r.resetColors()
+  base(r).resetColors()
   r.stream.write('=')
 
 const
@@ -140,29 +143,29 @@ proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
   r.level = level
 
   # Log level comes first - allows for easy regex match with ^
-  writeLogLevelMarker(TextLogRecord[r.Output, r.format](r), level)
-  writeSpaceAndTs(TextLogRecord[r.Output, r.format](r))
+  base(r).writeLogLevelMarker(level)
+  base(r).writeSpaceAndTs()
 
   r.stream.write(' ')
-  applyStyle(r, styleBright)
+  base(r).applyStyle(styleBright)
   r.stream.write(msg)
 
   if msg.len < msgWidth:
     r.stream.write(spaces.toOpenArray(1, msgWidth - msg.len))
 
-  r.resetColors()
+  base(r).resetColors()
 
   if topics.len > 0:
     r.writeFieldName("topics")
-    r.setFgColor(topicsColor, true)
+    base(r).setFgColor(topicsColor, true)
     r.stream.write('"')
     r.stream.write(topics)
     r.stream.write('"')
-    r.resetColors()
+    base(r).resetColors()
 
 proc setProperty*(r: var LogRecord, name: string, value: auto) =
   r.writeFieldName(name)
 
-  r.setFgColor(propColor, true)
+  base(r).setFgColor(propColor, true)
   r.writeValue(value)
-  r.resetColors()
+  base(r).resetColors()

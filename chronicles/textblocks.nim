@@ -20,6 +20,9 @@ const
   arrayCloseBracket = "]" & newLine
   styleBright = terminal.styleBright # avoid terminal being unused in nocolors
 
+# Nim 2.0 compat
+template base(r: var LogRecord): untyped = TextLogRecord[r.Output, r.format](r)
+
 proc writeIndent(stream: OutputStream, depthLevel, extra: int) =
   for i in 0 ..< depthLevel:
     stream.write(indentStr)
@@ -29,9 +32,9 @@ proc writeIndent(stream: OutputStream, depthLevel, extra: int) =
 proc writeFieldName(r: var LogRecord, name: string) =
   when r.format.colors != NoColors:
     let (color, bright) = levelToStyle(r.level)
-    setFgColor r, color, bright
+    base(r).setFgColor(color, bright)
   r.stream.write name
-  r.resetColors()
+  base(r).resetColors()
   r.stream.write ": "
 
 template writeStyledValue(r: var LogRecord, body: untyped) =
@@ -137,23 +140,22 @@ proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
   r.stream = initOutputStream type(r)
   r.level = level
 
-  # Casts not needed on nim 2.2+
-  writeLogLevelMarker(TextLogRecord[r.Output, r.format](r), level)
-  writeSpaceAndTs(TextLogRecord[r.Output, r.format](r))
+  base(r).writeLogLevelMarker(level)
+  base(r).writeSpaceAndTs()
 
   r.stream.write(' ')
-  r.applyStyle(styleBright)
+  base(r).applyStyle(styleBright)
   r.stream.write(msg)
-  r.resetColors()
+  base(r).resetColors()
 
   if topics.len > 0:
     r.stream.write(' ')
-    r.setFgColor propColor, false
+    base(r).setFgColor(propColor, false)
     r.stream.write("topics")
-    r.resetColors()
+    base.resetColors()
 
     r.stream.write('=')
-    setFgColor(r, topicsColor, true)
+    base(r).setFgColor(topicsColor, true)
     r.stream.write('"')
     r.stream.write(topics)
     r.stream.write('"')
