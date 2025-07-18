@@ -38,9 +38,9 @@ proc writeFieldName(r: var LogRecord, name: string) =
   r.stream.write ": "
 
 template writeStyledValue(r: var LogRecord, body: untyped) =
-  r.setFgColor(propColor, true)
+  base(r).setFgColor(propColor, true)
   body
-  r.resetColors()
+  base(r).resetColors()
 
 proc writeValueImpl[T](
     r: var LogRecord, value: T, depthLevel, extraIndent: int, deref: static bool
