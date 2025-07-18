@@ -15,7 +15,7 @@ export LogLevel
 type
   FileOutput* = object
     outFile*: File
-    outPath: string
+    outPath: cstring
     mode: FileMode
     colors*: bool
 
@@ -130,22 +130,32 @@ proc enableColors(f: File): bool =
     true
 
 when not defined(js):
+  template toCString(v: string): cstring =
+    let mem = createShared(byte, v.len + 1)
+    if v.len > 0:
+      copyMem(mem, addr v[0], v.len)
+    cast[cstring](mem)
+
   proc open*(o: ptr FileOutput, path: string, mode = fmAppend): bool =
     if o.outFile != nil:
       close(o.outFile)
       o.outFile = nil
-      o.outPath = ""
+
+      if o.outPath != nil:
+        deallocShared(o.outPath)
+        o.outPath = nil
 
     createDir path.splitFile.dir
     result = open(o.outFile, path, mode)
     if result:
-      o.outPath = path
+      o.outPath = toCString(path)
       o.mode = mode
 
   proc open*(o: ptr FileOutput, file: File): bool =
     if o.outFile != nil:
       close(o.outFile)
-      o.outPath = ""
+      deallocShared(o.outPath)
+      o.outPath = nil
 
     o.outFile = file
 
@@ -157,13 +167,14 @@ when not defined(js):
 
   proc openOutput(o: var FileOutput) =
     doAssert o.outPath.len > 0 and o.mode != fmRead
-    createDir o.outPath.splitFile.dir
-    o.outFile = open(o.outPath, o.mode)
+    let outPath = $o.outPath
+    createDir outPath.splitFile.dir
+    o.outFile = open(outPath, o.mode)
     o.colors = enableColors(o.outFile)
 
 proc createFileOutput(path: string, mode: FileMode): FileOutput =
   result.mode = mode
-  result.outPath = path
+  result.outPath = toCString(path)
 
 proc createStdOutOutput(): StdOutOutput =
   result.colors = enableColors(stdout)
@@ -517,12 +528,8 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
 
     var `outputs` = `outputsTuple`
 
-    # The output objects are currently not GC-safe because they contain
-    # strings (the `outPath` field). Since these templates are not used
-    # in situations where these paths are modified, it's safe to provide
-    # a gcsafe override until we switch to Nim's --newruntime.
-    template outputs*(S: type `name`): auto = ({.gcsafe.}: addr `outputs`)[]
-    template output* (S: type `name`): auto = ({.gcsafe.}: addr `outputs`[0])[]
+    template outputs*(S: type `name`): auto = `outputs`
+    template output* (S: type `name`): auto = `outputs`[0]
 
     when `Record` is tuple:
       proc initLogRecord*(r: var `Record`, lvl: LogLevel,
