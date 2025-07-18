@@ -152,7 +152,7 @@ proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
     r.stream.write(' ')
     base(r).setFgColor(propColor, false)
     r.stream.write("topics")
-    base.resetColors()
+    base(r).resetColors()
 
     r.stream.write('=')
     base(r).setFgColor(topicsColor, true)
@@ -161,3 +161,9 @@ proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
     r.stream.write('"')
 
   r.stream.write(newLine)
+
+proc flushRecord*(r: var LogRecord) =
+  r.stream.write(newLine)
+
+  r.output.append(r.stream)
+  r.output.flushOutput()

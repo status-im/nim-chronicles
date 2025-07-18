@@ -169,3 +169,9 @@ proc setProperty*(r: var LogRecord, name: string, value: auto) =
   base(r).setFgColor(propColor, true)
   r.writeValue(value)
   base(r).resetColors()
+
+proc flushRecord*(r: var LogRecord) =
+  r.stream.write(newLine)
+
+  r.output.append(r.stream)
+  r.output.flushOutput()

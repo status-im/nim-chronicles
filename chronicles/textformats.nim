@@ -7,8 +7,6 @@ from std/terminal import ansiResetCode, ForegroundColor, Style
 
 export outputs, textio, ansiResetCode, ForegroundColor, Style
 
-const newLine = '\n'
-
 type TextLogRecord*[Output; format: static[FormatSpec]] {.inheritable, pure.} = object
   output*: Output
   stream*: OutputStream
@@ -125,9 +123,3 @@ macro isDefaultDollar*(call: typed): bool =
       impl[5][1].kind == nnkGenericParams and impl[5][1][0].kind == nnkIdentDefs and
       impl[5][1][0][1].kind in {nnkObjectTy, nnkTupleClassTy}
   )
-
-proc flushRecord*(r: var TextLogRecord) =
-  r.stream.write(newLine)
-
-  r.output.append(r.stream)
-  r.output.flushOutput()
