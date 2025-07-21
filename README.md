@@ -770,15 +770,11 @@ file, Chronicles will provide options for using it.
 
 ## Contributing
 
-The development of Chronicles is sponsored by [Status.im](https://status.im/)
-through the use of [GitCoin](https://gitcoin.co/). Please take a look at our
-tracker for any issues having the [bounty][Bounties] tag.
+Contributions are welcome and should follow the [Status Nim style guide](https://status-im.github.io/nim-style-guide).
 
 When submitting pull requests, please add test cases for any new features
 or fixes and make sure `nimble test` is still able to execute the entire
 test suite successfully.
-
-[Bounties]: https://github.com/status-im/nim-chronicles/issues?q=is%3Aissue+is%3Aopen+label%3Abounty
 
 ## License
 
