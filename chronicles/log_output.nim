@@ -524,8 +524,13 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
 
     var `outputs` = `outputsTuple`
 
-    template outputs*(S: type `name`): auto = `outputs`
-    template output* (S: type `name`): auto = `outputs`[0]
+
+    # The output objects are currently not GC-safe because they contain
+    # strings (the `outPath` field). Since these templates are not used
+    # in situations where these paths are modified, it's safe to provide
+    # a gcsafe override until we switch to Nim's --newruntime.
+    template outputs*(S: type `name`): auto = ({.gcsafe.}: addr `outputs`)[]
+    template output* (S: type `name`): auto = ({.gcsafe.}: addr `outputs`[0])[]
 
     var `tlsSlot` {.threadvar.}: ptr BindingsFrame[`Record`]
 

@@ -43,7 +43,6 @@ else:
     flushOutput r.output
 
 proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
-  bind writeTimestamp
   r.stream = initOutputStream type(r)
 
   when defined(js):
