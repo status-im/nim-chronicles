@@ -7,8 +7,7 @@ chronicles_thread_ids=None
 chronicles_line_endings=Posix
 
 [Output]
-stdout="""two default sinks => 3 evals
-INF info                                       evals=1
+stdout="""INF info                                       evals=1
 INF info                                       evals=1
 WRN warn                                       evals=2
 WRN warn                                       evals=2
