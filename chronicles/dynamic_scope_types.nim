@@ -14,7 +14,10 @@ template select(LogRecord, A, B: typedesc): typedesc =
 type
   ScopeBindingBase*[LogRecord] = object of RootObj
     name*: string
-    appender*: select(LogRecord, LogAppender[LogRecord], MultiLogAppender[LogRecord])
+    when (NimMajor, NimMinor) >= (2, 2):
+      appender*: select(LogRecord, LogAppender[LogRecord], MultiLogAppender[LogRecord])
+    else:
+      appender*: pointer
 
   LogAppender*[LogRecord] =
     proc(x: var LogRecord, valueAddr: ptr ScopeBindingBase[LogRecord]) {.nimcall.}

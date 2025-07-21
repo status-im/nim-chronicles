@@ -5,7 +5,9 @@ import
 
 when runtimeFilteringEnabled:
   proc appenderIMPL[LogRecord: tuple, PropertyType](
-      log: var LogRecord, keyValuePair: ptr ScopeBindingBase[LogRecord], enabled: SinksBitmask
+      log: var LogRecord,
+      keyValuePair: ptr ScopeBindingBase[LogRecord],
+      enabled: SinksBitmask,
   ) =
     type ActualType = ptr ScopeBinding[LogRecord, PropertyType]
     let v = ActualType(keyValuePair)
@@ -29,7 +31,10 @@ when runtimeFilteringEnabled:
     while frame != nil:
       for i in 0 ..< frame.bindingsCount:
         let binding = frame.bindings[i]
-        binding.appender(r, binding, enabled)
+        when (NimMajor, NimMinor) >= (2, 2):
+          binding.appender(r, binding, enabled)
+        else:
+          cast[MultiLogAppender[LogRecord]](binding.appender)(r, binding, enabled)
       frame = frame.prev
 
 proc logAllDynamicProperties*[LogRecord](stream: typedesc, r: var LogRecord) =
@@ -40,19 +45,22 @@ proc logAllDynamicProperties*[LogRecord](stream: typedesc, r: var LogRecord) =
   while frame != nil:
     for i in 0 ..< frame.bindingsCount:
       let binding = frame.bindings[i]
-      binding.appender(r, binding)
+      when (NimMajor, NimMinor) >= (2, 2):
+        binding.appender(r, binding)
+      else:
+        cast[LogAppender[LogRecord]](binding.appender)(r, binding)
     frame = frame.prev
 
-proc makeScopeBinding[T](LogRecord: typedesc,
-                         name: string,
-                         value: T): ScopeBinding[LogRecord, T] =
+proc makeScopeBinding[T](
+    LogRecord: typedesc, name: string, value: T
+): ScopeBinding[LogRecord, T] =
   result.name = name
   result.appender = appenderIMPL[LogRecord, T]
   result.value = value
 
-macro dynamicLogScopeIMPL*(stream: typedesc,
-                           lexicalScopes: typed,
-                           args: varargs[untyped]): untyped =
+macro dynamicLogScopeIMPL*(
+    stream: typedesc, lexicalScopes: typed, args: varargs[untyped]
+): untyped =
   # XXX: open question: should we support overriding of dynamic props
   # inside inner scopes. This will have some run-time overhead.
   let body = args[^1]
@@ -98,7 +106,8 @@ macro dynamicLogScopeIMPL*(stream: typedesc,
       let bindingFrame = BindingsFrame[`RecordType`](
         prev: prevBindingFrame,
         bindings: cast[BindingsArray[`RecordType`]](unsafeAddr `bindingsArraySym`),
-        bindingsCount: `totalBindingVars`)
+        bindingsCount: `totalBindingVars`,
+      )
 
       # The address of the new BindingFrame is written to a TLS location.
       tlsSlot(`stream`) = unsafeAddr(bindingFrame)
