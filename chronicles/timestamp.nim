@@ -2,7 +2,7 @@
 
 import
   std/[strutils, times],
-  stew/[byteutils, objects],
+  stew/objects,
   faststreams/[outputs, textio],
   ./options
 

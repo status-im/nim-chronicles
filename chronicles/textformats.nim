@@ -1,6 +1,6 @@
 import
   stew/shims/macros,
-  faststreams/[outputs, textio],
+  faststreams/outputs,
   ./[ansicolors, log_output, options, timestamp]
 
 from std/terminal import ansiResetCode, ForegroundColor, Style

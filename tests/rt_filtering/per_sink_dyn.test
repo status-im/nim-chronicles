@@ -1,0 +1,15 @@
+program="../dyn_output"
+chronicles_sinks="textlines[dynamic],textlines[dynamic]"
+chronicles_runtime_filtering="on"
+chronicles_colors=None
+chronicles_timestamps=None
+chronicles_thread_ids=None
+[Output]
+stdout="""two default sinks => 3 evals
+INF info                                       evals=1
+INF info                                       evals=1
+WRN warn                                       evals=2
+WRN warn                                       evals=2
+ERR error                                      evals=3
+ERR error                                      evals=3
+"""

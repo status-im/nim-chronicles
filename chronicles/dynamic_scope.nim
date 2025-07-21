@@ -1,9 +1,10 @@
 import
   std/typetraits,
   stew/shims/macros,
-  ./[dynamic_scope_types, log_output, options, scope_helpers, topics_registry]
+  ./[dynamic_scope_types, log_output, options, scope_helpers]
 
 when runtimeFilteringEnabled:
+  import topics_registry
   proc appenderIMPL[LogRecord: tuple, PropertyType](
       log: var LogRecord,
       keyValuePair: ptr ScopeBindingBase[LogRecord],
@@ -13,14 +14,15 @@ when runtimeFilteringEnabled:
     let v = ActualType(keyValuePair)
     log.setProperty(v.name, v.value, enabled)
 
-proc appenderIMPL[LogRecord, PropertyType](
-    log: var LogRecord, keyValuePair: ptr ScopeBindingBase[LogRecord]
-) =
-  type ActualType = ptr ScopeBinding[LogRecord, PropertyType]
-  let v = ActualType(keyValuePair)
-  log.setProperty(v.name, v.value)
+  # Need to be specific with `not tuple` in the context that appenderIMPL is being
+  # used
+  proc appenderIMPL[LogRecord: not tuple, PropertyType](
+      log: var LogRecord, keyValuePair: ptr ScopeBindingBase[LogRecord]
+  ) =
+    type ActualType = ptr ScopeBinding[LogRecord, PropertyType]
+    let v = ActualType(keyValuePair)
+    log.setProperty(v.name, v.value)
 
-when runtimeFilteringEnabled:
   proc logAllDynamicProperties*[LogRecord: tuple](
       stream: typedesc, r: var LogRecord, enabled: SinksBitmask
   ) =
@@ -36,6 +38,14 @@ when runtimeFilteringEnabled:
         else:
           cast[MultiLogAppender[LogRecord]](binding.appender)(r, binding, enabled)
       frame = frame.prev
+
+else:
+  proc appenderIMPL[LogRecord, PropertyType](
+      log: var LogRecord, keyValuePair: ptr ScopeBindingBase[LogRecord]
+  ) =
+    type ActualType = ptr ScopeBinding[LogRecord, PropertyType]
+    let v = ActualType(keyValuePair)
+    log.setProperty(v.name, v.value)
 
 proc logAllDynamicProperties*[LogRecord](stream: typedesc, r: var LogRecord) =
   # This proc is intended for internal use only
