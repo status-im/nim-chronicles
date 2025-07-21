@@ -3,6 +3,7 @@ chronicles_sinks="textlines[stdout,file]"
 chronicles_colors=None
 chronicles_timestamps=UnixTime
 chronicles_thread_ids=None
+chronicles_line_endings=Posix
 timestamp_peg="{\\d+} '.' {\\d+} \\s"
 
 [Output]

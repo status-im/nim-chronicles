@@ -1,6 +1,7 @@
 program="../lexical_scopes"
 chronicles_sinks="textlines[file(lines.txt,truncate),nocolors],textblocks[file(blocks.txt,truncate),notimestamps,ansicolors]"
 chronicles_thread_ids=None
+chronicles_line_endings=Posix
 timestamp_peg="""{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d}  '.' {\d\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"""
 [Output]
 lines.txt="""INF 2025-07-14 12:53:42.379+02:00 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20

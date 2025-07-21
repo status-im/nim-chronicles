@@ -2,6 +2,7 @@ program="../xml_stream_usage"
 chronicles_colors=None
 chronicles_timestamps=None
 chronicles_thread_ids=None
+chronicles_line_endings=Posix
 [Output]
 stdout="""<event type="New Stream" severity="INFO">
   <franchise>Tom &amp; Jerry</franchise>

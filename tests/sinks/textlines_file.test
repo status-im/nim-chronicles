@@ -3,6 +3,7 @@ chronicles_sinks="textlines[file]"
 chronicles_colors=None
 chronicles_timestamps=None
 chronicles_thread_ids=None
+chronicles_line_endings=Posix
 [Output]
 textlines_file.log="""INF main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
 INF exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
