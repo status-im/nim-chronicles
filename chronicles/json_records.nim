@@ -15,7 +15,7 @@ when not defined(js):
 
   template flushRecord*(r: var LogRecord) =
     r.jsonWriter.endRecord()
-    r.stream.write '\n'
+    r.stream.write newLine
     append r.output, r.stream
 
 else:

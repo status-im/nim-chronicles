@@ -3,6 +3,7 @@ chronicles_sinks="textlines[file(lines.txt,truncate)],textblocks[file(blocks.txt
 chronicles_timestamps=None
 chronicles_colors=None
 chronicles_thread_ids=None
+chronicles_line_endings=Posix
 
 [Output]
 lines.txt="""INF Got attestation 1                          attestation="some attestation" peer="Peer 1" it="not renamed" asig="some signature" a=renamed complex_a_concatenation=X

@@ -13,7 +13,6 @@ type LogRecord*[Output; format: static[FormatSpec]] = object of TextLogRecord[
   level: LogLevel
 
 const
-  newLine = "\n"
   tupleOpenBracket = "(" & newLine
   tupleCloseBracket = ")" & newLine
   arrayOpenBracket = "[" & newLine

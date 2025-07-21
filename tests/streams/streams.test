@@ -2,6 +2,7 @@ program="../multiple_streams"
 chronicles_streams="foo[textlines],bar[textlines]"
 chronicles_colors=None
 chronicles_thread_ids=None
+chronicles_line_endings=Posix
 timestamp_peg="""{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d}  '.' {\d\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"""
 [Output]
 stdout="""INF 2025-07-14 11:44:48.619+02:00 dynamic scope starts                       reqId=10 userId=20
