@@ -2,7 +2,7 @@
 ## chronicles formatting for their types without importing the full chronicles
 ## library.
 
-import std/strformat, stew/shims/macros, ./topics_registry
+import std/strformat, stew/shims/macros
 
 template chroniclesFormatItIMPL*(value: auto): auto =
   # By default, values are passed as-is to the log output
@@ -12,9 +12,9 @@ template formatIt*(T: type, body: untyped) {.dirty.} =
   template chroniclesFormatItIMPL*(it: T): auto =
     body
 
-# enablde: SinksBitMask
+# enabled: SinksBitMask
 template chroniclesExpandItIMPL*[RecordType: tuple](
-    record: RecordType, field: static string, value: auto, enabled: SinksBitmask
+    record: RecordType, field: static string, value: auto, enabled: auto
 ) =
   mixin setProperty, chroniclesFormatItIMPL
   setProperty(record, field, chroniclesFormatItIMPL(value), enabled)
@@ -74,8 +74,8 @@ macro expandIt*(T: type, expandedProps: untyped): untyped =
   # to import ./options and check if runtime filtering is enabled and skip the
   # latter if not
   result = quote:
-    template chroniclesExpandItIMPL*(
-        `record`: auto, `it_name`: static string, `it`: `T`, `enabled`: SinksBitmask
+    template chroniclesExpandItIMPL*[RecordType: tuple](
+        `record`: RecordType, `it_name`: static string, `it`: `T`, `enabled`: auto
     ) =
       mixin setProperty, chroniclesFormatItIMPL
       `setPropertyTupleCalls`
