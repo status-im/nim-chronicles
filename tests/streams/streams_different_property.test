@@ -1,6 +1,7 @@
 program="../multiple_streams"
 chronicles_streams="foo[textlines[stdout,nocolors]],bar[textlines[file,notimestamps,ansicolors]]"
 chronicles_thread_ids=None
+chronicles_line_endings=Posix
 timestamp_peg="""{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d}  '.' {\d\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"""
 [Output]
 stdout="""INF 2025-07-14 11:44:45.128+02:00 logging to foo                            

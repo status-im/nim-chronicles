@@ -350,6 +350,11 @@ Enables or disables logging of the thread id. Can also be set in each log line:
 info "with thread id", chroniclesThreadIds = true
 ```
 
+### chronicles_line_endings
+
+Your choice of `posix` (`\n`), `windows` (`\r\n`) or `native` (default) line
+endings.
+
 ### chronicles_log_level
 
 This option can be used to erase at compile-time all log statements, not

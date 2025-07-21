@@ -4,6 +4,7 @@ chronicles_colors=None
 chronicles_timestamps=None
 chronicles_log_level=NONE
 chronicles_thread_ids=None
+chronicles_line_endings=Posix
 
 [Output]
 stdout="""WRN inside main                                topics="main" b=10 evals=1 arg=50 a=1

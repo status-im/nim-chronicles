@@ -3,6 +3,7 @@ chronicles_sinks="textblocks[stdout,file]"
 chronicles_colors=None
 chronicles_timestamps=None
 chronicles_thread_ids=None
+chronicles_line_endings=Posix
 [Output]
 textblocks_file_stdout.log="""INF main started topics="main"
   a: 12
