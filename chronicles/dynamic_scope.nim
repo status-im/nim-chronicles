@@ -1,13 +1,36 @@
 import
-  std/typetraits, stew/shims/macros,
-  ./[dynamic_scope_types, log_output, scope_helpers]
+  std/typetraits,
+  stew/shims/macros,
+  ./[dynamic_scope_types, log_output, options, scope_helpers, topics_registry]
 
-proc appenderIMPL[LogRecord, PropertyType](log: var LogRecord,
-                                           keyValuePair: ptr ScopeBindingBase[LogRecord]) =
+when runtimeFilteringEnabled:
+  proc appenderIMPL[LogRecord: tuple, PropertyType](
+      log: var LogRecord, keyValuePair: ptr ScopeBindingBase[LogRecord], enabled: SinksBitmask
+  ) =
+    type ActualType = ptr ScopeBinding[LogRecord, PropertyType]
+    let v = ActualType(keyValuePair)
+    log.setProperty(v.name, v.value, enabled)
+
+proc appenderIMPL[LogRecord, PropertyType](
+    log: var LogRecord, keyValuePair: ptr ScopeBindingBase[LogRecord]
+) =
   type ActualType = ptr ScopeBinding[LogRecord, PropertyType]
-  # XXX: The use of `cast` here shouldn't be necessary. This is a normal explicit upcast.
-  let v = cast[ActualType](keyValuePair)
-  log.setProperty v.name, v.value
+  let v = ActualType(keyValuePair)
+  log.setProperty(v.name, v.value)
+
+when runtimeFilteringEnabled:
+  proc logAllDynamicProperties*[LogRecord: tuple](
+      stream: typedesc, r: var LogRecord, enabled: SinksBitmask
+  ) =
+    # This proc is intended for internal use only
+    mixin tlsSlot
+
+    var frame = tlsSlot(stream)
+    while frame != nil:
+      for i in 0 ..< frame.bindingsCount:
+        let binding = frame.bindings[i]
+        binding.appender(r, binding, enabled)
+      frame = frame.prev
 
 proc logAllDynamicProperties*[LogRecord](stream: typedesc, r: var LogRecord) =
   # This proc is intended for internal use only
@@ -84,9 +107,10 @@ macro dynamicLogScopeIMPL*(stream: typedesc,
       # intercept yields and resumes so we can restore our context.
 
       `body`
-
     finally:
       # After the scope block has been executed, we restore the previous
       # top BindingFrame.
       tlsSlot(`stream`) = prevBindingFrame
 
+  when defined(debugLogImpl):
+    echo repr(result)

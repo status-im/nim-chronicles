@@ -5,15 +5,15 @@ chronicles_timestamps=None
 chronicles_thread_ids=None
 chronicles_line_numbers=on
 [Output]
-stdout="""WRN inside main                                topics="main" file=topics_and_loglvls.nim:9 b=10 arg=50 a=1
-INF inside main                                topics="main" file=topics_and_loglvls.nim:10 b=10 arg=50 a=1
-DBG inside main                                topics="main" file=topics_and_loglvls.nim:11 b=10 arg=50 a=1
-WRN inside foo                                 topics="foo" file=topics_and_loglvls.nim:18 b=10 arg=10
-INF inside foo                                 topics="foo" file=topics_and_loglvls.nim:19 b=10 arg=10
-DBG inside foo                                 topics="foo" file=topics_and_loglvls.nim:20 b=10 arg=10
-WRN inside foobar                              topics="foo bar" file=topics_and_loglvls.nim:27 b=10 arg=20
-INF inside foobar                              topics="foo bar" file=topics_and_loglvls.nim:28 b=10 arg=20
-DBG inside foobar                              topics="foo bar" file=topics_and_loglvls.nim:29 b=10 arg=20
-INF after main                                 topics="general" file=topics_and_loglvls.nim:35
-INF exiting                                    file=topics_and_loglvls.nim:36 msg="bye bye"
+stdout="""WRN inside main                                topics="main" file=topics_and_loglvls.nim:15 b=10 evals=1 arg=50 a=1
+INF inside main                                topics="main" file=topics_and_loglvls.nim:16 b=10 evals=2 arg=50 a=1
+DBG inside main                                topics="main" file=topics_and_loglvls.nim:17 b=10 evals=3 arg=50 a=1
+WRN inside foo                                 topics="foo" file=topics_and_loglvls.nim:24 b=10 arg=10
+INF inside foo                                 topics="foo" file=topics_and_loglvls.nim:25 b=10 arg=10
+DBG inside foo                                 topics="foo" file=topics_and_loglvls.nim:26 b=10 arg=10
+WRN inside foobar                              topics="foo bar" file=topics_and_loglvls.nim:33 b=10 arg=20
+INF inside foobar                              topics="foo bar" file=topics_and_loglvls.nim:34 b=10 arg=20
+DBG inside foobar                              topics="foo bar" file=topics_and_loglvls.nim:35 b=10 arg=20
+INF after main                                 topics="general" file=topics_and_loglvls.nim:41
+INF exiting                                    file=topics_and_loglvls.nim:42 msg="bye bye"
 """

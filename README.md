@@ -200,13 +200,17 @@ will be eagerly evaluated before the block is entered.
 
 ## Compile-Time Configuration
 
-Almost everything about Chronicles in configured at compile-time, through the
+Almost everything about Chronicles can be configured at compile-time, through the
 mechanism of Nim's `-d:` flags. For example, you can completely remove all of
 the code related to logging by simply setting `chronicles_enabled` to `off`:
 
 ```
 nim c -d:chronicles_enabled=off myprogram.nim
 ```
+
+The compile-time configuration also determines what options are available at
+runtime. For example, if debug messages are removed at compile time
+they will not be available for runtime configuration.
 
 Chronicles comes with a very reasonable default configuration, but let's look
 at some of the other supported options:

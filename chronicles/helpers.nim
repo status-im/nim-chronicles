@@ -2,8 +2,10 @@ import
   std/[tables, strutils, strformat],
   ./topics_registry
 
-func parseTopicDirectives*(directives: openArray[string]): Table[string, TopicSettings] =
-  result = initTable[string, TopicSettings]()
+export tables
+
+func parseTopicDirectives*(directives: openArray[string]): Table[string, SinkTopicSettings] =
+  result = initTable[string, SinkTopicSettings]()
 
   for directive in directives:
     let subDirectives = directive.split(";")
@@ -18,7 +20,7 @@ func parseTopicDirectives*(directives: openArray[string]): Table[string, TopicSe
         for name2 in topicsNames:
           let name = name2.strip
           if not result.hasKey(name):
-            result.add(name, TopicSettings())
+            result.add(name, default(SinkTopicSettings))
           template topic: auto = result[name]
           body
 

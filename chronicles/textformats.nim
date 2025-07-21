@@ -5,7 +5,7 @@ import
 
 from std/terminal import ansiResetCode, ForegroundColor, Style
 
-export outputs, textio, ansiResetCode, ForegroundColor, Style
+export outputs, ansiResetCode, ForegroundColor, Style
 
 type TextLogRecord*[Output; format: static[FormatSpec]] {.inheritable, pure.} = object
   output*: Output

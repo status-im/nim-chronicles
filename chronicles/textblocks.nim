@@ -5,7 +5,7 @@ import
   faststreams/[outputs, textio],
   ./[formats, log_output, options, textformats]
 
-export outputs, textio, formats, textformats
+export outputs, formats, textformats
 
 type LogRecord*[Output; format: static[FormatSpec]] = object of TextLogRecord[
   Output, format

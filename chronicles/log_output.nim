@@ -3,7 +3,7 @@ import
   stew/[ptrops, strings],
   stew/shims/macros,
   faststreams/outputs,
-  ./[ansicolors, dynamic_scope_types, options]
+  ./[ansicolors, dynamic_scope_types, options, topics_registry]
 
 when defined(js):
   type OutStr = cstring
@@ -331,12 +331,7 @@ template activateOutput*(o: var PassThroughOutput, level: LogLevel) =
 
 template prepareOutput*(r: var auto, level: LogLevel) =
   mixin activateOutput
-
-  when r is tuple:
-    for f in r.fields:
-      activateOutput(f.output, level)
-  else:
-    activateOutput(r.output, level)
+  activateOutput(r.output, level)
 
 template append*(o: var FileOutput, s: OutStr) =
   o.outFile.write s
@@ -518,8 +513,9 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
   let tlsSlot = newIdentNode($name & "TlsSlot")
   let Record  = newIdentNode($name & "LogRecord")
   let outputs = newIdentNode($name & "Outputs")
+  result = nnkStmtList.newTree()
 
-  result = quote:
+  result.add quote do:
     type `name`* {.inject.} = object
     template isStreamSymbolIMPL*(S: type `name`): bool = true
 
@@ -530,21 +526,6 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
 
     template outputs*(S: type `name`): auto = `outputs`
     template output* (S: type `name`): auto = `outputs`[0]
-
-    when `Record` is tuple:
-      proc initLogRecord*(r: var `Record`, lvl: LogLevel,
-                              topics: string, name: string) =
-        mixin initLogRecord
-        for f in r.fields:
-          initLogRecord(f, lvl, topics, name)
-
-      proc setProperty*(r: var `Record`, key: string, val: auto) =
-        mixin setProperty
-        for f in r.fields: setProperty(f, key, val)
-
-      proc flushRecord*(r: var `Record`) =
-        mixin flushRecord
-        for f in r.fields: flushRecord(f)
 
     var `tlsSlot` {.threadvar.}: ptr BindingsFrame[`Record`]
 
@@ -656,6 +637,78 @@ macro createStreamSymbol(name: untyped, RecordType: typedesc,
     # observed issue's amelioration.
     proc tlsSlot*(S: type `name`): var ptr BindingsFrame[`Record`] {.noinline.} =
       `tlsSlot`
+
+  if RecordType.kind == nnkTupleConstr:
+    # Add helpers that forward arguments to each sink ensuring that each log
+    # expression is evaluated only once (using an intermediate proc).
+    when runtimeFilteringEnabled:
+      # When runtime filtering is enabled, we must further check each sink - at
+      # least one will be enabled when we reach here but we don't know how many
+      result.add quote do:
+        proc prepareOutput*(r: var `Record`, level: LogLevel, enabled: SinksBitmask) =
+          mixin activateOutput
+
+          var mask: uint8 = 1
+          for f in r.fields:
+            if (mask and enabled) > 0:
+              activateOutput(f.output, level)
+            mask = mask shl 1
+
+        proc initLogRecord*(
+            r: var `Record`,
+            lvl: LogLevel,
+            topics: string,
+            name: string,
+            enabled: SinksBitmask,
+        ) =
+          mixin initLogRecord
+          var mask: uint8 = 1
+          for f in r.fields:
+            if (mask and enabled) > 0:
+              initLogRecord(f, lvl, topics, name)
+            mask = mask shl 1
+
+        proc setProperty*(
+            r: var `Record`, key: string, val: auto, enabled: SinksBitmask
+        ) =
+          mixin setProperty
+          var mask: uint8 = 1
+          for f in r.fields:
+            if (mask and enabled) > 0:
+              setProperty(f, key, val)
+            mask = mask shl 1
+
+        proc flushRecord*(r: var `Record`, enabled: SinksBitmask) =
+          mixin flushRecord
+          var mask: uint8 = 1
+          for f in r.fields:
+            if (mask and enabled) > 0:
+              flushRecord(f)
+            mask = mask shl 1
+
+    else:
+      result.add quote do:
+        proc prepareOutput*(r: var `Record`, level: LogLevel) =
+          mixin activateOutput
+          for f in r.fields:
+            activateOutput(f.output, level)
+
+        proc initLogRecord*(
+            r: var `Record`, lvl: LogLevel, topics: string, name: string
+        ) =
+          mixin initLogRecord
+          for f in r.fields:
+            initLogRecord(f, lvl, topics, name)
+
+        proc setProperty*(r: var `Record`, key: string, val: auto) =
+          mixin setProperty
+          for f in r.fields:
+            setProperty(f, key, val)
+
+        proc flushRecord*(r: var `Record`) =
+          mixin flushRecord
+          for f in r.fields:
+            flushRecord(f)
 
 # This is a placeholder that will be overriden in the user code.
 # XXX: replace that with a proper check that the user type requires

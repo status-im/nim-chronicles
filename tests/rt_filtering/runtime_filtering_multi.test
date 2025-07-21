@@ -1,0 +1,61 @@
+program="../runtime_filtering"
+chronicles_sinks="textlines[stdout],textlines[file]"
+chronicles_runtime_filtering="on"
+chronicles_colors=None
+chronicles_timestamps=None
+chronicles_thread_ids=None
+[Output]
+stdout="""> start by printing both:
+INF from foo                                   topics="main foo"
+INF from bar                                   topics="main bar"
+> disabling main, both should be omitted:
+true
+> set foo to required, only foo should be printed:
+true
+true
+INF from foo                                   topics="main foo"
+> set bar to enabled, only bar should be printed:
+true
+true
+INF from bar                                   topics="main bar"
+> disable main again, both should be omitted:
+true
+> try a wrong call to setTopicState, disable bar and print out only foo:
+true
+false
+true
+INF from foo                                   topics="main foo"
+> restore everything to normal, both should print:
+true
+true
+true
+INF from foo                                   topics="main foo"
+INF from bar                                   topics="main bar"
+> set main to required WARN, none should print:
+true
+true
+true
+> set foo to INFO, bar and main to WARN, foo should print:
+true
+true
+true
+INF from foo                                   topics="main foo"
+> set global LogLevel to WARN, set main and foo to INFO, both should print:
+true
+true
+true
+INF from foo                                   topics="main foo"
+INF from bar                                   topics="main bar"
+"""
+
+runtime_filtering_multi.log="""INF from foo                                   topics="main foo"
+INF from bar                                   topics="main bar"
+INF from foo                                   topics="main foo"
+INF from bar                                   topics="main bar"
+INF from foo                                   topics="main foo"
+INF from foo                                   topics="main foo"
+INF from bar                                   topics="main bar"
+INF from foo                                   topics="main foo"
+INF from foo                                   topics="main foo"
+INF from bar                                   topics="main bar"
+"""

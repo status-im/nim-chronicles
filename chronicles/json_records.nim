@@ -3,7 +3,7 @@ import ./[log_output, options, timestamp]
 when not defined(js):
   import faststreams/outputs, json_serialization/writer
 
-  export outputs, writer, timestamp
+  export outputs, writer
 
   type LogRecord*[Output; format: static[FormatSpec]] = object
     output*: Output
@@ -43,6 +43,7 @@ else:
     flushOutput r.output
 
 proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
+  bind writeTimestamp
   r.stream = initOutputStream type(r)
 
   when defined(js):
