@@ -8,9 +8,9 @@ chronicles_log_level=DEBUG
 chronicles_enabled_topics="foo:INFO,bar:WARN,main"
 
 [Output]
-stdout="""WRN inside main                                topics="main" b=10 arg=50 a=1
-INF inside main                                topics="main" b=10 arg=50 a=1
-DBG inside main                                topics="main" b=10 arg=50 a=1
+stdout="""WRN inside main                                topics="main" b=10 evals=1 arg=50 a=1
+INF inside main                                topics="main" b=10 evals=2 arg=50 a=1
+DBG inside main                                topics="main" b=10 evals=3 arg=50 a=1
 WRN inside foo                                 topics="foo" b=10 arg=10
 INF inside foo                                 topics="foo" b=10 arg=10
 WRN inside foobar                              topics="foo bar" b=10 arg=20

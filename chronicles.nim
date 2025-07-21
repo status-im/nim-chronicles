@@ -103,6 +103,7 @@ template dynamicLogScope*(bindings: varargs[untyped]) {.dirty.} =
                       bindings)
 
 let chroniclesBlockName {.compileTime.} = ident "chroniclesLogStmt"
+let chroniclesTopicsMatchVar {.compileTime.} = ident "chroniclesTopicsMatch"
 
 when runtimeFilteringEnabled:
   import chronicles/topics_registry
@@ -130,9 +131,9 @@ when runtimeFilteringEnabled:
     for topic in topics:
       topicsArray.add newCall(topicStateIMPL, newLit(topic))
 
-    let lvl = newDotExpr(bindSym("LogLevel", brClosed), ident $logLevel)
     result.add quote do:
-      if not `topicsMatch`(`lvl`, `topicsArray`):
+      let `chroniclesTopicsMatchVar` = `topicsMatch`(LogLevel(`logLevel`), `topicsArray`)
+      if `chroniclesTopicsMatchVar` == 0:
         break `chroniclesBlockName`
 else:
   template runtimeFilteringDisabledError =
@@ -208,7 +209,6 @@ macro logIMPL(lineInfo: static InstInfo,
   var activeTopics: seq[string] = @[]
   var useLineNumbers = lineNumbersEnabled
   var useThreadIds = threadIdsEnabled
-
   if finalBindings.hasKey("topics"):
     topicsNode = finalBindings["topics"]
     finalBindings.del("topics")
@@ -261,6 +261,10 @@ macro logIMPL(lineInfo: static InstInfo,
   # `setProperty` and `flushRecord`.
   let
     record = genSym(nskVar, "record")
+    recordTypeSym = skipTypedesc(RecordType.getTypeImpl())
+    recordTypeNodes = recordTypeSym.getTypeImpl()
+    recordArity = if recordTypeNodes.kind != nnkTupleConstr: 1
+                  else: recordTypeNodes.len
     lvl = newDotExpr(bindSym("LogLevel", brClosed), ident $severity)
     chroniclesExpandItIMPL = bindSym("chroniclesExpandItIMPL", brForceOpen)
     prepareOutput = bindSym("prepareOutput", brForceOpen)
@@ -269,24 +273,45 @@ macro logIMPL(lineInfo: static InstInfo,
 
   code.add quote do:
     var `record`: `RecordType`
-    `prepareOutput`(`record`, `lvl`)
-    `initLogRecord`(`record`, `lvl`, `topicsNode`, `eventName`)
+
+  if recordArity > 1 and runtimeFilteringEnabled:
+    code.add quote do:
+      `prepareOutput`(`record`, `lvl`, `chroniclesTopicsMatchVar`)
+      `initLogRecord`(`record`, `lvl`, `topicsNode`, `eventName`, `chroniclesTopicsMatchVar`)
+  else:
+    code.add quote do:
+      `prepareOutput`(`record`, `lvl`)
+      `initLogRecord`(`record`, `lvl`, `topicsNode`, `eventName`)
 
   if useThreadIds:
-    code.add quote do:
-      # called tid even when it's a process id - this to avoid differences in
-      # logging between threads and no threads
-      `setProperty`(`record`, "tid", getLogThreadId())
+    # called tid even when it's a process id - this to avoid differences in
+    # logging between threads and no threads
+    if recordArity > 1 and runtimeFilteringEnabled:
+      code.add quote do:
+        `setProperty`(`record`, "tid", getLogThreadId(), `chroniclesTopicsMatchVar`)
+    else:
+      code.add quote do:
+        `setProperty`(`record`, "tid", getLogThreadId())
 
   if useLineNumbers:
     var filename = lineInfo.filename & ":" & $lineInfo.line
-    code.add newCall(setProperty, record, newLit("file"), newLit(filename))
+    if recordArity > 1 and runtimeFilteringEnabled:
+      code.add newCall(setProperty, record, newLit("file"), newLit(filename), chroniclesTopicsMatchVar)
+    else:
+      code.add newCall(setProperty, record, newLit("file"), newLit(filename))
 
   for k, v in finalBindings:
-    code.add newCall(chroniclesExpandItIMPL, record, newLit(k), v)
+    if recordArity > 1 and runtimeFilteringEnabled:
+      code.add newCall(chroniclesExpandItIMPL, record, newLit(k), v, chroniclesTopicsMatchVar)
+    else:
+      code.add newCall(chroniclesExpandItIMPL, record, newLit(k), v)
 
-  code.add newCall("logAllDynamicProperties", Stream, record)
-  code.add newCall("flushRecord", record)
+  if recordArity > 1 and runtimeFilteringEnabled:
+    code.add newCall("logAllDynamicProperties", Stream, record, chroniclesTopicsMatchVar)
+    code.add newCall("flushRecord", record, chroniclesTopicsMatchVar)
+  else:
+    code.add newCall("logAllDynamicProperties", Stream, record)
+    code.add newCall("flushRecord", record)
 
   result.add quote do:
     try:

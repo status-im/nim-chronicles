@@ -1,0 +1,28 @@
+program="../twosinks"
+chronicles_sinks="textlines[stdout],textlines[file]"
+chronicles_runtime_filtering="on"
+chronicles_colors=None
+chronicles_timestamps=None
+chronicles_thread_ids=None
+chronicles_line_endings=Posix
+[Output]
+stdout="""two default sinks => 3 evals
+INF info                                       evals=1
+WRN warn                                       evals=2
+ERR error                                      evals=3
+fatal/default => 3 evals
+fatal/fatal => 0 evals
+default/fatal => 3 evals
+INF info                                       evals=7
+WRN warn                                       evals=8
+ERR error                                      evals=9
+"""
+
+per_sink.log="""INF info                                       evals=1
+WRN warn                                       evals=2
+ERR error                                      evals=3
+INF info                                       evals=4
+WRN warn                                       evals=5
+ERR error                                      evals=6
+"""
+

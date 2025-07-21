@@ -1,13 +1,51 @@
 import
-  std/typetraits, stew/shims/macros,
-  ./[dynamic_scope_types, log_output, scope_helpers]
+  std/typetraits,
+  stew/shims/macros,
+  ./[dynamic_scope_types, log_output, options, scope_helpers]
 
-proc appenderIMPL[LogRecord, PropertyType](log: var LogRecord,
-                                           keyValuePair: ptr ScopeBindingBase[LogRecord]) =
-  type ActualType = ptr ScopeBinding[LogRecord, PropertyType]
-  # XXX: The use of `cast` here shouldn't be necessary. This is a normal explicit upcast.
-  let v = cast[ActualType](keyValuePair)
-  log.setProperty v.name, v.value
+when runtimeFilteringEnabled:
+  import topics_registry
+  proc appenderIMPL[LogRecord: tuple, PropertyType](
+      log: var LogRecord,
+      keyValuePair: ptr ScopeBindingBase[LogRecord],
+      enabled: SinksBitmask,
+  ) =
+    type ActualType = ptr ScopeBinding[LogRecord, PropertyType]
+    let v = ActualType(keyValuePair)
+    log.setProperty(v.name, v.value, enabled)
+
+  # Need to be specific with `not tuple` in the context that appenderIMPL is being
+  # used
+  proc appenderIMPL[LogRecord: not tuple, PropertyType](
+      log: var LogRecord, keyValuePair: ptr ScopeBindingBase[LogRecord]
+  ) =
+    type ActualType = ptr ScopeBinding[LogRecord, PropertyType]
+    let v = ActualType(keyValuePair)
+    log.setProperty(v.name, v.value)
+
+  proc logAllDynamicProperties*[LogRecord: tuple](
+      stream: typedesc, r: var LogRecord, enabled: SinksBitmask
+  ) =
+    # This proc is intended for internal use only
+    mixin tlsSlot
+
+    var frame = tlsSlot(stream)
+    while frame != nil:
+      for i in 0 ..< frame.bindingsCount:
+        let binding = frame.bindings[i]
+        when (NimMajor, NimMinor) >= (2, 2):
+          binding.appender(r, binding, enabled)
+        else:
+          cast[MultiLogAppender[LogRecord]](binding.appender)(r, binding, enabled)
+      frame = frame.prev
+
+else:
+  proc appenderIMPL[LogRecord, PropertyType](
+      log: var LogRecord, keyValuePair: ptr ScopeBindingBase[LogRecord]
+  ) =
+    type ActualType = ptr ScopeBinding[LogRecord, PropertyType]
+    let v = ActualType(keyValuePair)
+    log.setProperty(v.name, v.value)
 
 proc logAllDynamicProperties*[LogRecord](stream: typedesc, r: var LogRecord) =
   # This proc is intended for internal use only
@@ -17,19 +55,22 @@ proc logAllDynamicProperties*[LogRecord](stream: typedesc, r: var LogRecord) =
   while frame != nil:
     for i in 0 ..< frame.bindingsCount:
       let binding = frame.bindings[i]
-      binding.appender(r, binding)
+      when (NimMajor, NimMinor) >= (2, 2):
+        binding.appender(r, binding)
+      else:
+        cast[LogAppender[LogRecord]](binding.appender)(r, binding)
     frame = frame.prev
 
-proc makeScopeBinding[T](LogRecord: typedesc,
-                         name: string,
-                         value: T): ScopeBinding[LogRecord, T] =
+proc makeScopeBinding[T](
+    LogRecord: typedesc, name: string, value: T
+): ScopeBinding[LogRecord, T] =
   result.name = name
   result.appender = appenderIMPL[LogRecord, T]
   result.value = value
 
-macro dynamicLogScopeIMPL*(stream: typedesc,
-                           lexicalScopes: typed,
-                           args: varargs[untyped]): untyped =
+macro dynamicLogScopeIMPL*(
+    stream: typedesc, lexicalScopes: typed, args: varargs[untyped]
+): untyped =
   # XXX: open question: should we support overriding of dynamic props
   # inside inner scopes. This will have some run-time overhead.
   let body = args[^1]
@@ -75,7 +116,8 @@ macro dynamicLogScopeIMPL*(stream: typedesc,
       let bindingFrame = BindingsFrame[`RecordType`](
         prev: prevBindingFrame,
         bindings: cast[BindingsArray[`RecordType`]](unsafeAddr `bindingsArraySym`),
-        bindingsCount: `totalBindingVars`)
+        bindingsCount: `totalBindingVars`,
+      )
 
       # The address of the new BindingFrame is written to a TLS location.
       tlsSlot(`stream`) = unsafeAddr(bindingFrame)
@@ -84,9 +126,10 @@ macro dynamicLogScopeIMPL*(stream: typedesc,
       # intercept yields and resumes so we can restore our context.
 
       `body`
-
     finally:
       # After the scope block has been executed, we restore the previous
       # top BindingFrame.
       tlsSlot(`stream`) = prevBindingFrame
 
+  when defined(debugLogImpl):
+    echo repr(result)

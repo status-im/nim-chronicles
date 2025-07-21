@@ -2,11 +2,11 @@
 
 import
   std/[strutils, times],
-  stew/[byteutils, objects],
+  stew/objects,
   faststreams/[outputs, textio],
   ./options
 
-export times, outputs, textio
+export times, outputs
 
 when defined(macos) or defined(macosx) or defined(osx):
   from posix import Timeval

@@ -1,14 +1,20 @@
 import chronicles
 
+var evals = 0
+
+proc evalMe(): int =
+  evals += 1
+  evals
+
 proc main(arg: int) =
   logScope:
     topics = "main"
     arg
     a = 1
 
-  warn("inside main", b = 10)
-  info("inside main", b = 10)
-  debug("inside main", b = 10)
+  warn("inside main", b = 10, evals = evalMe())
+  info("inside main", b = 10, evals = evalMe())
+  debug("inside main", b = 10, evals = evalMe())
 
 proc foo(arg: int) =
   logScope:
