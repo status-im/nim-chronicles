@@ -58,12 +58,6 @@ will look like this:
 
 ![json format example](media/json.png)
 
-At first, switching to JSON may look like a daunting proposition, but
-Chronicles provides a customized log tailing program called `chronicles-tail`
-which is able to transform the JSON stream back into the familiar human-readable
-form, while also providing additional advanced features such as on on-the-fly
-filtering, sound alerts and more.
-
 The main advantage of using JSON logging is that this facilitates the storage
 of the log records in specialized databases which are usually able to provide
 search and filtering capabilities and allow you to compute various aggregated
