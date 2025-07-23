@@ -574,9 +574,9 @@ returning a `tuple` - logging `value = DivMod3(13)` noow results in
 `value = (4, 1)` being written to the log.
 
 ``` nim
-import chronicles/formats
+import chronicles/formats as chronicles
 type DivMod3 = distinct int
-formats.formatIt(DivMod3): (int(it) div 3, int(it) mod 3)
+chronicles.formatIt(DivMod3): (int(it) div 3, int(it) mod 3)
 ```
 
 Note how `chronicles/formats` is used for the import this time - this technique
