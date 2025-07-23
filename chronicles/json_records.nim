@@ -58,8 +58,8 @@ proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
     when not defined(js):
       r.jsonWriter.writeFieldName("ts")
 
-      when declared(streamElement):
-        r.streamElement(s):
+      when declared(writer.streamElement): # json_serialization 0.3.0+
+        r.jsonWriter.streamElement(s):
           s.writeTimestamp(r.format.timestamps)
       else:
         r.jsonWriter.stream.writeTimestamp(r.format.timestamps)
