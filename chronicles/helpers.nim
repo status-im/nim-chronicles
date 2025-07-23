@@ -28,20 +28,20 @@ func parseTopicDirectives*(directives: openArray[string]): Table[string, SinkTop
       of "required":
         forEachTopic: topic.state = Required
       of "disabled":
-        forEachTopic: topic.state = Disabled
+        forEachTopic: topic.logLevel = LogLevel.DISABLED
       of "trc", "trace":
-        forEachTopic: topic.logLevel = TRACE
+        forEachTopic: topic.logLevel = LogLevel.TRACE
       of "dbg", "debug":
-        forEachTopic: topic.logLevel = DEBUG
+        forEachTopic: topic.logLevel = LogLevel.DEBUG
       of "inf", "info":
-        forEachTopic: topic.logLevel = INFO
+        forEachTopic: topic.logLevel = LogLevel.INFO
       of "ntc", "notice", #[legacy compatibility:]# "not":
-        forEachTopic: topic.logLevel = NOTICE
+        forEachTopic: topic.logLevel = LogLevel.NOTICE
       of "wrn", "warn":
-        forEachTopic: topic.logLevel = WARN
+        forEachTopic: topic.logLevel = LogLevel.WARN
       of "err", "error":
-        forEachTopic: topic.logLevel = ERROR
+        forEachTopic: topic.logLevel = LogLevel.ERROR
       of "fat", "fatal":
-        forEachTopic: topic.logLevel = FATAL
+        forEachTopic: topic.logLevel = LogLevel.FATAL
       else:
         raise newException(ValueError, &"'{parts[0]}' is not a recognized log level.")

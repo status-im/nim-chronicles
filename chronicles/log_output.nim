@@ -428,13 +428,16 @@ template colors*(o: PassThroughOutput): bool =
   res
 
 template append*(o: var SysLogOutput, s: OutStr) =
-  let syslogLevel = case o.currentRecordLevel
-                    of TRACE, DEBUG, NONE: LOG_DEBUG
-                    of INFO:               LOG_INFO
-                    of NOTICE:             LOG_NOTICE
-                    of WARN:               LOG_WARNING
-                    of ERROR:              LOG_ERR
-                    of FATAL:              LOG_CRIT
+  # DISABLED doesn't happen here, but it's cheaper to give it a value than
+  # anything else
+  let syslogLevel =
+    case o.currentRecordLevel
+    of TRACE, DEBUG, NONE, DISABLED: LOG_DEBUG
+    of INFO: LOG_INFO
+    of NOTICE: LOG_NOTICE
+    of WARN: LOG_WARNING
+    of ERROR: LOG_ERR
+    of FATAL: LOG_CRIT
 
   syslog(syslogLevel or LOG_PID, "%s", cstring(s))
 
@@ -481,7 +484,7 @@ template shortName*(lvl: LogLevel): string =
   of WARN:  "WRN"
   of ERROR: "ERR"
   of FATAL: "FAT"
-  of NONE:  "   "
+  of NONE,DISABLED:  "   "
 
 #
 # When any of the output streams have multiple output formats, we need to

@@ -21,7 +21,6 @@ type
     Normal
     Enabled
     Required
-    Disabled
 
   SinkTopicSettings* = object
     state: Atomic[TopicState]
@@ -169,7 +168,6 @@ proc topicsMatch*(
 
     var
       enabledTopicsMatch = false
-      disabled = false
       normalTopicsMatch = logStmtTopics.len == 0 and logStmtLevel >= activeLogLevel
       requiredTopicsCount = sinkState.totalRequiredTopics.load(moRelaxed)
 
@@ -188,14 +186,11 @@ proc topicsMatch*(
           normalTopicsMatch = true
         of Enabled:
           enabledTopicsMatch = true
-        of Disabled:
-          disabled = true
-          break
         of Required:
           normalTopicsMatch = true
           dec requiredTopicsCount
 
-    if requiredTopicsCount > 0 or disabled:
+    if requiredTopicsCount > 0:
       continue
 
     if hasEnabledTopics and not enabledTopicsMatch:

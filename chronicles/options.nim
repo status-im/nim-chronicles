@@ -41,31 +41,32 @@ when defined(chronicles_disable_thread_id):
 
 type
   LogLevel* = enum
-    NONE,
-    TRACE,
-    DEBUG,
-    INFO,
-    NOTICE,
-    WARN,
-    ERROR,
+    NONE # Default log level - for per-topic level, fall back to sink level
+    TRACE
+    DEBUG
+    INFO
+    NOTICE
+    WARN
+    ERROR
     FATAL
+    DISABLED # Disable logging entirely, for sink or topic
 
   LogFormat* = enum
-    json,
-    textLines,
-    textBlocks
+    json
+    textLines
+    textBlock
 
   LogFormatPlugin* = distinct string
 
   OutputDeviceKind* = enum
-    oStdOut,
-    oStdErr,
-    oFile,
+    oStdOut
+    oStdErr
+    oFile
     oSysLog
     oDynamic
 
   LogFileMode = enum
-    Append,
+    Append
     Truncate
 
   LogDestination* = object

@@ -85,7 +85,7 @@ template levelToStyle*(lvl: LogLevel): untyped =
     (fgRed, true)
   of FATAL:
     (fgRed, false)
-  of NONE:
+  of NONE, DISABLED:
     (fgWhite, false)
 
 template writeLogLevel*(r: var TextLogRecord, lvl: LogLevel) =
