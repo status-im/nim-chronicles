@@ -189,14 +189,17 @@ proc topicsMatch*(
         of Required:
           normalTopicsMatch = true
           dec requiredTopicsCount
+      else:
+        normalTopicsMatch = false
+        break
 
-    if requiredTopicsCount > 0:
+    if requiredTopicsCount > 0 or not normalTopicsMatch:
       continue
 
     if hasEnabledTopics and not enabledTopicsMatch:
       continue
 
-    result.setBit(sinkIdx, normalTopicsMatch)
+    result.setBit(sinkIdx, true)
 
 proc getTopicState*(topic: string): ptr TopicSettings =
   lockRegistry:
