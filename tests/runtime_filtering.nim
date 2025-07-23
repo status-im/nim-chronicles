@@ -94,6 +94,7 @@ foo()
 bar()
 
 echo "> reenabled sinks, same as before"
+setLogEnabled(true)
 
 foo()
 bar()
