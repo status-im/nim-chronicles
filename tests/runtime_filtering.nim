@@ -21,13 +21,13 @@ foo()
 bar()
 
 echo "> disabling main, both should be omitted:"
-echo setTopicState("main", Disabled)
+echo setTopicState("main", Normal, logLevel = DISABLED)
 
 foo()
 bar()
 
 echo "> set foo to required, only foo should be printed:"
-echo setTopicState("main", Normal)
+echo setTopicState("main", Normal, logLevel = NONE)
 echo setTopicState("foo", Required)
 
 foo()
@@ -41,23 +41,23 @@ foo()
 bar()
 
 echo "> disable main again, both should be omitted:"
-echo setTopicState("main", Disabled)
+echo setTopicState("main", Normal, logLevel = DISABLED)
 
 foo()
 bar()
 
 echo "> try a wrong call to setTopicState, disable bar and print out only foo:"
-echo setTopicState("main", Required)
+echo setTopicState("main", Required, logLevel = NONE)
 echo setTopicState("baz", Required)
-echo setTopicState("bar", Disabled)
+echo setTopicState("bar", Normal, logLevel = DISABLED)
 
 foo()
 bar()
 
 echo "> restore everything to normal, both should print:"
-echo setTopicState("main", Normal)
-echo setTopicState("foo", Normal)
-echo setTopicState("bar", Normal)
+echo setTopicState("main", Normal, logLevel = NONE)
+echo setTopicState("foo", Normal, logLevel = NONE)
+echo setTopicState("bar", Normal, logLevel = NONE)
 
 foo()
 bar()
