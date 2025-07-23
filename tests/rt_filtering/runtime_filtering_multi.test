@@ -47,16 +47,23 @@ true
 true
 INF from foo                                   topics="main foo"
 INF from bar                                   topics="main bar"
+> disable all sinks, nothing should print
+> reenabled sinks, same as before
+INF from foo                                   topics="main foo"
+INF from bar                                   topics="main bar"
 """
 
-runtime_filtering_multi.log="""INF from foo                                   topics="main foo"
-INF from bar                                   topics="main bar"
+runtime_filtering_multi.log="""
 INF from foo                                   topics="main foo"
 INF from bar                                   topics="main bar"
 INF from foo                                   topics="main foo"
+INF from bar                                   topics="main bar"
+INF from foo                                   topics="main foo"
 INF from foo                                   topics="main foo"
 INF from bar                                   topics="main bar"
 INF from foo                                   topics="main foo"
+INF from foo                                   topics="main foo"
+INF from bar                                   topics="main bar"
 INF from foo                                   topics="main foo"
 INF from bar                                   topics="main bar"
 """

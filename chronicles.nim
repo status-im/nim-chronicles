@@ -107,7 +107,7 @@ let chroniclesTopicsMatchVar {.compileTime.} = ident "chroniclesTopicsMatch"
 
 when runtimeFilteringEnabled:
   import chronicles/topics_registry
-  export setTopicState, setLogLevel, TopicState
+  export setTopicState, setLogEnabled, setLogLevel, TopicState
 
   proc topicStateIMPL(topicName: static[string]): ptr TopicSettings =
     # Nim's GC safety analysis gets confused by the global variables here

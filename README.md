@@ -5,7 +5,7 @@ nim-chronicles
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GH Action](https://github.com/status-im/nim-chronicles/actions/workflows/ci.yml/badge.svg)](https://github.com/status-im/nim-chronicles/actions/workflows/ci.yml)
 
-```
+```sh
 nimble install chronicles
 ```
 
@@ -17,7 +17,7 @@ that log files shouldn't be based on formatted text strings, but rather on
 well-defined event records with arbitrary properties that are easy to read
 for both humans and machines. Let's illustrate this with an example:
 
-``` nim
+```nim
 import chronicles, chronos/apps/http/httpclient
 
 proc retrievePage*(uri: string): Future[seq[byte]] {.async.} =
@@ -91,7 +91,7 @@ in an automated way:
 automatically attached to all logging statements in the current lexical
 scope:
 
-``` nim
+```nim
 logScope:
   # Lexical properties are typically assigned to a constant:
   topics = "rendering opengl"
@@ -133,7 +133,7 @@ server cluster, you may want to assign a property such as `serverId`
 to every record. To achieve this, create a proxy logging module
 importing `chronicles` and setting up a `publicLogScope`:
 
-``` nim
+```nim
 # logging.nim
 
 import chronicles
@@ -172,7 +172,7 @@ A dynamic scope is usually used to track the reason why a particular
 library function is being called (e.g. you are opening a file as a result
 of a particular network request):
 
-``` nim
+```nim
 proc onNewRequest(req: Request) =
   inc reqID
   info "request received", reqID, origin = req.remoteAddress
@@ -198,13 +198,17 @@ Almost everything about Chronicles can be configured at compile-time, through th
 mechanism of Nim's `-d:` flags. For example, you can completely remove all of
 the code related to logging by simply setting `chronicles_enabled` to `off`:
 
-```
+```sh
 nim c -d:chronicles_enabled=off myprogram.nim
 ```
 
 The compile-time configuration also determines what options are available at
-runtime. For example, if debug messages are removed at compile time
-they will not be available for runtime configuration.
+runtime. When [runtime filtering](#chronicles_runtime_filtering) is enabled, the
+same effect can be achieved with:
+
+```nim
+setLogEnabled(false)
+```
 
 Chronicles comes with a very reasonable default configuration, but let's look
 at some of the other supported options:
@@ -288,7 +292,7 @@ The former will be considered the default stream associated with unqualified
 logging statements, but each of the streams will exist as a separate symbol
 in the code, supporting the full set of logging operations:
 
-``` nim
+```nim
 textlog.debug "about to create a transaction"
 transactions.info "transaction created", buyer = alice, seller = bob
 ```
@@ -361,24 +365,32 @@ release mode.
 ### chronicles_runtime_filtering
 
 This option enables the run-filtering capabilities of Chronicles.
-The run-time filtering is controlled through the procs `setLogLevel`
-and `setTopicState`:
+The run-time filtering is controlled through the procs `setLogEnabled`,
+`setLogLevel` and `setTopicState`, corresponding to their respective compile-time
+options:
 
 ```nim
 type LogLevel = enum
   NONE, TRACE, DEBUG, INFO, NOTICE, WARN, ERROR, FATAL
-
-proc setLogLevel*(level: LogLevel)
-
 type TopicState = enum
   Normal, Enabled, Required, Disabled
 
-proc setTopicState*(name: string,
-                    newState: TopicState,
-                    logLevel = LogLevel.NONE): bool
+proc setLogEnabled*(enabled: bool)
+proc setLogLevel*(level: LogLevel)
+proc setTopicState*(
+    name: string, newState: TopicState, logLevel = LogLevel.NONE
+): bool
+
+# Per-sink version, when using multiple sinks
+proc setLogEnabled*(enabled: bool, sinkIdx: int)
+proc setLogLevel*(level: LogLevel, sinkIdx: int)
+proc setTopicState*(
+    name: string, sinkIdx: int, newState: TopicState, logLevel = LogLevel.NONE
+): bool
+
 ```
 
-The log levels available at runtime - and therefor to `setLogLevel()` - are
+The log levels available at runtime - and therefore to `setLogLevel()` - are
 those greater than or equal to the one set at compile time by
 `chronicles_log_level`.
 
@@ -386,10 +398,22 @@ It is also possible for a specific topic to overrule the global `LogLevel`, set
 by `setLogLevel`, by setting the optional `logLevel` parameter in
 `setTopicState` to a valid `LogLevel`.
 
-The option is disabled by default because we recommend filtering the
-log output in a tailing program. This allows you to still look at all
-logged events in case this becomes necessary. Set the option to `on`
-to enable it.
+Runtime filtering is disabled by default - enable it using command line or `nim.cfg`:
+```sh
+-d:chronicles_runtime_filtering:on
+```
+
+Runtime filtering is performed before evaluating log parameters - in the following
+example, `foo()` will not be called:
+
+```nim
+proc foo(): int =
+  debugEcho "in foo"
+  2
+
+setLogEnabled(false)
+info "test", value = foo()
+```
 
 ### chronicles_timestamps
 
@@ -491,19 +515,18 @@ first log record is written. This gives you a chance to modify the default
 compile-time path associated with each file output by calling the `open`
 proc on an `output` symbol associated with the stream:
 
-``` nim
+```nim
 # my_program.nim
 
 var config = loadConfiguration()
 let success = defaultChroniclesStream.output.open(config.logFile, fmAppend)
 
 info "APPLICATION STARTED"
-
 ```
 
 Compiled with:
 
-```
+```sh
 nim c -d:chronicles_sinks=textlines[file] my_program.nim
 ```
 
@@ -563,7 +586,7 @@ operator will be used to convert the logged properties to strings.
 You can instruct Chronicles to alter this default behavior for a particular
 type by providing a `chronicles.formatIt` override:
 
-``` nim
+```nim
 type Dollar = distinct int
 chronicles.formatIt(Dollar): "$" & $(it.int)
 ```
@@ -573,7 +596,7 @@ subjected to the standard serialization logic described above, such as when
 returning a `tuple` - logging `value = DivMod3(13)` noow results in
 `value = (4, 1)` being written to the log.
 
-``` nim
+```nim
 import chronicles/formats
 type DivMod3 = distinct int
 formats.formatIt(DivMod3): (int(it) div 3, int(it) mod 3)
@@ -640,7 +663,7 @@ streams within the code of your program. A typical way to do this
 would be to introduce a proxy module that imports and re-exports
 `chronicles` while adding additional streams with `logStream`:
 
-``` nim
+```nim
 import chronicles
 export chronicles
 
@@ -655,7 +678,7 @@ to a JSON file named `transactions.json`.
 After importing the proxy module, you'll be able to create records with any
 of the logging statements in the usual way:
 
-``` nim
+```nim
 import transactions_log
 
 ...
@@ -674,7 +697,7 @@ a structure called "Log Record" (with one instance created per logging
 statement). New log formats can be implemented by defining a suitable
 log record type. Let's demonstrate this by implementing a simple XML logger:
 
-``` nim
+```nim
 import xmltree, chronicles
 
 type XmlRecord[Output] = object
