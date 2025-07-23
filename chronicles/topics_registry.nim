@@ -30,6 +30,10 @@ type
   TopicSettings* = array[totalSinks, SinkTopicSettings]
 
   SinkFilteringState = object
+    disabled: Atomic[bool]
+      ## `disabled = false` by default which matches the compile-time
+      ## `chronicles_enabled = true` configuration - messy with the opposites
+      ## but plays better with runtime defaults
     activeLogLevel: Atomic[LogLevel]
     totalEnabledTopics: Atomic[int]
     totalRequiredTopics: Atomic[int]
@@ -76,6 +80,14 @@ template lockRegistry(body: untyped) =
     {.locks: [registryLock].}:
       body
 
+proc setLogEnabled*(enabled: bool) =
+  for sink in mitems(runtimeConfig.sinkStates):
+    sink.disabled.store(not enabled)
+
+proc setLogEnabled*(enabled: bool, sinkIdx: int) =
+  if sinkIdx < runtimeConfig.sinkStates.len:
+    runtimeConfig.sinkStates[sinkIdx].disabled.store(not enabled)
+
 proc setLogLevel*(lvl: LogLevel) =
   for sink in mitems(runtimeConfig.sinkStates):
     sink.activeLogLevel.store(lvl)
@@ -108,7 +120,7 @@ proc registerTopic*(name: string, topic: ptr TopicSettings): ptr TopicSettings =
 
 proc setTopicState*(
     name: string, sinkIdx: int, newState: TopicState, logLevel = LogLevel.NONE
-): bool {.raises: [].} =
+): bool =
   if sinkIdx >= totalSinks:
     return false
 
@@ -162,6 +174,9 @@ proc topicsMatch*(
   for sinkIdx {.inject.} in 0 ..< totalSinks:
     template sinkState(): auto =
       runtimeConfig.sinkStates[sinkIdx]
+
+    if sinkState.disabled.load(moRelaxed):
+      continue
 
     let
       hasEnabledTopics = sinkState.totalEnabledTopics.load(moRelaxed) > 0

@@ -86,3 +86,14 @@ echo setTopicState("bar", Normal)
 
 foo()
 bar()
+
+echo "> disable all sinks, nothing should print"
+setLogEnabled(false)
+
+foo()
+bar()
+
+echo "> reenabled sinks, same as before"
+
+foo()
+bar()
