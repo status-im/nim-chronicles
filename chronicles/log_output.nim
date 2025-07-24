@@ -1,9 +1,8 @@
 import
-  std/[deques, macrocache, strutils, times, os, terminal],
+  std/[deques, macrocache, strutils, times, os],
   stew/[ptrops, strings],
   stew/shims/macros,
-  faststreams/outputs,
-  ./[ansicolors, dynamic_scope_types, options, topics_registry]
+  ./[dynamic_scope_types, options, topics_registry]
 
 when defined(js):
   type OutStr = cstring
@@ -39,7 +38,8 @@ type
     outputs: Outputs
 
   AnyOutput =
-    FileOutput | StdOutOutput | StdErrOutput | SysLogOutput | PassThroughOutput
+    FileOutput | StdOutOutput | StdErrOutput | SysLogOutput | PassThroughOutput |
+    StreamOutputRef
 
   StreamOutputRef*[Stream; outputId: static[int]] = object
     ## Stream outputs from the global configuration are stored in a global
@@ -101,33 +101,39 @@ when defined(windows):
   proc setConsoleMode(hConsoleHandle: Handle, dwMode: DWORD): WINBOOL{.
       stdcall, dynlib: "kernel32", importc: "SetConsoleMode".}
 
-proc hasNoColor(): bool =
-  when declared(getEnv):
-    # https://no-color.org/
-    getEnv("NO_COLOR").len > 0
-  else:
-    false
+when defined(js):
+  proc hasNoColor(): bool = true
+  proc enableColors(f: File): bool = false
+else:
+  import std/terminal
 
-proc enableColors(f: File): bool =
-  if not isatty(f):
-    return false
-
-  if hasNoColor():
-    return false
-
-  when defined(windows):
-    let handle = getStdHandle(
-      if f == stderr: STD_ERROR_HANDLE
-      else: STD_OUTPUT_HANDLE)
-
-    var mode: DWORD = 0
-    if getConsoleMode(handle, addr(mode)) != 0:
-      mode = mode or ENABLE_VIRTUAL_TERMINAL_PROCESSING
-      setConsoleMode(handle, mode) != 0
+  proc hasNoColor(): bool =
+    when declared(getEnv):
+      # https://no-color.org/
+      getEnv("NO_COLOR").len > 0
     else:
       false
-  else:
-    true
+
+  proc enableColors(f: File): bool =
+    if not isatty(f):
+      return false
+
+    if hasNoColor():
+      return false
+
+    when defined(windows):
+      let handle = getStdHandle(
+        if f == stderr: STD_ERROR_HANDLE
+        else: STD_OUTPUT_HANDLE)
+
+      var mode: DWORD = 0
+      if getConsoleMode(handle, addr(mode)) != 0:
+        mode = mode or ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        setConsoleMode(handle, mode) != 0
+      else:
+        false
+    else:
+      true
 
 when not defined(js):
   template toCString(v: string): cstring =
@@ -172,25 +178,33 @@ when not defined(js):
     o.outFile = open(outPath, o.mode)
     o.colors = enableColors(o.outFile)
 
-proc createFileOutput(path: string, mode: FileMode): FileOutput =
-  result.mode = mode
-  result.outPath = toCString(path)
+  proc createFileOutput(path: string, mode: FileMode): FileOutput =
+    result.mode = mode
+    result.outPath = toCString(path)
 
-proc createStdOutOutput(): StdOutOutput =
-  result.colors = enableColors(stdout)
-proc createStdErrOutput(): StdErrOutput =
-  result.colors = enableColors(stdout)
-proc createDynamicOutput(): DynamicOutput =
-  result.colors = not hasNoColor() # The application can choose to modify this later
+  proc createStdOutOutput(): StdOutOutput =
+    result.colors = enableColors(stdout)
+  proc createStdErrOutput(): StdErrOutput =
+    result.colors = enableColors(stdout)
+  proc createDynamicOutput(): DynamicOutput =
+    result.colors = not hasNoColor() # The application can choose to modify this later
+else:
+  proc createStdOutOutput(): StdOutOutput =
+    default(StdOutOutput)
+  proc createStdErrOutput(): StdErrOutput =
+    default(StdErrOutput)
+  proc createDynamicOutput(): DynamicOutput =
+    default(DynamicOutput)
 
 template ignoreIOErrors(body: untyped) =
   try: body
   except IOError: discard
 
 proc logLoggingFailure*(msg: cstring, ex: ref Exception) =
-  ignoreIOErrors:
-    stderr.writeLine("[Chronicles] Log message not delivered: ", msg)
-    if ex != nil: stderr.writeLine(ex.msg)
+  when not defined(js):
+    ignoreIOErrors:
+      stderr.writeLine("[Chronicles] Log message not delivered: ", msg)
+      if ex != nil: stderr.writeLine(ex.msg)
 
 proc undeliveredMsg(reason: string, logMsg: openArray[char], ex: ref Exception) =
   const
@@ -206,8 +220,9 @@ proc undeliveredMsg(reason: string, logMsg: openArray[char], ex: ref Exception) 
   logLoggingFailure(cstring(msg), ex)
 
 proc undeliveredMsg(reason: string, logMsg: openArray[byte], ex: ref Exception) =
-  let p = cast[ptr char](logMsg.baseAddr)
-  undeliveredMsg(reason, makeOpenArray(p, logMsg.len), ex)
+  when not defined(js):
+    let p = cast[ptr char](logMsg.baseAddr)
+    undeliveredMsg(reason, makeOpenArray(p, logMsg.len), ex)
 
 # XXX:
 # Uncomenting this leads to an error message that the Outputs tuple
@@ -343,6 +358,7 @@ template flushOutput*(o: var FileOutput) =
   o.outFile.flushFile
 
 when defined(js):
+  import jsconsole
   template append*(o: var StdOutOutput, s: OutStr) = console.log s
   template flushOutput*(o: var StdOutOutput)       = discard
 
@@ -372,47 +388,56 @@ template flushOutput*(o: var StreamOutputRef) =
   bind deref
   flushOutput(deref(o))
 
-proc append(f: File, outStream: OutputStream) =
-  when compiles(outStream.consumeAll):
-    for span in outStream.consumeAll:
-      discard writeBuffer(f, span.startAddr, span.len())
-  else:
-    outStream.consumeOutputs output:
-      try:
-        discard writeBuffer(f, unsafeAddr output[0], len output)
-      except IOError as err:
-        undeliveredMsg("Failed to write to output", output, err)
+when not defined(js):
+  import faststreams/outputs
 
-template append*(o: FileOutput, outStream: OutputStream) =
-  o.outFile.append(outStream)
+  proc initOutputStream*(LogRecord: type): auto =
+    ## Return a distinct outputstream for the given LogRecord type that is reused
+    ## for each log statement
+    when not declared(outputs.consumeAll):
+      # faststreams 0.3.0 and earlier are too buggy to reuse streams
+      # preventing them from being reused :/
+      memoryOutput()
+    else:
+      var outStream {.threadvar.}: OutputStreamHandle
+      if outStream.s == nil:
+        outStream = memoryOutput()
+      outStream.s
 
-template append*(o: StdOutOutput, outStream: OutputStream) =
-  system.stdout.append(outStream)
+  proc append(f: File, outStream: OutputStream) =
+    when compiles(outStream.consumeAll):
+      for span in outStream.consumeAll:
+        discard writeBuffer(f, span.startAddr, span.len())
+    else:
+      outStream.consumeOutputs output:
+        try:
+          discard writeBuffer(f, unsafeAddr output[0], len output)
+        except IOError as err:
+          undeliveredMsg("Failed to write to output", output, err)
 
-template append*(o: StdErrOutput, outStream: OutputStream) =
-  system.stderr.append(outStream)
+  template append*(o: var FileOutput, outStream: OutputStream) =
+    o.outFile.append(outStream)
 
-proc initOutputStream*(LogRecord: type): auto =
-  ## Return a distinct outputstream for the given LogRecord type that is reused
-  ## for each log statement
-  when not declared(outputs.consumeAll):
-    # faststreams 0.3.0 and earlier are too buggy to reuse streams
-    # preventing them from being reused :/
-    memoryOutput()
-  else:
-    var outStream {.threadvar.}: OutputStreamHandle
-    if outStream.s == nil:
-      outStream = memoryOutput()
-    outStream.s
+  template append*(o: var StdOutOutput, outStream: OutputStream) =
+    system.stdout.append(outStream)
 
-proc append*(o: DynamicOutput, outStream: OutputStream) =
-  o.writer(o.currentRecordLevel, outStream.getOutput(string))
+  template append*(o: var StdErrOutput, outStream: OutputStream) =
+    system.stderr.append(outStream)
 
-template append*(output: StreamOutputRef, outStream: OutputStream) =
-  mixin append
-  bind deref
+  proc append*(o: var DynamicOutput, outStream: OutputStream) =
+    o.writer(o.currentRecordLevel, outStream.getOutput(string))
 
-  deref(output).append(outStream)
+  template append*(output: var StreamOutputRef, outStream: OutputStream) =
+    mixin append
+    bind deref
+
+    deref(output).append(outStream)
+
+  proc append*(o: var PassThroughOutput, stream: OutputStream) =
+    let str = stream.getOutput(string)
+
+    for f in o.outputs.fields:
+      append(f, str)
 
 template colors*(o: StreamOutputRef): bool =
   bind deref
@@ -448,12 +473,6 @@ template flushOutput*(o: var (SysLogOutput|DynamicOutput)) = discard
 
 # The pass-through output just acts as a proxy, redirecting a single `append`
 # call to multiple destinations:
-
-proc append*(o: var PassThroughOutput, stream: OutputStream) =
-  let str = stream.getOutput(string)
-
-  for f in o.outputs.fields:
-    append(f, str)
 
 proc flushOutput*(o: var PassThroughOutput) =
   for f in o.outputs.fields:

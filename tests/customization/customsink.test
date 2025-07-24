@@ -1,0 +1,28 @@
+program="../custom_formatters"
+chronicles_sinks="xml_records"
+chronicles_timestamps=None
+chronicles_colors=None
+chronicles_thread_ids=None
+chronicles_line_endings=Posix
+--path:"."
+--path:".."
+--path:"tests"
+
+[Output]
+stdout="""<event type="Got attestation 1" severity="INFO">
+  <attestation>some attestation</attestation>
+  <peer>Peer 1</peer>
+  <it>not renamed</it>
+  <asig>some signature</asig>
+  <a>renamed</a>
+  <complex_a_concatenation>X</complex_a_concatenation>
+</event>
+<event type="Got attestation 2" severity="WARN">
+  <attestation>some attestation</attestation>
+  <peer>Peer 1</peer>
+  <it>not renamed</it>
+  <attestationsig>some signature</attestationsig>
+  <attestation>renamed</attestation>
+  <complex_attestation_concatenation>X</complex_attestation_concatenation>
+</event>
+"""

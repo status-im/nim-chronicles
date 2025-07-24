@@ -15,20 +15,17 @@ when not defined(js):
 
   template flushRecord*(r: var LogRecord) =
     r.jsonWriter.endRecord()
-    r.stream.write newLine
-    append r.output, r.stream
+    r.stream.write(newLine)
+    r.output.append(r.stream)
+    r.output.flushOutput()
 
 else:
   import jscore, jsconsole, jsffi
 
-  export convertToConsoleLoggable
-
   type JsonString* = distinct string
 
-  type LogRecord*[
-    Output; timestamps: static[TimestampScheme], colors: static[ColorScheme]
-  ] = object
-    output: Output
+  type LogRecord*[Output; format: static[FormatSpec]] = object
+    output*: Output
     record: js
 
   template setProperty*(r: var LogRecord, key: string, val: auto) =
@@ -43,11 +40,10 @@ else:
     flushOutput r.output
 
 proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
-  r.stream = initOutputStream type(r)
-
   when defined(js):
     r.record = newJsObject()
   else:
+    r.stream = initOutputStream type(r)
     r.jsonWriter = Json.Writer.init(r.stream, pretty = false)
     r.jsonWriter.beginRecord()
 
@@ -65,7 +61,7 @@ proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
         r.jsonWriter.stream.writeTimestamp(r.format.timestamps)
         r.jsonWriter.fieldWritten()
     else:
-      setProperty(r, "ts", r.timestamp())
+      setProperty(r, "ts", timestamp(r.format.timestamps))
 
   setProperty(r, "msg", msg)
 

@@ -9,7 +9,6 @@ nim-chronicles
 nimble install chronicles
 ```
 
-
 ## Introduction
 
 Chronicles is a library for structured logging. It adheres to the philosophy
@@ -45,7 +44,7 @@ and it looks like this:
 ![textblocks format example](media/textlines.png)
 
 This format is compatible with tooling written for
-[heroku/logfmt](https://brandur.org/logfmt).
+[heroku/logfmt](https://brandur.org/logfmt#human).
 
 Alternatively, you can use a multi-line format called `textblocks`:
 
@@ -82,7 +81,7 @@ a local variable named `foo` will be translated to the pair `foo = foo`).
 A common practice enforced in other logging libraries is to associate
 the logging records with the name of the component that produced them
 or with a particular run-time property such as `RequestID`. Chronicles
-provides two general-purpose facilities for assigning such properties
+provides several general-purpose facilities for assigning such properties
 in an automated way:
 
 ### `logScope`
@@ -142,7 +141,6 @@ proc getServerId*()
 
 publicLogScope:
   serverId = getServerId()
-
 ```
 
 Every other module importing the proxy module will be able to use the
@@ -204,7 +202,7 @@ nim c -d:chronicles_enabled=off myprogram.nim
 
 The compile-time configuration also determines what options are available at
 runtime. When [runtime filtering](#chronicles_runtime_filtering) is enabled, the
-same effect can be achieved with:
+same effect can be achieved at runtime with:
 
 ```nim
 setLogEnabled(false)
@@ -255,7 +253,7 @@ that will be better illustrated by the following examples:
 
   Send the output both in the 'textlines' format to stdout (but without
   using colors) and to a JSON file named myapp.json in the relative
-  directory 'logs'. The  myapp.json file will be truncated on each
+  directory 'logs'. The `myapp.json` file will be truncated on each
   program execution.
 
 The built-in formats include `json`, `textlines` and `textblocks`, which
@@ -266,7 +264,9 @@ The possible log destinations are `stdout`, `stderr`, `file`, `syslog`
 and `dynamic`.
 
 Please note that Chronicles also allows you to implement custom logging
-formats through the use of the `customLogStream` facility.
+formats through the use of the `customLogStream` facility, or by passing in
+a module name that implements `LogRecord`, as is done in the `tests/xml_records` -
+see below.
 
 ### chronicles_default_output_device
 
@@ -747,6 +747,31 @@ itself (see the module `log_output` for a list of those).
 As demonstrated in the example above, you can set the `stream` property in
 a Chronicles lexical scope to redirect all unqualified log statements to a
 particular default stream.
+
+### Custom sinks
+
+Custom sinks are modules that export a `LogRecord` type with the following
+minimal API:
+
+```nim
+type LogRecord*[Output; format: static[FormatSpec]] = object
+  output*: Output
+proc initLogRecord*(r: var LogRecord, lvl: LogLevel, topics, name: string)
+proc setProperty*(r: var LogRecord, key: string, val: auto)
+proc flushRecord*(r: var LogRecord)
+```
+
+Assuming a module named `my_log_record.nim` with the above declarations, it
+can be plugged into `chronicles_sinks` like so:
+
+```sh
+nim c -d:chronicles_sinks=my_log_record ...
+```
+
+Outputs (`stdout`, `file` etc) and options (`nocolors` etc) can be passed to the
+sink definition as usual.
+
+See `tests/xml_records.nim` for a practical example.
 
 ## Cost of Abstractions and Implementation Details
 
