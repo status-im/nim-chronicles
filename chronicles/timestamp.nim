@@ -2,11 +2,10 @@
 
 import
   std/[strutils, times],
-  stew/objects,
-  faststreams/[outputs, textio],
+  stew/[strings, assign2],
   ./options
 
-export times, outputs
+export times
 
 when defined(macos) or defined(macosx) or defined(osx):
   from posix import Timeval
@@ -23,6 +22,8 @@ elif defined(windows):
     lpSystemTimeAsFileTime: var FILETIME
   ) {.importc: "GetSystemTimeAsFileTime", dynlib: "kernel32", stdcall, sideEffect.}
 
+elif defined(js):
+  import jscore
 else:
   const CLOCK_REALTIME_COARSE = 5
   from std/posix import Timespec, Time, clock_gettime
@@ -50,8 +51,8 @@ proc getFastTime(): times.Time =
 
 var
   cachedMinutes {.threadvar.}: int64
-  cachedTimeArray {.threadvar.}: array[17, byte] # "yyyy-MM-dd HH:mm:"
-  cachedZoneArray {.threadvar.}: array[6, byte] # "zzz"
+  cachedTimeArray {.threadvar.}: array[17, char] # "yyyy-MM-dd HH:mm:"
+  cachedZoneArray {.threadvar.}: array[6, char] # "zzz"
 
 proc getSecondsPart(timestamp: times.Time): array[6, char] {.noinit.} =
   let
@@ -81,27 +82,47 @@ proc updateMinutes(timestamp: times.Time, useUtc: static bool) =
     block:
       # Cache string representation of first part (without seconds)
       let tmp = datetime.format("yyyy-MM-dd HH:mm:")
-      cachedTimeArray = toArray(17, tmp.toOpenArrayByte(0, 16))
+      assign(cachedTimeArray, tmp)
     block:
       when not useUtc:
         # Cache string representation of zone part
         let tmp = datetime.format("zzz")
-        cachedZoneArray = toArray(6, tmp.toOpenArrayByte(0, 5))
+        assign(cachedZoneArray, tmp)
 
-proc writeTimestamp*(
-    stream: OutputStream, timestamps: static TimestampScheme
-) {.raises: [IOError].} =
+proc timestamp*(timestamps: static TimestampScheme): string =
   when timestamps in {RfcTime, RfcUtcTime}:
     let timestamp = getFastTime()
     updateMinutes(timestamp, timestamps == RfcUtcTime)
 
-    stream.write cachedTimeArray
-    stream.write timestamp.getSecondsPart()
+    result.add cachedTimeArray
+    result.add timestamp.getSecondsPart()
     when timestamps == RfcUtcTime:
-      stream.write "Z"
+      result.add 'Z'
     else:
-      stream.write cachedZoneArray
+      result.add cachedZoneArray
   elif timestamps == UnixTime:
-    stream.writeText formatFloat(epochTime(), ffDecimal, 6)
+    formatFloat(epochTime(), ffDecimal, 6)
   else:
     {.error: "Unrecognised timestamp format: " & $timestamps.}
+
+when not defined(js):
+  import faststreams/[outputs, textio]
+  export outputs, textio
+
+  proc writeTimestamp*(
+      stream: OutputStream, timestamps: static TimestampScheme
+  ) {.raises: [IOError].} =
+    when timestamps in {RfcTime, RfcUtcTime}:
+      let timestamp = getFastTime()
+      updateMinutes(timestamp, timestamps == RfcUtcTime)
+
+      stream.write cachedTimeArray
+      stream.write timestamp.getSecondsPart()
+      when timestamps == RfcUtcTime:
+        stream.write 'Z'
+      else:
+        stream.write cachedZoneArray
+    elif timestamps == UnixTime:
+      stream.writeText formatFloat(epochTime(), ffDecimal, 6)
+    else:
+      {.error: "Unrecognised timestamp format: " & $timestamps.}

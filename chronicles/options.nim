@@ -353,6 +353,8 @@ const
 
   config* = when chronicles_streams.len > 0: parseStreamsSpec(chronicles_streams)
             elif chronicles_sinks.len > 0:   parseSinksSpec(chronicles_sinks)
+            # Only json supported in js mode for now
+            elif defined(js): parseSinkSpec "json"
             # default is textlines because:
             # * better compatibility with typical log processing tools
             #   like grep, logstash etc where newline delieates events or units

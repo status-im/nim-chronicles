@@ -3,9 +3,9 @@ import
   faststreams/outputs,
   ./[ansicolors, log_output, options, timestamp]
 
-from std/terminal import ansiResetCode, ForegroundColor, Style
+from std/terminal import Style
 
-export outputs, ansiResetCode, ForegroundColor, Style
+export outputs, Style
 
 type TextLogRecord*[Output; format: static[FormatSpec]] {.inheritable, pure.} = object
   output*: Output
