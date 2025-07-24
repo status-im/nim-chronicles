@@ -553,7 +553,10 @@ the default automatically:
 A `dynamic` output redirects all logged messages to a closure supplied by
 the host application. Similar to working with file ouputs [file outputs](#working-with-file-outputs),
 you can use the `output` and `outputs` properties of a Chronicles stream
-to specify a gcsafe closure:
+to specify a gcsafe closure that will be called from any thread that does
+logging.
+
+Assuming you have a single dynamic output (`-d:chronicles_sinks=dynamic`):
 
 ```nim
 defaultChroniclesStream.output.writer =
