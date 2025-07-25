@@ -7,7 +7,13 @@ from std/terminal import Style
 
 export outputs, Style
 
-type TextLogRecord*[Output; format: static[FormatSpec]] {.inheritable, pure.} = object
+when (NimMajor, NimMinor, NimPatch) >= (2, 2, 4):
+  {.pragma: mostlypure, inheritable, pure.}
+else:
+  # TODO https://github.com/nim-lang/Nim/issues/24725
+  {.pragma: mostlypure, inheritable.}
+
+type TextLogRecord*[Output; format: static[FormatSpec]] {.mostlypure.} = object
   output*: Output
   stream*: OutputStream
 
