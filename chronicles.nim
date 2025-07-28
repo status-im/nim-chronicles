@@ -190,7 +190,7 @@ macro logIMPL(lineInfo: static InstInfo,
 
   result = newStmtList()
 
-  if not loggingEnabled:
+  if not loggingEnabled or severity < enabledLogLevel:
     # This statement is to silence compiler warnings
     # `declared but not used` when there is no logging code generated.
     # push/pop pragma pairs cannot be used in this situation
