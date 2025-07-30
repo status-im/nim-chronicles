@@ -190,17 +190,10 @@ macro logIMPL(lineInfo: static InstInfo,
 
   result = newStmtList()
 
-  template silenceCompilerWarning() =
-    # This statement is to silence compiler warnings
-    # `declared but not used` when there is no logging code generated.
-    # push/pop pragma pairs cannot be used in this situation
-    # because the variables are declared outside of this function.
+  if not loggingEnabled:
     result.add quote do: chroniclesUsedMagic(`eventName`)
     for k, v in finalBindings:
       result.add quote do: chroniclesUsedMagic(`v`)
-
-  if not loggingEnabled:
-    silenceCompilerWarning()
     return
 
   # This is the compile-time topic filtering code, which has a similar
@@ -235,7 +228,9 @@ macro logIMPL(lineInfo: static InstInfo,
           dec requiredTopicsCount
 
   if severity != NONE and not enabledTopicsMatch or requiredTopicsCount > 0:
-    silenceCompilerWarning()
+    result.add quote do: chroniclesUsedMagic(`eventName`)
+    for k, v in finalBindings:
+      result.add quote do: chroniclesUsedMagic(`v`)
     return
 
   proc lookForScopeOverride(option: var bool, overrideName: string) =
