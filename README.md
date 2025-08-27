@@ -575,16 +575,22 @@ bypasses the effect system.
 
 ## Teaching Chronicles about your types
 
-Chronicles can output log records in any of the formats supported by the Nim
-[`serialization`](https://github.com/status-im/nim-serialization) package.
-When you specify a named format such as `json`, Chronicles will expect that
-your project also depends on the respective serialization package (e.g.
-[`json_serialization`](https://github.com/status-im/nim-json-serialization)).
+Properties logged by `chronicles` go through a formatting process that can be
+customized, depending on the log format.
+
+When choosing how to log a type, prioritise brevity in text outputs and
+completeness in `json`.
+
+For example, a `git` logger would use the short hash in text formats and the
+full SHA1 hash in `json`.
+
+### Customizing `textlines`, `textblocks`
 
 In the text formats (`textlines` and `textblocks`), the Nim's standard `$`
-operator will be used to convert the logged properties to strings.
+operator will be used to convert the logged properties to strings, with
+`formatIt` and `expandIt` providing customization options.
 
-### `formatIt`
+#### `formatIt`
 
 You can instruct Chronicles to alter this default behavior for a particular
 type by providing a `chronicles.formatIt` override:
@@ -596,13 +602,13 @@ chronicles.formatIt(Dollar): "$" & $(it.int)
 
 The `formatIt` block can evaluate to any expression that will be then
 subjected to the standard serialization logic described above, such as when
-returning a `tuple` - logging `value = DivMod3(13)` noow results in
+returning a `tuple` - logging `value = DivMod3(13)` now results in
 `value = (4, 1)` being written to the log.
 
 ```nim
-import chronicles/formats
+import chronicles/formats as chronicles
 type DivMod3 = distinct int
-formats.formatIt(DivMod3): (int(it) div 3, int(it) mod 3)
+chronicles.formatIt(DivMod3): (int(it) div 3, int(it) mod 3)
 ```
 
 Note how `chronicles/formats` is used for the import this time - this technique
@@ -613,12 +619,15 @@ This technique can also be used to mask passwords and other sensitive
 information in logs.
 
 ```nim
-import chronicles/formats
+import chronicles/formats as chronicles
 type Password = distinct string
-formats.formatIt(Password): "***"
+chronicles.formatIt(Password): "***"
 ```
 
-### `expandIt`
+Don't forget to override `writeValue` for `json` as well, when using this
+technique!
+
+#### `expandIt`
 
 The `expandIt` override can be used to turn any logged property of a
 particular type into multiple properties:
@@ -654,6 +663,30 @@ var alice = User(name: "Alice", ...)
 # The following two statements are equivalent:
 info "Sending message", recipient = alice
 info "Sending message", recipientName = alice.name, recipientLastSeen = alice.lastSeen
+```
+
+### Customizing `json`
+
+In the `json` format, [`json_serialization`](https://github.com/status-im/nim-json-serialization)
+is used to write log entries. To customize, provide a [`writeValue`](https://status-im.github.io/nim-json-serialization/reference.html#custom-parsers-and-writers)
+overload for the default flavor:
+
+```nim
+proc writeValue(w: var JsonWriter, value: MyType) {.raises: [IOError].} =
+  w.write($value)
+```
+
+While it's a good idea to provide a corresponding `readValue` implementation,
+this is not needed for `chronicles`.
+
+To avoid a hard dependency on `json_serialization` in libraries, :
+
+```nim
+import stew/importops
+
+when tryImport json_serialization:
+  proc writeValue(w: var JsonWriter, value: MyType) {.raises: [IOError].} =
+    w.write($value)
 ```
 
 ## Custom Log Streams
