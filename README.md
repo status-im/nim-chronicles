@@ -575,20 +575,25 @@ bypasses the effect system.
 
 ## Teaching Chronicles about your types
 
-Properties logged by `chronicles` go through a formatting process that can be
+Properties logged by `chronicles` go through a formatting pipeline that can be
 customized, depending on the log format.
-
-When choosing how to log a type, prioritise brevity in text outputs and
-completeness in `json`.
 
 For example, a `git` logger would use the short hash in text formats and the
 full SHA1 hash in `json`.
 
-### Customizing `textlines`, `textblocks`
+How `chronicles` presents a property can be customized using `formatIt` and
+`expandIt`, though which each property is passed before formatting.
 
-In the text formats (`textlines` and `textblocks`), the Nim's standard `$`
-operator will be used to convert the logged properties to strings, with
-`formatIt` and `expandIt` providing customization options.
+When choosing how to log a type, prioritise brevity in text outputs and
+completeness in `json`.
+
+### Formatting transformation
+
+Before properties are passed to log outputs like `textlines` and `json`, they
+are transformed using the `expandIt` and `formatIt` transformations.
+
+The default transformation simply passes the property to the output unaltered,
+letting the output format it using its own defaults.
 
 #### `formatIt`
 
@@ -623,9 +628,6 @@ import chronicles/formats as chronicles
 type Password = distinct string
 chronicles.formatIt(Password): "***"
 ```
-
-Don't forget to override `writeValue` for `json` as well, when using this
-technique!
 
 #### `expandIt`
 
@@ -665,7 +667,22 @@ info "Sending message", recipient = alice
 info "Sending message", recipientName = alice.name, recipientLastSeen = alice.lastSeen
 ```
 
-### Customizing `json`
+### Per-output customization
+
+Once a property been formatted or expanded, outputs are responsible for turning
+the value into an output-appropriate format. For example, `json` will render
+`object` types as JSON objects etc.
+
+#### Customizing `textlines`, `textblocks`
+
+In the text formats (`textlines` and `textblocks`), the Nim's standard `$`
+operator will be used to convert the logged properties to strings.
+
+Fields of objects and tuples are each passed through `formatIt` and the outcome
+is formatted recursively, printing the instance similar to how `$` would print
+it.
+
+#### Customizing `json`
 
 In the `json` format, [`json_serialization`](https://github.com/status-im/nim-json-serialization)
 is used to write log entries. To customize, provide a [`writeValue`](https://status-im.github.io/nim-json-serialization/reference.html#custom-parsers-and-writers)
