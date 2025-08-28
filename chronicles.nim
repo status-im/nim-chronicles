@@ -180,43 +180,56 @@ macro logIMPL(lineInfo: static InstInfo,
   # First, we merge the lexical bindings with the additional
   # bindings passed to the logging statement itself:
   let lexicalBindings = scopes.finalLexicalBindings
-  var finalBindings = initOrderedTable[string, NimNode]()
+  var
+    activeTopics: seq[string]
+    finalBindings = initOrderedTable[string, NimNode]()
+
+  template addBinding(k, v) =
+    if k == "topics":
+      if v.kind notin {nnkStrLit, nnkTripleStrLit}:
+        error "Please specify the 'topics' list as a space separated string literal", v
+
+      for topic in v.strVal.split({','} + Whitespace):
+        if topic.len == 0 or topic in activeTopics:
+          continue
+
+        activeTopics.add topic
+    else:
+      finalBindings[k] = v
 
   for k, v in assignments(logStmtBindings, acLogStatement):
-    finalBindings[k] = v
+    addBinding(k, v)
 
   for k, v in assignments(lexicalBindings, acLogStatement):
-    finalBindings[k] = v
+    addBinding(k, v)
 
   result = newStmtList()
 
-  if not loggingEnabled:
-    result.add quote do: chroniclesUsedMagic(`eventName`)
+  template markUsed() =
+    let usedMagic = bindSym("chroniclesUsedMagic")
+
+    # result.add nnkCall.newTree(usedMagic, eventName)
     for k, v in finalBindings:
-      result.add quote do: chroniclesUsedMagic(`v`)
+      result.add nnkCall.newTree(usedMagic, v)
+
+  if not loggingEnabled:
+    markUsed()
     return
 
   # This is the compile-time topic filtering code, which has a similar
   # logic to the generated run-time filtering code:
   var enabledTopicsMatch = enabledTopics.len == 0 and severity >= enabledLogLevel
   var requiredTopicsCount = requiredTopics.len
-  var topicsNode = newLit("")
-  var activeTopics: seq[string] = @[]
   var useLineNumbers = lineNumbersEnabled
   var useThreadIds = threadIdsEnabled
-  if finalBindings.hasKey("topics"):
-    topicsNode = finalBindings["topics"]
-    finalBindings.del("topics")
 
-    if topicsNode.kind notin {nnkStrLit, nnkTripleStrLit}:
-      error "Please specify the 'topics' list as a space separated string literal", topicsNode
+  let topicsNode =
+    if activeTopics.len > 0:
+      for t in activeTopics:
+        if t in disabledTopics:
+          markUsed()
+          return
 
-    activeTopics = topicsNode.strVal.split({','} + Whitespace)
-
-    for t in activeTopics:
-      if t in disabledTopics:
-        return
-      else:
         for topic in enabledTopics:
           if topic.name == t:
             if topic.logLevel != LogLevel.NONE:
@@ -226,11 +239,12 @@ macro logIMPL(lineInfo: static InstInfo,
               enabledTopicsMatch = true
         if t in requiredTopics:
           dec requiredTopicsCount
+      newLit(activeTopics.join(" "))
+    else:
+      newLit("")
 
   if severity != NONE and not enabledTopicsMatch or requiredTopicsCount > 0:
-    result.add quote do: chroniclesUsedMagic(`eventName`)
-    for k, v in finalBindings:
-      result.add quote do: chroniclesUsedMagic(`v`)
+    markUsed()
     return
 
   proc lookForScopeOverride(option: var bool, overrideName: string) =

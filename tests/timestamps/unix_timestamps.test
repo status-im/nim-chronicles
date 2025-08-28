@@ -7,9 +7,9 @@ chronicles_line_endings=Posix
 timestamp_peg="{\\d+} '.' {\\d+} \\s"
 
 [Output]
-unix_timestamps.log="""INF 1752491200.014181 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
+unix_timestamps.log="""INF 1752491200.014181 main started                               topics="line main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
 INF 1752491200.014212 exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """
-stdout="""INF 1752491200.014181 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
+stdout="""INF 1752491200.014181 main started                               topics="line main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
 INF 1752491200.014212 exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """

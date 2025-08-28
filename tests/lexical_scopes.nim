@@ -20,7 +20,7 @@ proc main(arg: int) {.raises: [].} =
   logScope:
     z = 20
 
-  info("main started", a = 10, b = "inner-b", d = "some-d")
+  info("main started", topics = "line", a = 10, b = "inner-b", d = "some-d")
 
 main(50)
 

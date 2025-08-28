@@ -5,9 +5,9 @@ chronicles_timestamps=None
 chronicles_thread_ids=None
 chronicles_line_endings=Posix
 [Output]
-no_timestamps.log="""INF main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
+no_timestamps.log="""INF main started                               topics="line main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
 INF exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """
-stdout="""INF main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
+stdout="""INF main started                               topics="line main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
 INF exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """

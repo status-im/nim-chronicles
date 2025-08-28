@@ -5,7 +5,7 @@ chronicles_timestamps=None
 chronicles_thread_ids=None
 chronicles_line_endings=Posix
 [Output]
-textblocks_file_stdout.log="""INF main started topics="main"
+textblocks_file_stdout.log="""INF main started topics="line main"
   a: 12
   b: overriden-b
   d: some-d
@@ -22,7 +22,7 @@ INF exiting
   c: 100
 
 """
-stdout="""INF main started topics="main"
+stdout="""INF main started topics="line main"
   a: 12
   b: overriden-b
   d: some-d

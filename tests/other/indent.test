@@ -7,7 +7,7 @@ chronicles_line_endings=Posix
 chronicles_indent=1
 
 [Output]
-stdout="""INF main started topics="main"
+stdout="""INF main started topics="line main"
  a: 12
  b: overriden-b
  d: some-d

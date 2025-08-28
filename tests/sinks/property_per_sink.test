@@ -4,10 +4,10 @@ chronicles_thread_ids=None
 chronicles_line_endings=Posix
 timestamp_peg="""{\d\d\d\d} '-' {\d\d} '-' {\d\d} ' ' {\d\d} ':' {\d\d} ':' {\d\d}  '.' {\d\d\d} {'+' / '-'} {\d\d} ':' {\d\d} \s"""
 [Output]
-lines.txt="""INF 2025-07-14 12:53:42.379+02:00 main started                               topics="main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
+lines.txt="""INF 2025-07-14 12:53:42.379+02:00 main started                               topics="line main" a=12 b=overriden-b d=some-d x=16 c=10 arg=50 z=20
 INF 2025-07-14 12:53:42.379+02:00 exiting                                    msg="bye bye" a=12 b=overriden-b x=16 c=100
 """
-blocks.txt="""[96mINF[0m [1mmain started[0m [34mtopics[0m=[93m"main"
+blocks.txt="""[96mINF[0m [1mmain started[0m [34mtopics[0m=[93m"line main"
   [96ma[0m: [94m12[0m
   [96mb[0m: [94moverriden-b
 [0m  [96md[0m: [94msome-d
