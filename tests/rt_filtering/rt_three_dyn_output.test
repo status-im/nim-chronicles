@@ -1,0 +1,19 @@
+program="../dyn_output"
+chronicles_sinks="textlines[dynamic],textlines[dynamic],textlines[dynamic]"
+chronicles_runtime_filtering="on"
+chronicles_colors=None
+chronicles_timestamps=None
+chronicles_thread_ids=None
+chronicles_line_endings=Posix
+
+[Output]
+stdout="""INF info                                       evals=1
+INF info                                       evals=1
+[Chronicles] Log message not delivered: `dynamic` log output writer not configured: INF info                                       evals=1
+WRN warn                                       evals=2
+WRN warn                                       evals=2
+[Chronicles] Log message not delivered: `dynamic` log output writer not configured: WRN warn                                       evals=2
+ERR error                                      evals=3
+ERR error                                      evals=3
+[Chronicles] Log message not delivered: `dynamic` log output writer not configured: ERR error                                      evals=3
+"""
