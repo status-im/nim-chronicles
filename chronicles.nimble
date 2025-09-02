@@ -1,7 +1,7 @@
 mode = ScriptMode.Verbose
 
 packageName   = "chronicles"
-version       = "0.12.1"
+version       = "0.12.2"
 author        = "Status Research & Development GmbH"
 description   = "A crafty implementation of structured logging for Nim"
 license       = "Apache License 2.0"
