@@ -145,6 +145,7 @@ proc logLoggingFailure*(msg: cstring, ex: ref Exception) =
       stderr.write("[Chronicles] Log message not delivered: ")
       stderr.write(msg)
       if ex != nil: stderr.writeLine(ex.msg)
+      stderr.flushFile()
 
 proc undeliveredMsg(reason: string, logMsg: openArray[char], ex: ref Exception) =
   var msg = newStringOfCap(reason.len + 2 + logMsg.len)
