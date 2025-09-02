@@ -135,6 +135,33 @@ else:
     else:
       true
 
+template ignoreIOErrors(body: untyped) =
+  try: body
+  except IOError: discard
+
+proc logLoggingFailure*(msg: cstring, ex: ref Exception) =
+  when not defined(js):
+    ignoreIOErrors:
+      stderr.write("[Chronicles] Log message not delivered: ")
+      stderr.write(msg)
+      if ex != nil: stderr.writeLine(ex.msg)
+
+proc undeliveredMsg(reason: string, logMsg: openArray[char], ex: ref Exception) =
+  var msg = newStringOfCap(reason.len + 2 + logMsg.len)
+  msg.add reason
+  msg.add ": "
+  msg.add logMsg
+
+  logLoggingFailure(cstring(msg), ex)
+
+proc undeliveredMsg(reason: string, logMsg: openArray[byte], ex: ref Exception) =
+  when not defined(js):
+    let p = cast[ptr char](logMsg.baseAddr)
+    undeliveredMsg(reason, makeOpenArray(p, logMsg.len), ex)
+
+proc defaultDynamicWriter(logLevel: LogLevel, logRecord: OutStr) =
+  undeliveredMsg "`dynamic` log output writer not configured", logRecord, nil
+
 when not defined(js):
   template toCString(v: string): cstring =
     let mem = createShared(byte, v.len + 1)
@@ -183,46 +210,27 @@ when not defined(js):
     result.outPath = toCString(path)
 
   proc createStdOutOutput(): StdOutOutput =
-    result.colors = enableColors(stdout)
+    StdOutOutput(
+      colors: enableColors(stdout)
+    )
   proc createStdErrOutput(): StdErrOutput =
-    result.colors = enableColors(stdout)
+    StdErrOutput(
+      colors: enableColors(stdout)
+    )
   proc createDynamicOutput(): DynamicOutput =
-    result.colors = not hasNoColor() # The application can choose to modify this later
+    DynamicOutput(
+      colors: not hasNoColor(), # The application can choose to modify this later
+      writer: defaultDynamicWriter
+    )
 else:
   proc createStdOutOutput(): StdOutOutput =
     default(StdOutOutput)
   proc createStdErrOutput(): StdErrOutput =
     default(StdErrOutput)
   proc createDynamicOutput(): DynamicOutput =
-    default(DynamicOutput)
-
-template ignoreIOErrors(body: untyped) =
-  try: body
-  except IOError: discard
-
-proc logLoggingFailure*(msg: cstring, ex: ref Exception) =
-  when not defined(js):
-    ignoreIOErrors:
-      stderr.writeLine("[Chronicles] Log message not delivered: ", msg)
-      if ex != nil: stderr.writeLine(ex.msg)
-
-proc undeliveredMsg(reason: string, logMsg: openArray[char], ex: ref Exception) =
-  const
-    lineTag = "[Chronicles] "
-    infoMsg = ". Log message not delivered: "
-
-  var msg = newStringOfCap(lineTag.len + reason.len + infoMsg.len + logMsg.len)
-  msg.add lineTag
-  msg.add reason
-  msg.add infoMsg
-  msg.add logMsg
-
-  logLoggingFailure(cstring(msg), ex)
-
-proc undeliveredMsg(reason: string, logMsg: openArray[byte], ex: ref Exception) =
-  when not defined(js):
-    let p = cast[ptr char](logMsg.baseAddr)
-    undeliveredMsg(reason, makeOpenArray(p, logMsg.len), ex)
+    DynamicOutput(
+      writer: defaultDynamicWriter
+    )
 
 # XXX:
 # Uncomenting this leads to an error message that the Outputs tuple
@@ -464,10 +472,7 @@ template append*(o: var SysLogOutput, s: OutStr) =
   syslog(syslogLevel or LOG_PID, "%s", cstring(s))
 
 template append*(o: var DynamicOutput, s: OutStr) =
-  if o.writer.isNil:
-    undeliveredMsg "A writer was not configured for a dynamic log output device", s, nil
-  else:
-    (o.writer)(o.currentRecordLevel, s)
+  (o.writer)(o.currentRecordLevel, s)
 
 template flushOutput*(o: var (SysLogOutput|DynamicOutput)) = discard
 
