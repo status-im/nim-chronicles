@@ -54,11 +54,21 @@ proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
     when not defined(js):
       r.jsonWriter.writeFieldName("ts")
 
+      template streamTimestamp(s: OutputStream) =
+        when r.format.timestamps in {RfcTime, RfcUtcTime}:
+          # RFC time = JSON string
+          s.write('"')
+          s.writeTimestamp(r.format.timestamps)
+          s.write('"')
+        elif r.format.timestamps == UnixTime:
+          # Unix time = JSON number
+          s.writeTimestamp(r.format.timestamps)
+
       when declared(writer.streamElement): # json_serialization 0.3.0+
         r.jsonWriter.streamElement(s):
-          s.writeTimestamp(r.format.timestamps)
+          streamTimestamp(s)
       else:
-        r.jsonWriter.stream.writeTimestamp(r.format.timestamps)
+        streamTimestamp(r.jsonWriter.stream)
         r.jsonWriter.fieldWritten()
     else:
       setProperty(r, "ts", timestamp(r.format.timestamps))
