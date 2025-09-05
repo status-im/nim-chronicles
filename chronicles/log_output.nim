@@ -101,7 +101,25 @@ when defined(windows):
   proc setConsoleMode(hConsoleHandle: Handle, dwMode: DWORD): WINBOOL{.
       stdcall, dynlib: "kernel32", importc: "SetConsoleMode".}
 
+when defined(android):
+  # Android has no traditional stdout/stderr for apps; route to logcat instead.
+  {.pragma: android_log, importc, header: "<android/log.h>".}
+  {.passL: "-llog".}
+
+  proc android_log_write(prio: cint, tag: cstring, text: cstring): cint {.android_log, cdecl, importc: "__android_log_write".}
+
+  const
+    ANDROID_LOG_VERBOSE = 2.cint
+    ANDROID_LOG_DEBUG   = 3.cint
+    ANDROID_LOG_INFO    = 4.cint
+    ANDROID_LOG_WARN    = 5.cint
+    ANDROID_LOG_ERROR   = 6.cint
+
 when defined(js):
+  proc hasNoColor(): bool = true
+  proc enableColors(f: File): bool = false
+elif defined(android):
+  # No ANSI colors in logcat context
   proc hasNoColor(): bool = true
   proc enableColors(f: File): bool = false
 else:
@@ -376,16 +394,28 @@ when defined(js):
 
 else:
   template append*(o: var StdOutOutput, s: OutStr) =
-    stdout.write s
+    when defined(android):
+      discard android_log_write(ANDROID_LOG_INFO, "chronicles", cstring(s))
+    else:
+      stdout.write s
 
   template flushOutput*(o: var StdOutOutput) =
-    stdout.flushFile
+    when defined(android):
+      discard
+    else:
+      stdout.flushFile
 
   template append*(o: var StdErrOutput, s: OutStr) =
-    stderr.write s
+    when defined(android):
+      discard android_log_write(ANDROID_LOG_ERROR, "chronicles", cstring(s))
+    else:
+      stderr.write s
 
   template flushOutput*(o: var StdErrOutput) =
-    stderr.flushFile
+    when defined(android):
+      discard
+    else:
+      stderr.flushFile
 
 template append*(o: var StreamOutputRef, s: OutStr) =
   mixin append
@@ -428,10 +458,22 @@ when not defined(js):
     o.outFile.append(outStream)
 
   template append*(o: var StdOutOutput, outStream: OutputStream) =
-    system.stdout.append(outStream)
+    when defined(android):
+      let s = outStream.getOutput(string)
+      discard android_log_write(ANDROID_LOG_INFO, "chronicles", cstring(s))
+    else:
+      system.stdout.append(outStream)
 
   template append*(o: var StdErrOutput, outStream: OutputStream) =
-    system.stderr.append(outStream)
+    when defined(android):
+      let s = outStream.getOutput(string)
+      discard android_log_write(ANDROID_LOG_ERROR, "chronicles", cstring(s))
+    else:
+      system.stderr.append(outStream)
+
+  template append*(o: var SysLogOutput, outStream: OutputStream) =
+    let s = outStream.getOutput(string)
+    append(o, s)
 
   proc append*(o: var DynamicOutput, outStream: OutputStream) =
     o.writer(o.currentRecordLevel, outStream.getOutput(string))
