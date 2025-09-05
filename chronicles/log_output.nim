@@ -37,8 +37,12 @@ type
   PassThroughOutput*[Outputs: tuple] = object
     outputs: Outputs
 
+  LogcatOutput* = object
+    currentRecordLevel: LogLevel
+    colors*: bool
+
   AnyOutput =
-    FileOutput | StdOutOutput | StdErrOutput | SysLogOutput | PassThroughOutput |
+    FileOutput | StdOutOutput | StdErrOutput | SysLogOutput | LogcatOutput | PassThroughOutput |
     StreamOutputRef
 
   StreamOutputRef*[Stream; outputId: static[int]] = object
@@ -100,6 +104,24 @@ when defined(windows):
 
   proc setConsoleMode(hConsoleHandle: Handle, dwMode: DWORD): WINBOOL{.
       stdcall, dynlib: "kernel32", importc: "SetConsoleMode".}
+
+when defined(android):
+  # Android has no traditional stdout/stderr for apps; route to logcat instead.
+  {.pragma: android_log, importc, header: "<android/log.h>".}
+  {.passL: "-llog".}
+
+  proc android_log_write(prio: cint, tag: cstring, text: cstring): cint {.android_log, cdecl, importc: "__android_log_write".}
+
+  const
+    ANDROID_LOG_UNKNOWN = 0.cint
+    ANDROID_LOG_DEFAULT = 1.cint    # only for SetMinPriority()
+    ANDROID_LOG_VERBOSE = 2.cint
+    ANDROID_LOG_DEBUG   = 3.cint
+    ANDROID_LOG_INFO    = 4.cint
+    ANDROID_LOG_WARN    = 5.cint
+    ANDROID_LOG_ERROR   = 6.cint
+    ANDROID_LOG_FATAL   = 7.cint
+    ANDROID_LOG_SILENT  = 8.cint     # only for SetMinPriority(); must be last
 
 when defined(js):
   proc hasNoColor(): bool = true
@@ -223,6 +245,10 @@ when not defined(js):
       colors: not hasNoColor(), # The application can choose to modify this later
       writer: defaultDynamicWriter
     )
+  proc createLogcatOutput(): LogcatOutput =
+    LogcatOutput(
+      colors: true
+    )
 else:
   proc createStdOutOutput(): StdOutOutput =
     default(StdOutOutput)
@@ -292,10 +318,12 @@ proc selectOutputType(s: var StreamCodeNodes, dst: LogDestination): NimNode =
     s.outputsTuple.add newCall(bindSym"createStdOutOutput")
   elif dst.kind == oStdErr:
     s.outputsTuple.add newCall(bindSym"createStdErrOutput")
+  elif dst.kind == oLogcat:
+    s.outputsTuple.add newCall(bindSym"createLogcatOutput")
 
   case dst.kind
   of oSysLog: bnd"SysLogOutput"
-  of oStdOut, oStdErr, oFile, oDynamic:
+  of oStdOut, oStdErr, oFile, oDynamic, oLogcat:
     newTree(nnkBracketExpr,
             bnd"StreamOutputRef", s.streamName, newLit(outputId))
 
@@ -345,7 +373,7 @@ template activateOutput*(o: var StreamOutputRef, level: LogLevel) =
   bind deref
   activateOutput(deref(o), level)
 
-template activateOutput*(o: var (SysLogOutput|DynamicOutput), level: LogLevel) =
+template activateOutput*(o: var (SysLogOutput|DynamicOutput|LogcatOutput), level: LogLevel) =
   o.currentRecordLevel = level
 
 template activateOutput*(o: var PassThroughOutput, level: LogLevel) =
@@ -399,6 +427,22 @@ template flushOutput*(o: var StreamOutputRef) =
 
 when not defined(js):
   import faststreams/outputs
+
+  template append*(o: var LogcatOutput, s: OutStr) =
+    when compiles android_log_write:
+      let logLevel = case o.currentRecordLevel
+                      of NONE:               ANDROID_LOG_DEFAULT
+                      of TRACE:              ANDROID_LOG_VERBOSE
+                      of DEBUG:              ANDROID_LOG_DEBUG
+                      of INFO, NOTICE:       ANDROID_LOG_INFO
+                      of WARN:               ANDROID_LOG_WARN
+                      of ERROR:              ANDROID_LOG_ERROR
+                      of FATAL:              ANDROID_LOG_FATAL
+
+      discard android_log_write(logLevel, "chronicles", cstring(s))
+  template append*(o: var LogcatOutput, outStream: OutputStream) =
+    let s = outStream.getOutput(string)
+    append(o, s)
 
   proc initOutputStream*(LogRecord: type): auto =
     ## Return a distinct outputstream for the given LogRecord type that is reused
@@ -462,20 +506,26 @@ template colors*(o: PassThroughOutput): bool =
   res
 
 template append*(o: var SysLogOutput, s: OutStr) =
-  let syslogLevel = case o.currentRecordLevel
-                    of TRACE, DEBUG, NONE: LOG_DEBUG
-                    of INFO:               LOG_INFO
-                    of NOTICE:             LOG_NOTICE
-                    of WARN:               LOG_WARNING
-                    of ERROR:              LOG_ERR
-                    of FATAL:              LOG_CRIT
+  when compiles syslog:
+    # syslog is only available on POSIX systems
+    let syslogLevel = case o.currentRecordLevel
+                      of TRACE, DEBUG, NONE: LOG_DEBUG
+                      of INFO:               LOG_INFO
+                      of NOTICE:             LOG_NOTICE
+                      of WARN:               LOG_WARNING
+                      of ERROR:              LOG_ERR
+                      of FATAL:              LOG_CRIT
 
-  syslog(syslogLevel or LOG_PID, "%s", cstring(s))
+    syslog(syslogLevel or LOG_PID, "%s", cstring(s))
+
+template append*(o: var SysLogOutput, outStream: OutputStream) =
+  let s = outStream.getOutput(string)
+  o.append(s)
 
 template append*(o: var DynamicOutput, s: OutStr) =
   (o.writer)(o.currentRecordLevel, s)
 
-template flushOutput*(o: var (SysLogOutput|DynamicOutput)) = discard
+template flushOutput*(o: var (SysLogOutput|DynamicOutput|LogcatOutput)) = discard
 
 # The pass-through output just acts as a proxy, redirecting a single `append`
 # call to multiple destinations:
