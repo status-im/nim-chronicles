@@ -65,7 +65,7 @@ template `logLevel=`*(s: var SinkTopicSettings, v: LogLevel) =
 var
   registryLock: Lock
   runtimeConfig: RuntimeConfig
-  gTopicStates {.guard: registryLock.}: Table[string, ptr TopicSettings]
+  gTopicStates {.guard: registryLock.}: Table[cstring, ptr TopicSettings]
 
 when compileOption("threads"):
   var mainThreadId = getThreadId()
@@ -107,56 +107,62 @@ proc clearTopicsRegistry*() =
       for topic in mitems(topicSinksSettings[]):
         topic.state.store(Normal)
 
-proc registerTopic*(name: string, topic: ptr TopicSettings): ptr TopicSettings =
+proc registerTopic*(
+    name: static string, topic: ptr TopicSettings
+): ptr TopicSettings {.gcsafe.} =
   # As long as sequences are thread-local, modifying the `gTopicStates`
   # sequence must be done only from the main thread:
   when compileOption("threads"):
     doAssert getThreadId() == mainThreadId
-
+  const cname = cstring(name)
   lockRegistry:
-    gTopicStates[name] = topic
+    {.gcsafe.}:
+      # `gcsafe` because we're always calling from the same thread
+      gTopicStates[cname] = topic
 
   topic
 
 proc setTopicState*(
     name: string, sinkIdx: int, newState: TopicState, logLevel = LogLevel.NONE
-): bool =
+): bool {.gcsafe.} =
   if sinkIdx >= totalSinks:
     return false
 
   lockRegistry:
-    gTopicStates.withValue(name, topicPtr):
-      template sinkState(): auto =
-        runtimeConfig.sinkStates[sinkIdx]
+    {.gcsafe.}:
+      # gcsafe because read-only access which shouldn't allocate (hopefully :)
+      gTopicStates.withValue(cstring(name), topicPtr):
+        template sinkState(): auto =
+          runtimeConfig.sinkStates[sinkIdx]
 
-      template topicState(): auto =
-        topicPtr[][][sinkIdx]
+        template topicState(): auto =
+          topicPtr[][][sinkIdx]
 
-      let oldState = topicState.state.load(moRelaxed)
+        let oldState = topicState.state.load(moRelaxed)
 
-      if oldState != newState:
-        case oldState
-        of Enabled:
-          sinkState.totalEnabledTopics -= 1
-        of Required:
-          sinkState.totalRequiredTopics -= 1
-        else:
-          discard
+        if oldState != newState:
+          case oldState
+          of Enabled:
+            sinkState.totalEnabledTopics -= 1
+          of Required:
+            sinkState.totalRequiredTopics -= 1
+          else:
+            discard
 
-        case newState
-        of Enabled:
-          sinkState.totalEnabledTopics += 1
-        of Required:
-          sinkState.totalRequiredTopics += 1
-        else:
-          discard
+          case newState
+          of Enabled:
+            sinkState.totalEnabledTopics += 1
+          of Required:
+            sinkState.totalRequiredTopics += 1
+          else:
+            discard
 
-        topicState.state.store(newState)
-      topicState.logLevel.store(logLevel)
+          topicState.state.store(newState)
+        topicState.logLevel.store(logLevel)
 
-      return true
-    do:
-      return false
+        return true
+      do:
+        return false
 
 proc setTopicState*(
     name: string, newState: TopicState, logLevel = LogLevel.NONE
@@ -218,6 +224,7 @@ proc topicsMatch*(
 
     result.setBit(sinkIdx, normalTopicsMatch)
 
-proc getTopicState*(topic: string): ptr TopicSettings =
+proc getTopicState*(topic: string): ptr TopicSettings {.gcsafe.} =
   lockRegistry:
-    return gTopicStates.getOrDefault(topic)
+    {.gcsafe.}:
+      return gTopicStates.getOrDefault(cstring(topic))
