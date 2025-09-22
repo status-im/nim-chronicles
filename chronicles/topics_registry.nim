@@ -130,6 +130,7 @@ proc setTopicState*(
 
   lockRegistry:
     {.gcsafe.}:
+      # gcsafe because read-only access which shouldn't allocate (hopefully :)
       gTopicStates.withValue(cstring(name), topicPtr):
         template sinkState(): auto =
           runtimeConfig.sinkStates[sinkIdx]
@@ -161,7 +162,7 @@ proc setTopicState*(
 
         return true
       do:
-        return false # Read-only access, doesn't allocate (hopefully :)
+        return false
 
 proc setTopicState*(
     name: string, newState: TopicState, logLevel = LogLevel.NONE
