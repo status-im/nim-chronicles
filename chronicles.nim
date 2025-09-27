@@ -190,11 +190,13 @@ macro logIMPL(lineInfo: static InstInfo,
 
   result = newStmtList()
 
-  template silenceCompilerWarning() =
+  template silenceCompilerWarning() {.dirty.} =
     # This statement is to silence compiler warnings
-    # `declared but not used` when there is no logging code generated.
+    # `XDeclaredButNotUsed` when there is no logging code generated.
     # push/pop pragma pairs cannot be used in this situation
     # because the variables are declared outside of this function.
+    # Without `dirty` pragma, the desired effect cannot works,
+    # and `XDeclaredButNotUsed` still printed by the compiler.
     result.add quote do: chroniclesUsedMagic(`eventName`)
     for k, v in finalBindings:
       result.add quote do: chroniclesUsedMagic(`v`)
