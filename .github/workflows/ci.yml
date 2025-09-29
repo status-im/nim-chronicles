@@ -20,3 +20,4 @@ jobs:
         nimble install -y --depsOnly
         nimble test
         env NIMFLAGS="--mm:refc" nimble test
+        bash tests/scripts/tests.sh
