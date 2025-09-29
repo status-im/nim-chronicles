@@ -10,18 +10,11 @@ jobs:
   build:
     permissions:
       contents: write
-    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@main
+    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@nimble-bin-path
     with:
       nim-versions: '["version-2-0", "version-2-2", "devel"]'
+      nimble-bin-path: true
       test-command: |
-        if [[ '${{ runner.os }}' == 'Linux' ]]; then
-          echo '/home/runner/.nimble/bin' >> $GITHUB_PATH
-        elif [[ '${{ runner.os }}' == 'Windows' ]]; then
-          echo '/c/Users/runneradmin/.nimble/bin' >> $GITHUB_PATH
-        else
-          echo '~/.nimble/bin' >> $GITHUB_PATH
-        fi
-
         nim --version
         nimble --version
         nimble install -y --depsOnly
