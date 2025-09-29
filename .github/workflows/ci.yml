@@ -19,4 +19,4 @@ jobs:
         nimble --version
         nimble install -y --depsOnly
         nimble test
-        # env NIMFLAGS="--mm:refc" nimble test
+        env NIMFLAGS="--mm:refc" nimble test
