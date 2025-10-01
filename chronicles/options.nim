@@ -10,7 +10,9 @@ import
 
 const
   chronicles_enabled {.strdefine.} = "on"
-  chronicles_default_output_device* {.strdefine.} = "stdout"
+  # Choose a platform-specific default output device while remaining inside the const section.
+  chronicles_default_output_device* {.strdefine.} =
+    when defined(android): "logcat" else: "stdout"
 
   chronicles_sinks* {.strdefine.} = ""
   chronicles_streams* {.strdefine.} = ""
@@ -61,8 +63,9 @@ type
     oStdOut,
     oStdErr,
     oFile,
-    oSysLog
-    oDynamic
+    oSysLog,
+    oDynamic,
+    oLogcat
 
   LogFileMode = enum
     Append,
@@ -207,9 +210,11 @@ func logDestinationFromStr(s: string): LogDestination {.compileTime.} =
     result.kind = oFile
     result.filename = ""
     result.truncate = false
+  of "logcat":
+    result.kind = oLogcat
   else:
     error &"'{s}' is not a recognized output device type. " &
-           "Allowed values are StdOut, StdErr, SysLog, File and Dynamic."
+           "Allowed values are StdOut, StdErr, SysLog, File, Logcat and Dynamic."
 
 proc logDestinationFromNode(n: NimNode): LogDestination =
   case n.kind
@@ -307,6 +312,7 @@ proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
     var stdoutSinks = 0
     var stderrSinks = 0
     var syslogSinks = 0
+    var logcatSinks = 0
     for sink in mitems(stream.sinks):
       for dst in mitems(sink.destinations):
         case dst.kind
@@ -318,11 +324,16 @@ proc parseStreamsSpec(spec: string): Configuration {.compileTime.} =
           if stderrSinks > 1: overlappingOutputsError(stream, "stderr")
         of oSysLog:
           inc syslogSinks
-          if stderrSinks > 1: overlappingOutputsError(stream, "syslog")
+          if syslogSinks > 1: overlappingOutputsError(stream, "syslog")
           if sink.colorScheme != NoColors:
             error "Using a color scheme is not supported when logging to syslog."
           when not defined(posix):
             warning "Logging to syslog is available only on POSIX systems."
+        of oLogcat:
+          inc logcatSinks
+          if logcatSinks > 1: overlappingOutputsError(stream, "logcat")
+          when not defined(android):
+            warning "Logging to logcat is available only on Android systems."
         else: discard
 
 proc parseSinksSpec(spec: string): Configuration {.compileTime.} =
