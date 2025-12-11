@@ -1,9 +1,16 @@
 import
   macros, tables, strutils, strformat,
-  chronicles/[formats, scope_helpers, dynamic_scope, log_output, options]
+  chronicles/[formats, scope_helpers, options]
 
 export
-  formats, dynamic_scope, log_output, options
+  formats, options
+
+when not defined(`any`) and not defined(standalone):
+  import
+    chronicles/[dynamic_scope, log_output]
+
+  export
+    dynamic_scope, log_output
 
 # So, how does Chronicles work?
 #
@@ -205,149 +212,150 @@ macro logIMPL(lineInfo: static InstInfo,
     silenceCompilerWarning()
     return
 
-  # This is the compile-time topic filtering code, which has a similar
-  # logic to the generated run-time filtering code:
-  var enabledTopicsMatch = enabledTopics.len == 0 and severity >= enabledLogLevel
-  var requiredTopicsCount = requiredTopics.len
-  var topicsNode = newLit("")
-  var activeTopics: seq[string] = @[]
-  var useLineNumbers = lineNumbersEnabled
-  var useThreadIds = threadIdsEnabled
-  if finalBindings.hasKey("topics"):
-    topicsNode = finalBindings["topics"]
-    finalBindings.del("topics")
+  when loggingEnabled:
+    # This is the compile-time topic filtering code, which has a similar
+    # logic to the generated run-time filtering code:
+    var enabledTopicsMatch = enabledTopics.len == 0 and severity >= enabledLogLevel
+    var requiredTopicsCount = requiredTopics.len
+    var topicsNode = newLit("")
+    var activeTopics: seq[string] = @[]
+    var useLineNumbers = lineNumbersEnabled
+    var useThreadIds = threadIdsEnabled
+    if finalBindings.hasKey("topics"):
+      topicsNode = finalBindings["topics"]
+      finalBindings.del("topics")
 
-    if topicsNode.kind notin {nnkStrLit, nnkTripleStrLit}:
-      error "Please specify the 'topics' list as a space separated string literal", topicsNode
+      if topicsNode.kind notin {nnkStrLit, nnkTripleStrLit}:
+        error "Please specify the 'topics' list as a space separated string literal", topicsNode
 
-    activeTopics = topicsNode.strVal.split({','} + Whitespace)
+      activeTopics = topicsNode.strVal.split({','} + Whitespace)
 
-    for t in activeTopics:
-      if t in disabledTopics:
-        return
-      else:
-        for topic in enabledTopics:
-          if topic.name == t:
-            if topic.logLevel != LogLevel.NONE:
-              if severity >= topic.logLevel:
+      for t in activeTopics:
+        if t in disabledTopics:
+          return
+        else:
+          for topic in enabledTopics:
+            if topic.name == t:
+              if topic.logLevel != LogLevel.NONE:
+                if severity >= topic.logLevel:
+                  enabledTopicsMatch = true
+              elif severity >= enabledLogLevel:
                 enabledTopicsMatch = true
-            elif severity >= enabledLogLevel:
-              enabledTopicsMatch = true
-        if t in requiredTopics:
-          dec requiredTopicsCount
+          if t in requiredTopics:
+            dec requiredTopicsCount
 
-  if severity != NONE and not enabledTopicsMatch or requiredTopicsCount > 0:
-    silenceCompilerWarning()
-    return
+    if severity != NONE and not enabledTopicsMatch or requiredTopicsCount > 0:
+      silenceCompilerWarning()
+      return
 
-  proc lookForScopeOverride(option: var bool, overrideName: string) =
-    if finalBindings.hasKey(overrideName):
-      let overrideValue = $finalBindings[overrideName]
-      if overrideValue notin ["true", "false"]:
-        error(overrideName & " should be set to either true or false",
-              finalBindings[overrideName])
-      option = overrideValue == "true"
-      finalBindings.del(overrideName)
+    proc lookForScopeOverride(option: var bool, overrideName: string) =
+      if finalBindings.hasKey(overrideName):
+        let overrideValue = $finalBindings[overrideName]
+        if overrideValue notin ["true", "false"]:
+          error(overrideName & " should be set to either true or false",
+                finalBindings[overrideName])
+        option = overrideValue == "true"
+        finalBindings.del(overrideName)
 
-  # The user is allowed to override the compile-time options for line numbers
-  # and thread ids in particular log statements or scopes:
-  lookForScopeOverride(useLineNumbers, "chroniclesLineNumbers")
-  lookForScopeOverride(useThreadIds, "chroniclesThreadIds")
+    # The user is allowed to override the compile-time options for line numbers
+    # and thread ids in particular log statements or scopes:
+    lookForScopeOverride(useLineNumbers, "chroniclesLineNumbers")
+    lookForScopeOverride(useThreadIds, "chroniclesThreadIds")
 
-  var code = newStmtList()
+    var code = newStmtList()
 
-  when runtimeFilteringEnabled:
-    if severity != LogLevel.NONE:
-      code.add runtimeTopicFilteringCode(severity, activeTopics)
+    when runtimeFilteringEnabled:
+      if severity != LogLevel.NONE:
+        code.add runtimeTopicFilteringCode(severity, activeTopics)
 
-  # The rest of the code selects the active LogRecord type (which can
-  # be a tuple when the sink has multiple destinations) and then
-  # translates the log statement to a set of calls to `initLogRecord`,
-  # `setProperty` and `flushRecord`.
-  let
-    record = genSym(nskVar, "record")
-    recordTypeSym = skipTypedesc(RecordType.getTypeImpl())
-    recordTypeNodes = recordTypeSym.getTypeImpl()
-    recordArity = if recordTypeNodes.kind != nnkTupleConstr: 1
-                  else: recordTypeNodes.len
-    lvl = newDotExpr(bindSym("LogLevel", brClosed), ident $severity)
-    chroniclesExpandItIMPL = bindSym("chroniclesExpandItIMPL", brForceOpen)
-    prepareOutput = bindSym("prepareOutput", brForceOpen)
-    initLogRecord = bindSym("initLogRecord", brForceOpen)
-    setProperty = bindSym("setProperty", brForceOpen)
+    # The rest of the code selects the active LogRecord type (which can
+    # be a tuple when the sink has multiple destinations) and then
+    # translates the log statement to a set of calls to `initLogRecord`,
+    # `setProperty` and `flushRecord`.
+    let
+      record = genSym(nskVar, "record")
+      recordTypeSym = skipTypedesc(RecordType.getTypeImpl())
+      recordTypeNodes = recordTypeSym.getTypeImpl()
+      recordArity = if recordTypeNodes.kind != nnkTupleConstr: 1
+                    else: recordTypeNodes.len
+      lvl = newDotExpr(bindSym("LogLevel", brClosed), ident $severity)
+      chroniclesExpandItIMPL = bindSym("chroniclesExpandItIMPL", brForceOpen)
+      prepareOutput = bindSym("prepareOutput", brForceOpen)
+      initLogRecord = bindSym("initLogRecord", brForceOpen)
+      setProperty = bindSym("setProperty", brForceOpen)
 
-  code.add quote do:
-    var `record`: `RecordType`
-
-  if recordArity > 1 and runtimeFilteringEnabled:
     code.add quote do:
-      `prepareOutput`(`record`, `lvl`, `chroniclesTopicsMatchVar`)
-      `initLogRecord`(`record`, `lvl`, `topicsNode`, `eventName`, `chroniclesTopicsMatchVar`)
-  else:
-    code.add quote do:
-      `prepareOutput`(`record`, `lvl`)
-      `initLogRecord`(`record`, `lvl`, `topicsNode`, `eventName`)
+      var `record`: `RecordType`
 
-  if useThreadIds:
-    # called tid even when it's a process id - this to avoid differences in
-    # logging between threads and no threads
     if recordArity > 1 and runtimeFilteringEnabled:
       code.add quote do:
-        `setProperty`(`record`, "tid", getLogThreadId(), `chroniclesTopicsMatchVar`)
+        `prepareOutput`(`record`, `lvl`, `chroniclesTopicsMatchVar`)
+        `initLogRecord`(`record`, `lvl`, `topicsNode`, `eventName`, `chroniclesTopicsMatchVar`)
     else:
       code.add quote do:
-        `setProperty`(`record`, "tid", getLogThreadId())
+        `prepareOutput`(`record`, `lvl`)
+        `initLogRecord`(`record`, `lvl`, `topicsNode`, `eventName`)
 
-  if useLineNumbers:
-    var filename = lineInfo.filename & ":" & $lineInfo.line
+    if useThreadIds:
+      # called tid even when it's a process id - this to avoid differences in
+      # logging between threads and no threads
+      if recordArity > 1 and runtimeFilteringEnabled:
+        code.add quote do:
+          `setProperty`(`record`, "tid", getLogThreadId(), `chroniclesTopicsMatchVar`)
+      else:
+        code.add quote do:
+          `setProperty`(`record`, "tid", getLogThreadId())
+
+    if useLineNumbers:
+      var filename = lineInfo.filename & ":" & $lineInfo.line
+      if recordArity > 1 and runtimeFilteringEnabled:
+        code.add newCall(setProperty, record, newLit("file"), newLit(filename), chroniclesTopicsMatchVar)
+      else:
+        code.add newCall(setProperty, record, newLit("file"), newLit(filename))
+
+    for k, v in finalBindings:
+      if recordArity > 1 and runtimeFilteringEnabled:
+        code.add newCall(chroniclesExpandItIMPL, record, newLit(k), v, chroniclesTopicsMatchVar)
+      else:
+        code.add newCall(chroniclesExpandItIMPL, record, newLit(k), v)
+
     if recordArity > 1 and runtimeFilteringEnabled:
-      code.add newCall(setProperty, record, newLit("file"), newLit(filename), chroniclesTopicsMatchVar)
+      code.add newCall("logAllDynamicProperties", Stream, record, chroniclesTopicsMatchVar)
+      code.add newCall("flushRecord", record, chroniclesTopicsMatchVar)
     else:
-      code.add newCall(setProperty, record, newLit("file"), newLit(filename))
+      code.add newCall("logAllDynamicProperties", Stream, record)
+      code.add newCall("flushRecord", record)
 
-  for k, v in finalBindings:
-    if recordArity > 1 and runtimeFilteringEnabled:
-      code.add newCall(chroniclesExpandItIMPL, record, newLit(k), v, chroniclesTopicsMatchVar)
-    else:
-      code.add newCall(chroniclesExpandItIMPL, record, newLit(k), v)
+    result.add quote do:
+      try:
+        block `chroniclesBlockName`:
+          `code`
+      except CatchableError as err:
+        logLoggingFailure(cstring(`eventName`), err)
 
-  if recordArity > 1 and runtimeFilteringEnabled:
-    code.add newCall("logAllDynamicProperties", Stream, record, chroniclesTopicsMatchVar)
-    code.add newCall("flushRecord", record, chroniclesTopicsMatchVar)
-  else:
-    code.add newCall("logAllDynamicProperties", Stream, record)
-    code.add newCall("flushRecord", record)
-
-  result.add quote do:
-    try:
-      block `chroniclesBlockName`:
-        `code`
-    except CatchableError as err:
-      logLoggingFailure(cstring(`eventName`), err)
-
-  when defined(debugLogImpl):
-    echo result.repr
+    when defined(debugLogImpl):
+      echo result.repr
 
 # Translate all the possible overloads to `logIMPL`:
 template log*(lineInfo: static InstInfo,
               severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
-
-  bind logIMPL, bindSym, brForceOpen
-  logIMPL(lineInfo, activeChroniclesStream(),
-          Record(activeChroniclesStream()), eventName, severity,
-          bindSym("activeChroniclesScope", brForceOpen), props)
+  when loggingEnabled:
+    bind logIMPL, bindSym, brForceOpen
+    logIMPL(lineInfo, activeChroniclesStream(),
+            Record(activeChroniclesStream()), eventName, severity,
+            bindSym("activeChroniclesScope", brForceOpen), props)
 
 template log*(lineInfo: static InstInfo,
               stream: type,
               severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
-
-  bind logIMPL, bindSym, brForceOpen
-  logIMPL(lineInfo, stream, stream.Record, eventName, severity,
-          bindSym("activeChroniclesScope", brForceOpen), props)
+  when loggingEnabled:
+    bind logIMPL, bindSym, brForceOpen
+    logIMPL(lineInfo, stream, stream.Record, eventName, severity,
+            bindSym("activeChroniclesScope", brForceOpen), props)
 
 template wrapSideEffects(debug: bool, body: untyped) {.inject.} =
   when debug:
@@ -393,4 +401,3 @@ logFn fatal , LogLevel.FATAL
 #                            between dynamic and lexical bindings)
 #
 # * implement some of the leading standardized structured logging formats
-
