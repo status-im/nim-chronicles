@@ -321,7 +321,11 @@ macro logIMPL(lineInfo: static InstInfo,
   result.add quote do:
     try:
       block `chroniclesBlockName`:
+        {.push warning[Uninit]: off, warningAsError[Uninit]: off.}
+        {.push warning[ProveInit]: off, warningAsError[ProveInit]: off.}
         `code`
+        {.pop.}
+        {.pop.}
     except CatchableError as err:
       logLoggingFailure(cstring(`eventName`), err)
 
@@ -393,4 +397,3 @@ logFn fatal , LogLevel.FATAL
 #                            between dynamic and lexical bindings)
 #
 # * implement some of the leading standardized structured logging formats
-
