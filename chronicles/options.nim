@@ -340,7 +340,11 @@ proc parseSinksSpec(spec: string): Configuration {.compileTime.} =
   return parseStreamsSpec(&"{defaultChroniclesStreamName}[{spec}]")
 
 const
-  loggingEnabled*    = handleYesNoOption chronicles_enabled
+  loggingEnabled* = 
+    when defined(`any`) or defined(standalone): 
+      false 
+    else: 
+      handleYesNoOption chronicles_enabled
   runtimeFilteringEnabled* = handleYesNoOption chronicles_runtime_filtering
 
   enabledLogLevel* = handleEnumOption(LogLevel, chronicles_log_level)

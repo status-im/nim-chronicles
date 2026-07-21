@@ -5,7 +5,7 @@ import
 export
   formats, options
 
-when not defined(`any`) and not defined(standalone):
+when loggingEnabled:
   import
     chronicles/[dynamic_scope, log_output]
 
