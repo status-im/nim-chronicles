@@ -208,10 +208,6 @@ macro logIMPL(lineInfo: static InstInfo,
     for k, v in finalBindings:
       result.add quote do: chroniclesUsedMagic(`v`)
 
-  if not loggingEnabled:
-    silenceCompilerWarning()
-    return
-
   when loggingEnabled:
     # This is the compile-time topic filtering code, which has a similar
     # logic to the generated run-time filtering code:
@@ -335,16 +331,21 @@ macro logIMPL(lineInfo: static InstInfo,
 
     when defined(debugLogImpl):
       echo result.repr
+  else:
+    silenceCompilerWarning()
 
 # Translate all the possible overloads to `logIMPL`:
 template log*(lineInfo: static InstInfo,
               severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
+  bind logIMPL, bindSym, brForceOpen
   when loggingEnabled:
-    bind logIMPL, bindSym, brForceOpen
     logIMPL(lineInfo, activeChroniclesStream(),
             Record(activeChroniclesStream()), eventName, severity,
+            bindSym("activeChroniclesScope", brForceOpen), props)
+  else:
+    logIMPL(lineInfo, false, bool, eventName, severity,
             bindSym("activeChroniclesScope", brForceOpen), props)
 
 template log*(lineInfo: static InstInfo,
@@ -352,9 +353,12 @@ template log*(lineInfo: static InstInfo,
               severity: static[LogLevel],
               eventName: static[string],
               props: varargs[untyped]) {.dirty.} =
+  bind logIMPL, bindSym, brForceOpen
   when loggingEnabled:
-    bind logIMPL, bindSym, brForceOpen
     logIMPL(lineInfo, stream, stream.Record, eventName, severity,
+            bindSym("activeChroniclesScope", brForceOpen), props)
+  else:
+    logIMPL(lineInfo, false, bool, eventName, severity,
             bindSym("activeChroniclesScope", brForceOpen), props)
 
 template wrapSideEffects(debug: bool, body: untyped) {.inject.} =
