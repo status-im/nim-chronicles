@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - test-minver
   pull_request:
   workflow_dispatch:
 
@@ -10,13 +11,13 @@ jobs:
   build:
     permissions:
       contents: write
-    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@main
+    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@minver
     with:
       nimble-bin-path: true
+      install-command: 'nimble --resolver:minver install -y --depsOnly'
       test-command: |
         nim --version
         nimble --version
-        nimble install -y --depsOnly
         nimble test
         env NIMFLAGS="--mm:refc" nimble test
         bash tests/scripts/tests.sh
