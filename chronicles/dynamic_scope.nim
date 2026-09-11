@@ -92,7 +92,7 @@ macro dynamicLogScopeIMPL*(
     bindingsVars.add quote do:
       let `bindingVar` = `makeScopeBinding`(`RecordType`, `name`, `value`)
 
-    bindingsArray.add newCall("unsafeAddr", bindingVar)
+    bindingsArray.add newCall("addr", bindingVar)
 
   when defined(js):
     bindingsArray = prefix(bindingsArray, "@")
@@ -115,12 +115,12 @@ macro dynamicLogScopeIMPL*(
       # meta-data about the array and a link to the previous BindingFrame.
       let bindingFrame = BindingsFrame[`RecordType`](
         prev: prevBindingFrame,
-        bindings: cast[BindingsArray[`RecordType`]](unsafeAddr `bindingsArraySym`),
+        bindings: cast[BindingsArray[`RecordType`]](addr `bindingsArraySym`),
         bindingsCount: `totalBindingVars`,
       )
 
       # The address of the new BindingFrame is written to a TLS location.
-      tlsSlot(`stream`) = unsafeAddr(bindingFrame)
+      tlsSlot(`stream`) = addr(bindingFrame)
 
       # XXX: In resumable functions, we need help from the compiler to let us
       # intercept yields and resumes so we can restore our context.

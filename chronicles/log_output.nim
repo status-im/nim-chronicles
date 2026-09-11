@@ -464,7 +464,7 @@ when not defined(js):
     else:
       outStream.consumeOutputs output:
         try:
-          discard writeBuffer(f, unsafeAddr output[0], len output)
+          discard writeBuffer(f, addr output[0], len output)
         except IOError as err:
           undeliveredMsg("Failed to write to output", output, err)
 
