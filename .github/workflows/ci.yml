@@ -14,9 +14,6 @@ jobs:
     with:
       nimble-bin-path: true
       test-command: |
-        nim --version
-        nimble --version
-        nimble install -y --depsOnly
+        nimble test_asan
         nimble test
-        env NIMFLAGS="--mm:refc" nimble test
         bash tests/scripts/tests.sh
