@@ -8,8 +8,6 @@ on:
 
 jobs:
   build:
-    permissions:
-      contents: write
     uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@main
     with:
       nimble-bin-path: true
