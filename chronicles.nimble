@@ -32,11 +32,6 @@ task test, "Run all tests":
 
 task test_asan, "Run all tests with ASAN":
   if platform != "x86":
-    try:
-      exec "echo '#if __clang_major__ < 20\n#error\n#endif' | clang -E - >/dev/null"
-    except OSError:
-      return
-
     # https://clang.llvm.org/docs/AddressSanitizer.html
     putEnv("ASAN_OPTIONS", "detect_leaks=0:detect_stack_use_after_return=1")
     # https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html
