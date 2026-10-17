@@ -75,7 +75,7 @@ proc writeValueImpl[T](
 
           r.writeValueImpl(chroniclesFormatItIMPL v, deref = v is ref, quoted = true)
         r.stream.write(']')
-  elif value is (object | tuple) and isDefaultDollar($value):
+  elif value is (object | tuple) and isDefaultDollar(value, $value):
     # Only used if there is no specialized `$` for the type
     maybeQuote:
       r.stream.write('(')
