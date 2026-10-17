@@ -216,12 +216,12 @@ func logDestinationFromStr(s: string): LogDestination {.compileTime.} =
     error &"'{s}' is not a recognized output device type. " &
            "Allowed values are StdOut, StdErr, SysLog, File, Logcat and Dynamic."
 
-proc logDestinationFromNode(n: NimNode): LogDestination =
+func logDestinationFromNode(n: NimNode): LogDestination =
   case n.kind
   of nnkIdent:
     result = logDestinationFromStr($n)
   of nnkCall:
-    if n[0].kind != nnkIdent and ($n[0]).toLowerAscii != "file":
+    if n[0].kind != nnkIdent or ($n[0]).toLowerAscii != "file":
       error &"Invalid log destination expression '{n.repr}'. " &
              "Only 'file' destinations accept parameters."
     result.kind = oFile
