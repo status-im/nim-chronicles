@@ -5,10 +5,19 @@ chronicles_timestamps=None
 chronicles_thread_ids=None
 chronicles_line_endings=Posix
 [Output]
-stdout="""INF forwarding proc                            procForwarded="(b: 2)"
+stdout="""INF literal template                           literal=custom
+INF forwarding template                        forwarded="(b: 2)"
+INF forwarding proc                            procForwarded="(b: 2)"
 INF forwarding proc seq                        procForwardedSeq="[(b: 2)]"
+INF tuple template                             pair=pair
 INF multiline proc                             multiline="first line\nsecond line"
 INF quoting proc                               quoting="say \"hi\""
+INF literal template
+  literal: custom
+
+INF forwarding template
+  forwarded: (b: 2)
+
 INF forwarding proc
   procForwarded: (b: 2)
 
@@ -16,6 +25,9 @@ INF forwarding proc seq
   procForwardedSeq: [
                       (b: 2)
                     ]
+
+INF tuple template
+  pair: pair
 
 INF multiline proc
   multiline: first line

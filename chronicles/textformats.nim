@@ -115,11 +115,14 @@ template writeLogLevelMarker*(r: var TextLogRecord, lvl: LogLevel) =
   write(r.stream, shortName lvl)
   resetColors(r)
 
-macro isDefaultDollar*(call: typed): bool =
+macro isDefaultDollar*(value, call: typed): bool =
   ## Determine if `$` is the default one for object/tuple or a specialization.
   # `call` should be the expression `$value` where `$` could be a template
   # but in the non-overriden case will be a generic proc constrained to
   # objects/tuples (at the time of writing)
+  if call.kind notin nnkCallKinds or call.len != 2 or
+      not call[0].eqIdent("$") or call[1] != value:
+    return newLit(false)
   let impl = call[0].getImpl()
 
   # Match `proc `$`[T: object]` or `$`[T: tuple]` which should hopefully

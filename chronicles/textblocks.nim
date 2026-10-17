@@ -76,7 +76,7 @@ proc writeValueImpl[T](
       )
     r.stream.writeIndent(depthLevel, extraIndent)
     r.stream.write arrayCloseBracket
-  elif value is object and isDefaultDollar($value):
+  elif value is object and isDefaultDollar(value, $value):
     r.stream.write(newLine)
     enumInstanceSerializedFields(value, fieldName, fieldValue):
       r.stream.writeIndent(depthLevel + 1, extraIndent)
@@ -87,7 +87,7 @@ proc writeValueImpl[T](
         extraIndent + fieldName.len + 2,
         deref = false,
       )
-  elif value is tuple and isDefaultDollar($value):
+  elif value is tuple and isDefaultDollar(value, $value):
     r.stream.write(tupleOpenBracket)
     enumInstanceSerializedFields(value, fieldName, fieldValue):
       r.stream.writeIndent(depthLevel + 1, extraIndent)
