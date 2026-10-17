@@ -117,12 +117,12 @@ proc writeValueImpl[T](
         r.stream.writeEscapedString(line)
         r.stream.write(newLine)
         first = false
-  elif compiles(r.stream.writeText(value)):
+  elif value is SomeNumber:
     r.writeStyledValue:
       r.stream.writeText(value)
     r.stream.write(newLine)
   elif compiles($value):
-    r.writeValueImpl($value, deref = false)
+    r.writeValueImpl($value, depthLevel, extraIndent, deref = false)
   else:
     const typeName = typetraits.name(T)
     {.fatal: "The textblocks format does not support the '" & typeName & "' type".}

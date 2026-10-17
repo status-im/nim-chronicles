@@ -109,7 +109,7 @@ proc writeValueImpl[T](
       r.stream.write(value)
     if needsQuote:
       r.stream.write('"')
-  elif compiles(r.stream.writeText(value)):
+  elif value is SomeNumber:
     r.stream.writeText(value)
   elif compiles($value):
     r.writeValueImpl($value, deref = false, quoted)
