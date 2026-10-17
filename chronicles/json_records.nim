@@ -64,12 +64,8 @@ proc initLogRecord*(r: var LogRecord, level: LogLevel, topics, msg: string) =
           # Unix time = JSON number
           s.writeTimestamp(r.format.timestamps)
 
-      when declared(writer.streamElement): # json_serialization 0.3.0+
-        r.jsonWriter.streamElement(s):
-          streamTimestamp(s)
-      else:
-        streamTimestamp(r.jsonWriter.stream)
-        r.jsonWriter.fieldWritten()
+      r.jsonWriter.streamElement(s):
+        streamTimestamp(s)
     else:
       setProperty(r, "ts", timestamp(r.format.timestamps))
 
