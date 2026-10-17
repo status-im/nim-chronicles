@@ -101,7 +101,10 @@ proc writeValueImpl[T](
             0
         )
       r.writeValueImpl(
-        chroniclesFormatItIMPL(v), depthLevel + 1, extraIndent, deref = false
+        chroniclesFormatItIMPL(fieldValue),
+        depthLevel + 1,
+        extraIndent + fieldName.len + 2,
+        deref = false
       )
     r.stream.writeIndent(depthLevel, extraIndent)
     r.stream.write tupleCloseBracket
