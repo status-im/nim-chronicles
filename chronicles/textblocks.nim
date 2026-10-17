@@ -89,15 +89,15 @@ proc writeValueImpl[T](
       )
   elif value is tuple and isDefaultDollar($value):
     r.stream.write(tupleOpenBracket)
-    for name, v in fields(value):
-      r.stream.writeIndent(depthLevel + 1)
+    enumInstanceSerializedFields(value, fieldName, fieldValue):
+      r.stream.writeIndent(depthLevel + 1, extraIndent)
       let extraIndent =
         extraIndent + (
-          when isNameTuple(typeof(v)):
-            r.writeFieldName(name)
-            name.len + 2
+          when isNamedTuple(typeof(value)):
+            r.writeFieldName(fieldName)
+            fieldName.len + 2
           else:
-            discard name
+            discard fieldName
             0
         )
       r.writeValueImpl(
