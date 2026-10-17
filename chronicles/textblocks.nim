@@ -103,7 +103,7 @@ proc writeValueImpl[T](
       r.writeValueImpl(
         chroniclesFormatItIMPL(fieldValue),
         depthLevel + 1,
-        extraIndent + fieldName.len + 2,
+        extraIndent,
         deref = false
       )
     r.stream.writeIndent(depthLevel, extraIndent)
