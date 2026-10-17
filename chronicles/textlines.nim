@@ -73,7 +73,7 @@ proc writeValueImpl[T](
           else:
             next = true
 
-          r.writeValueImpl(chroniclesFormatItIMPL v, deref = v is ref, quoted = quoted)
+          r.writeValueImpl(chroniclesFormatItIMPL v, deref = v is ref, quoted = true)
         r.stream.write(']')
   elif value is (object | tuple) and isDefaultDollar($value):
     # Only used if there is no specialized `$` for the type
