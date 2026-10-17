@@ -429,7 +429,7 @@ when not defined(js):
   import faststreams/outputs
 
   template append*(o: var LogcatOutput, s: OutStr) =
-    when compiles android_log_write:
+    when declared(android_log_write):
       let logLevel = case o.currentRecordLevel
                       of NONE:               ANDROID_LOG_DEFAULT
                       of TRACE:              ANDROID_LOG_VERBOSE
@@ -506,7 +506,7 @@ template colors*(o: PassThroughOutput): bool =
   res
 
 template append*(o: var SysLogOutput, s: OutStr) =
-  when compiles syslog:
+  when declared(syslog):
     # syslog is only available on POSIX systems
     let syslogLevel = case o.currentRecordLevel
                       of TRACE, DEBUG, NONE: LOG_DEBUG
