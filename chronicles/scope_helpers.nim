@@ -14,12 +14,12 @@ iterator assignments*(n: NimNode, c: AssignmentsContext): (string, NimNode) =
   # or a call-site with keyword arguments.
   for child in n:
     if child.kind in {nnkAsgn, nnkExprEqExpr}:
-      let name = $child[0]
+      let name = child[0].identName
       let value = child[1]
       yield (name, value)
 
     elif child.kind in {nnkIdent, nnkSym}:
-      yield ($child, child)
+      yield (child.identName, child)
 
     else:
       if c == acScopeBlock:
