@@ -1,5 +1,6 @@
 import
-  macros, tables, strutils, strformat,
+  std/[tables, strutils, strformat],
+  stew/shims/macros,
   chronicles/[formats, scope_helpers, options]
 
 export
@@ -270,10 +271,7 @@ macro logIMPL(lineInfo: static InstInfo,
     # `setProperty` and `flushRecord`.
     let
       record = genSym(nskVar, "record")
-      recordTypeSym = skipTypedesc(RecordType.getTypeImpl())
-      recordTypeNodes = recordTypeSym.getTypeImpl()
-      recordArity = if recordTypeNodes.kind != nnkTupleConstr: 1
-                    else: recordTypeNodes.len
+      filterSinks = RecordType.isTuple and runtimeFilteringEnabled
       lvl = newDotExpr(bindSym("LogLevel", brClosed), ident $severity)
       chroniclesExpandItIMPL = bindSym("chroniclesExpandItIMPL", brForceOpen)
       prepareOutput = bindSym("prepareOutput", brForceOpen)
@@ -283,7 +281,7 @@ macro logIMPL(lineInfo: static InstInfo,
     code.add quote do:
       var `record`: `RecordType`
 
-    if recordArity > 1 and runtimeFilteringEnabled:
+    if filterSinks:
       code.add quote do:
         `prepareOutput`(`record`, `lvl`, `chroniclesTopicsMatchVar`)
         `initLogRecord`(`record`, `lvl`, `topicsNode`, `eventName`, `chroniclesTopicsMatchVar`)
@@ -295,7 +293,7 @@ macro logIMPL(lineInfo: static InstInfo,
     if useThreadIds:
       # called tid even when it's a process id - this to avoid differences in
       # logging between threads and no threads
-      if recordArity > 1 and runtimeFilteringEnabled:
+      if filterSinks:
         code.add quote do:
           `setProperty`(`record`, "tid", getLogThreadId(), `chroniclesTopicsMatchVar`)
       else:
@@ -304,18 +302,18 @@ macro logIMPL(lineInfo: static InstInfo,
 
     if useLineNumbers:
       var filename = lineInfo.filename & ":" & $lineInfo.line
-      if recordArity > 1 and runtimeFilteringEnabled:
+      if filterSinks:
         code.add newCall(setProperty, record, newLit("file"), newLit(filename), chroniclesTopicsMatchVar)
       else:
         code.add newCall(setProperty, record, newLit("file"), newLit(filename))
 
     for k, v in finalBindings:
-      if recordArity > 1 and runtimeFilteringEnabled:
+      if filterSinks:
         code.add newCall(chroniclesExpandItIMPL, record, newLit(k), v, chroniclesTopicsMatchVar)
       else:
         code.add newCall(chroniclesExpandItIMPL, record, newLit(k), v)
 
-    if recordArity > 1 and runtimeFilteringEnabled:
+    if filterSinks:
       code.add newCall("logAllDynamicProperties", Stream, record, chroniclesTopicsMatchVar)
       code.add newCall("flushRecord", record, chroniclesTopicsMatchVar)
     else:

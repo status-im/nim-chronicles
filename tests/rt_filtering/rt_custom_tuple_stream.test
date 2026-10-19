@@ -12,6 +12,10 @@ stdout="""[INFO] inline tuple a=1
 [INFO] tuple alias a=2
 [INFO] generic tuple alias a=3
 [INFO] generic tuple alias a=3
+[INFO] named tuple a=4
+[INFO] named tuple a=4
+[INFO] inline 1-tuple a=5
+[INFO] 1-tuple alias a=6
 [INFO] shared tuple alias a=7
 [INFO] shared tuple alias a=7
 [INFO] aliased inline tuple a=8
