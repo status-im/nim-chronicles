@@ -10,6 +10,7 @@ skipDirs      = @["tests"]
 requires "nim >= 2.0.16"
 requires "faststreams >= 0.3.0"
 requires "serialization >= 0.5.0"
+requires "stew >= 0.6.4"
 requires "json_serialization >= 0.4.0" # Only needed for json outputs
 
 # Allow old nimble versions to parse this nimble file
