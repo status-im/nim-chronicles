@@ -73,12 +73,6 @@ proc handleUserStreamChoice*(n: NimNode): StreamSpec =
   error &"'{streamName}' is not a configured stream name. " &
          "Please refer to the documentation of 'chronicles_streams'", n
 
-proc skipTypedesc*(n: NimNode): NimNode =
-  result = n
-  if result.kind == nnkBracketExpr and result.len == 2 and
-     (eqIdent(result[0], "type") or eqIdent(result[0], "typedesc")):
-    result = result[1]
-
 proc clearEmptyVarargs*(args: NimNode) =
   # Nim will sometimes do something silly - it will convert our varargs
   # into an empty array. We need to detect this case and handle it:
