@@ -59,7 +59,7 @@ macro expandIt*(T: type, expandedProps: untyped): untyped =
           concatCall = infix(concatCall, "&", key[i].toStrLit)
         key = newTree(nnkStaticExpr, concatCall)
     of nnkIdent, nnkSym:
-      key = newLit($key)
+      key = newLit(key.identName)
     else:
       error &"Unexpected AST kind for an `expandIt` key: {key.kind} ", key
 
